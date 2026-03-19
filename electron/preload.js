@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("desktop", {
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),
   renderPreview: (payload) => ipcRenderer.invoke("preview:render", payload),
+  followPreviewLink: (payload) => ipcRenderer.invoke("preview:follow-link", payload),
   exportDocument: (payload) => ipcRenderer.invoke("export:document", payload),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
   loadState: () => ipcRenderer.invoke("state:load")

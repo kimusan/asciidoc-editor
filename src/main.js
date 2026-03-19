@@ -107,6 +107,7 @@ const appState = {
   isDirty: false,
   previewInSync: true,
   isApplyingDocument: false,
+  pendingPreviewAnchor: null,
   renderTimer: null,
   directoryCache: new Map()
 };
@@ -318,6 +319,75 @@ async function renderPreviewNow() {
   updateDocumentChrome();
 }
 
+function scrollPreviewToAnchor(anchorId) {
+  if (!anchorId) {
+    return;
+  }
+
+  const previewDocument = elements.previewFrame.contentDocument;
+  const target = previewDocument?.getElementById(anchorId);
+  if (!target) {
+    return;
+  }
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+async function handlePreviewLinkClick(event) {
+  const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const anchor = target?.closest("a[href]");
+  if (!anchor) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const href = anchor.getAttribute("href");
+  const result = await window.desktop.followPreviewLink({
+    href,
+    currentFilePath: appState.openFilePath
+  });
+
+  if (result.type === "document" && result.document) {
+    appState.pendingPreviewAnchor = result.anchorId ?? null;
+    await openDocument(result.document);
+    return;
+  }
+
+  if (result.type === "anchor") {
+    scrollPreviewToAnchor(result.anchorId);
+    return;
+  }
+
+  if (result.type === "missing") {
+    elements.documentStatus.textContent = result.message;
+  }
+}
+
+function installPreviewInteractions() {
+  const previewDocument = elements.previewFrame.contentDocument;
+  if (!previewDocument?.body || previewDocument.body.dataset.previewBound === "true") {
+    if (appState.pendingPreviewAnchor) {
+      scrollPreviewToAnchor(appState.pendingPreviewAnchor);
+      appState.pendingPreviewAnchor = null;
+    }
+    return;
+  }
+
+  previewDocument.addEventListener("click", (event) => {
+    void handlePreviewLinkClick(event);
+  });
+  previewDocument.body.dataset.previewBound = "true";
+
+  if (appState.pendingPreviewAnchor) {
+    scrollPreviewToAnchor(appState.pendingPreviewAnchor);
+    appState.pendingPreviewAnchor = null;
+  }
+}
+
 function schedulePreviewRender() {
   clearTimeout(appState.renderTimer);
   appState.renderTimer = setTimeout(() => {
@@ -519,6 +589,10 @@ async function bindEvents() {
   });
   document.querySelector("#export-docbook").addEventListener("click", () => {
     void exportCurrentDocument("docbook");
+  });
+
+  elements.previewFrame.addEventListener("load", () => {
+    installPreviewInteractions();
   });
 
   elements.fileTree.addEventListener("click", async (event) => {

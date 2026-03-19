@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreview } from "./asciidoc.js";
+import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { loadState, saveState } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -194,6 +195,36 @@ app.whenReady().then(async () => {
       previewTheme: payload.previewTheme
     }
   ));
+
+  ipcMain.handle("preview:follow-link", async (_, { href, currentFilePath }) => {
+    const result = await resolvePreviewLinkTarget(href, currentFilePath);
+
+    if (result.type === "external") {
+      await shell.openExternal(result.url);
+      return result;
+    }
+
+    if (result.type === "file") {
+      await shell.openPath(result.filePath);
+      return result;
+    }
+
+    if (result.type === "document") {
+      const document = await loadDocument(result.filePath);
+      const currentState = await loadState();
+      await saveState({
+        openFilePath: document.path,
+        workspacePath: document.workspacePath,
+        recentFiles: normalizeRecentFiles(currentState.recentFiles, document.path)
+      });
+      return {
+        ...result,
+        document
+      };
+    }
+
+    return result;
+  });
 
   ipcMain.handle("export:document", async (_, payload) => exportDocument(payload));
 
