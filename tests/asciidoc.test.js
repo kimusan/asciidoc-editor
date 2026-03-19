@@ -21,5 +21,13 @@ test("renderPreview injects preview chrome and custom theme variables", async ()
 
   assert.match(html, /<main>/);
   assert.match(html, /--adoc-bg/);
+  assert.match(html, />Demo</);
   assert.match(html, /A paragraph\./);
+});
+
+test("renderPreview includes the document header title", async () => {
+  const html = await renderPreview("= Title\n\n== Section\n\nText");
+
+  assert.match(html, /<h1[^>]*>Title<\/h1>/);
+  assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });

@@ -151,26 +151,35 @@ function buildAttributes(stylesheetPath) {
   return attributes;
 }
 
-export function convertDocument(source, filePath, options = {}) {
-  const baseDir = resolveBaseDir(filePath);
-  const attributes = buildAttributes(options.stylesheetPath);
-
-  return asciidoctor.convert(source, {
+function buildLoadOptions(filePath, options = {}) {
+  return {
     safe: "unsafe",
-    base_dir: baseDir,
-    to_file: false,
-    mkdirs: false,
+    base_dir: resolveBaseDir(filePath),
     standalone: options.standalone ?? true,
     backend: options.backend ?? "html5",
-    attributes
-  });
+    attributes: buildAttributes(options.stylesheetPath)
+  };
+}
+
+function extractBodyContents(html) {
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  return bodyMatch ? bodyMatch[1].trim() : html;
+}
+
+function loadDocument(source, filePath, options = {}) {
+  return asciidoctor.load(source, buildLoadOptions(filePath, options));
+}
+
+export function convertDocument(source, filePath, options = {}) {
+  const document = loadDocument(source, filePath, options);
+  return document.convert();
 }
 
 export async function renderPreview(source, filePath, options = {}) {
-  const rendered = convertDocument(source, filePath, {
-    standalone: false,
+  const rendered = extractBodyContents(convertDocument(source, filePath, {
+    standalone: true,
     stylesheetPath: options.stylesheetPath
-  });
+  }));
 
   let customStyles = "";
   if (options.stylesheetPath) {
