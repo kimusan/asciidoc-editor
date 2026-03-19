@@ -1,0 +1,290 @@
+:root {
+  color-scheme: dark;
+  font-family: "Aptos", "Segoe UI Variable", "Noto Sans", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(248, 191, 93, 0.22), transparent 32%),
+    radial-gradient(circle at 85% 20%, rgba(120, 183, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, #0d1014 0%, #151922 100%);
+  color: #edf0f3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+select {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+button:hover,
+select:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(248, 191, 93, 0.55);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.ghost-button {
+  background: transparent;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 18px;
+  height: 100%;
+  padding: 18px;
+}
+
+.shell[data-theme="light"] {
+  color: #1f2430;
+  background:
+    radial-gradient(circle at top left, rgba(127, 63, 0, 0.16), transparent 28%),
+    radial-gradient(circle at 92% 14%, rgba(45, 99, 184, 0.16), transparent 24%),
+    linear-gradient(180deg, #f2ecdd 0%, #e7dece 100%);
+}
+
+.shell[data-theme="light"] .sidebar,
+.shell[data-theme="light"] .panel,
+.shell[data-theme="light"] .toolbar {
+  background: rgba(255, 251, 244, 0.88);
+  border-color: rgba(52, 37, 15, 0.12);
+  color: #1f2430;
+}
+
+.shell[data-theme="light"] .tree-entry,
+.shell[data-theme="light"] button,
+.shell[data-theme="light"] select {
+  border-color: rgba(52, 37, 15, 0.12);
+}
+
+.shell.focus-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell.focus-mode .sidebar,
+.shell.focus-mode .toolbar .toolbar-group:first-child,
+.shell.focus-mode .toolbar .toolbar-group:last-child {
+  display: none;
+}
+
+.sidebar,
+.panel,
+.toolbar {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
+  background: rgba(12, 16, 20, 0.72);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.sidebar {
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-header,
+.toolbar,
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.workspace-meta {
+  padding: 14px 4px 12px;
+  font-size: 0.92rem;
+  opacity: 0.8;
+}
+
+.file-tree {
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.main-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.toolbar {
+  padding: 14px 18px;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-title span:first-child {
+  font-weight: 700;
+}
+
+.document-status {
+  font-size: 0.82rem;
+  opacity: 0.72;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+}
+
+.panel-chip {
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+.editor-root {
+  min-height: 0;
+}
+
+.preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #111418;
+}
+
+.tree-node {
+  margin-bottom: 4px;
+}
+
+.tree-node > summary {
+  list-style: none;
+}
+
+.tree-node > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tree-children {
+  padding-left: 16px;
+}
+
+.tree-entry {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.55rem 0.7rem;
+  border-radius: 14px;
+  margin-bottom: 4px;
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.tree-entry-directory::before {
+  content: "▸";
+  margin-right: 8px;
+  opacity: 0.7;
+}
+
+details[open] > summary.tree-entry-directory::before {
+  content: "▾";
+}
+
+.tree-entry-file.is-asciidoc {
+  border-color: rgba(248, 191, 93, 0.16);
+}
+
+.tree-entry-file.is-active,
+.tree-entry:hover,
+.tree-entry:focus-visible {
+  background: rgba(248, 191, 93, 0.12);
+  border-color: rgba(248, 191, 93, 0.35);
+  outline: none;
+}
+
+.empty-state {
+  opacity: 0.72;
+  padding: 0 4px;
+}
+
+@media (max-width: 1200px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .toolbar-title {
+    align-items: flex-start;
+    order: -1;
+    width: 100%;
+  }
+}
