@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreview } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
@@ -69,6 +69,11 @@ async function createWindow() {
     }
   });
 
+  if (process.platform !== "darwin") {
+    window.setMenuBarVisibility(false);
+    window.setAutoHideMenuBar(true);
+  }
+
   await window.loadFile(path.join(DIST_DIR, "index.html"));
 
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -94,6 +99,10 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  }
+
   ipcMain.handle("dialog:open-file", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Open AsciiDoc file",
@@ -227,6 +236,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("export:document", async (_, payload) => exportDocument(payload));
+  ipcMain.handle("shell:open-external", async (_, url) => shell.openExternal(url));
 
   ipcMain.handle("state:update", async (_, partialState) => saveState(partialState));
   ipcMain.handle("state:load", async () => loadState());

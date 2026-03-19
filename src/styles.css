@@ -64,6 +64,11 @@ input:focus-visible,
   gap: 0.7rem;
 }
 
+.info-button {
+  min-width: 0;
+  padding: 0.72rem 0.84rem;
+}
+
 .button-icon,
 .panel-icon,
 .brand-mark svg {
@@ -452,6 +457,12 @@ input:focus-visible,
   background: var(--panel-bg-strong);
 }
 
+.about-dialog {
+  width: min(760px, calc(100vw - 48px));
+  height: auto;
+  max-height: min(680px, calc(100vh - 56px));
+}
+
 .reference-search-shell {
   display: flex;
   align-items: center;
@@ -485,6 +496,60 @@ input:focus-visible,
   padding: 14px 18px 18px;
   display: grid;
   gap: 12px;
+}
+
+.about-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 22px 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.about-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.about-mark {
+  width: 64px;
+  height: 64px;
+}
+
+.about-hero h2,
+.about-card h3 {
+  margin: 0;
+}
+
+.about-hero p,
+.about-card p {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.about-card {
+  border: 1px solid var(--control-border);
+  border-radius: 20px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.about-card a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.about-card a:hover {
+  text-decoration: underline;
 }
 
 .reference-card {
@@ -685,5 +750,13 @@ details[open] > summary.tree-entry-directory::before {
   .reference-dialog {
     width: calc(100vw - 28px);
     height: calc(100vh - 28px);
+  }
+
+  .about-dialog {
+    height: auto;
+  }
+
+  .about-grid {
+    grid-template-columns: 1fr;
   }
 }

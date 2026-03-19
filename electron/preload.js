@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("desktop", {
   renderPreview: (payload) => ipcRenderer.invoke("preview:render", payload),
   followPreviewLink: (payload) => ipcRenderer.invoke("preview:follow-link", payload),
   exportDocument: (payload) => ipcRenderer.invoke("export:document", payload),
+  openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
   loadState: () => ipcRenderer.invoke("state:load")
 });

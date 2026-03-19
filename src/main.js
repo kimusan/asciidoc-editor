@@ -102,6 +102,7 @@ const ICONS = {
   export: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M6 16.5v1A1.5 1.5 0 0 0 7.5 19h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   spark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6zM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8zM6 15.5l.9 2.6 2.6.9-2.6.9L6 22.5l-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>`,
   reference: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 5h8A1.5 1.5 0 0 1 17 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 17.5v-11A1.5 1.5 0 0 1 7.5 5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h5m-5 3h6m-6 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v5M12 7.5h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`
@@ -147,6 +148,7 @@ const appState = {
   pendingPreviewAnchor: null,
   referenceQuery: "",
   referenceOpen: false,
+  aboutOpen: false,
   splitRatio: 0.5,
   renderTimer: null,
   directoryCache: new Map()
@@ -168,6 +170,7 @@ function createLayout() {
           </div>
         </div>
         <div class="topbar-actions">
+          <button id="open-about" class="toolbar-button ghost-button info-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span></button>
           <button id="open-folder" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Workspace</span></button>
           <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
           <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
@@ -283,10 +286,56 @@ function createLayout() {
           <div id="reference-results" class="reference-results"></div>
         </section>
       </div>
+      <div id="about-overlay" class="reference-overlay" hidden>
+        <div id="about-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog about-dialog panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.info}</span>
+              <div>
+                <div id="about-title" class="panel-title">About AsciiDoc Editor</div>
+                <div class="panel-subtitle">Portable AsciiDoc editing with live preview and export.</div>
+              </div>
+            </div>
+            <button id="close-about" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <div class="about-content">
+            <div class="about-hero">
+              <div class="brand-mark about-mark">${ICONS.brand}</div>
+              <div>
+                <h2>AsciiDoc Editor</h2>
+                <p>Standalone cross-platform AsciiDoc editing with preview, references, and export.</p>
+              </div>
+            </div>
+            <div class="about-grid">
+              <article class="about-card">
+                <h3>Author</h3>
+                <p>Kim Schulz</p>
+              </article>
+              <article class="about-card">
+                <h3>License</h3>
+                <p>MIT License</p>
+              </article>
+              <article class="about-card">
+                <h3>GitHub</h3>
+                <p><a href="https://github.com/kimusan/asciidoc-editor" data-external-link>github.com/kimusan/asciidoc-editor</a></p>
+              </article>
+              <article class="about-card">
+                <h3>Website</h3>
+                <p><a href="https://schulz.dk" data-external-link>schulz.dk</a></p>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   `;
 
   elements.shell = document.querySelector(".shell");
+  elements.openAbout = document.querySelector("#open-about");
+  elements.aboutOverlay = document.querySelector("#about-overlay");
+  elements.aboutBackdrop = document.querySelector("#about-backdrop");
+  elements.closeAbout = document.querySelector("#close-about");
   elements.fileTree = document.querySelector("#file-tree");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.documentName = document.querySelector("#document-name");
@@ -411,6 +460,8 @@ function updateDocumentChrome() {
   elements.previewTheme.value = appState.previewTheme;
   elements.referenceOverlay.hidden = !appState.referenceOpen;
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
+  elements.aboutOverlay.hidden = !appState.aboutOpen;
+  elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
 }
 
 function setSplitRatio(nextRatio) {
@@ -429,6 +480,16 @@ function openReferenceOverlay() {
 
 function closeReferenceOverlay() {
   appState.referenceOpen = false;
+  updateDocumentChrome();
+}
+
+function openAboutOverlay() {
+  appState.aboutOpen = true;
+  updateDocumentChrome();
+}
+
+function closeAboutOverlay() {
+  appState.aboutOpen = false;
   updateDocumentChrome();
 }
 
@@ -801,12 +862,24 @@ async function bindEvents() {
     openReferenceOverlay();
   });
 
+  elements.openAbout.addEventListener("click", () => {
+    openAboutOverlay();
+  });
+
   elements.closeReference.addEventListener("click", () => {
     closeReferenceOverlay();
   });
 
+  elements.closeAbout.addEventListener("click", () => {
+    closeAboutOverlay();
+  });
+
   elements.referenceBackdrop.addEventListener("click", () => {
     closeReferenceOverlay();
+  });
+
+  elements.aboutBackdrop.addEventListener("click", () => {
+    closeAboutOverlay();
   });
 
   elements.referenceSearch.addEventListener("input", (event) => {
@@ -858,14 +931,30 @@ async function bindEvents() {
   });
 
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && appState.referenceOpen) {
-      closeReferenceOverlay();
+    if (event.key === "Escape") {
+      if (appState.aboutOpen) {
+        closeAboutOverlay();
+      }
+
+      if (appState.referenceOpen) {
+        closeReferenceOverlay();
+      }
     }
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
       event.preventDefault();
       openReferenceOverlay();
     }
+  });
+
+  document.addEventListener("click", (event) => {
+    const link = event.target instanceof Element ? event.target.closest("[data-external-link]") : null;
+    if (!link) {
+      return;
+    }
+
+    event.preventDefault();
+    void window.desktop.openExternal(link.getAttribute("href"));
   });
 
   bindSplitter();
