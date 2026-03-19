@@ -31,3 +31,13 @@ test("renderPreview includes the document header title", async () => {
   assert.match(html, /<h1[^>]*>Title<\/h1>/);
   assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });
+
+test("renderPreview supports extended preview themes and font families", async () => {
+  const html = await renderPreview("= Demo\n\nA paragraph.", null, {
+    previewTheme: "nord",
+    previewFontFamily: "sans"
+  });
+
+  assert.match(html, /--adoc-link: #88c0d0;/);
+  assert.match(html, /--adoc-font-family: "Aptos", "Segoe UI Variable Text", "Inter", "Noto Sans", sans-serif;/);
+});

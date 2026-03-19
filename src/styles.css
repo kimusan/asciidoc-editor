@@ -110,27 +110,6 @@ input:focus-visible,
   color: var(--text-primary);
 }
 
-.shell[data-theme="light"] {
-  --page-bg:
-    radial-gradient(circle at 12% 10%, rgba(59, 145, 255, 0.14), transparent 25%),
-    radial-gradient(circle at 84% 8%, rgba(255, 132, 64, 0.16), transparent 18%),
-    linear-gradient(180deg, #eef4fb 0%, #f7f3ea 52%, #efe7db 100%);
-  --panel-bg: rgba(255, 255, 255, 0.78);
-  --panel-bg-strong: rgba(255, 255, 255, 0.95);
-  --panel-border: rgba(32, 45, 61, 0.08);
-  --text-primary: #16202c;
-  --text-secondary: rgba(22, 32, 44, 0.7);
-  --text-tertiary: rgba(22, 32, 44, 0.46);
-  --accent: #1f79ff;
-  --accent-strong: #0ea5a3;
-  --focus-ring: rgba(31, 121, 255, 0.55);
-  --control-bg: rgba(22, 32, 44, 0.04);
-  --control-bg-hover: rgba(22, 32, 44, 0.08);
-  --control-border: rgba(22, 32, 44, 0.09);
-  --control-border-hover: rgba(31, 121, 255, 0.28);
-  --shadow: 0 24px 72px rgba(67, 89, 117, 0.12);
-}
-
 .topbar,
 .workspace-panel,
 .panel,
@@ -314,17 +293,6 @@ input:focus-visible,
   flex-wrap: wrap;
 }
 
-.select-shell {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-secondary);
-}
-
-.select-shell span {
-  font-size: 0.9rem;
-}
-
 .editor-surface {
   min-height: 0;
   display: grid;
@@ -471,6 +439,81 @@ input:focus-visible,
   max-height: min(680px, calc(100vh - 56px));
 }
 
+.settings-dialog {
+  width: min(880px, calc(100vw - 48px));
+  height: auto;
+  max-height: min(760px, calc(100vh - 56px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.settings-grid {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-card {
+  border: 1px solid var(--control-border);
+  border-radius: 24px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.settings-card-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-card-header {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.settings-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-field span {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.settings-field select {
+  width: 100%;
+}
+
+.settings-css-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-note {
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
 .reference-search-shell {
   display: flex;
   align-items: center;
@@ -582,15 +625,11 @@ input:focus-visible,
   margin: 14px 0 12px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(6, 10, 16, 0.66);
+  background: color-mix(in srgb, var(--control-bg) 80%, rgba(6, 10, 16, 0.78));
   overflow: auto;
   font-family: "IBM Plex Mono", "Cascadia Code", monospace;
   font-size: 0.88rem;
   line-height: 1.55;
-}
-
-.shell[data-theme="light"] .reference-card pre {
-  background: rgba(22, 32, 44, 0.06);
 }
 
 .reference-card p,
@@ -765,6 +804,10 @@ details[open] > summary.tree-entry-directory::before {
   }
 
   .about-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }

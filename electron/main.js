@@ -201,7 +201,8 @@ app.whenReady().then(async () => {
     payload.filePath,
     {
       stylesheetPath: payload.stylesheetPath,
-      previewTheme: payload.previewTheme
+      previewTheme: payload.previewTheme,
+      previewFontFamily: payload.previewFontFamily
     }
   ));
 

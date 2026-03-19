@@ -6,8 +6,9 @@ const defaultState = {
   workspacePath: null,
   openFilePath: null,
   recentFiles: [],
-  theme: "dark",
+  theme: "nocturne",
   previewTheme: "paper",
+  previewFontFamily: "serif",
   distractionFree: false,
   previewStylesheetPath: null
 };

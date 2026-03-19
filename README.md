@@ -15,8 +15,9 @@ This implementation uses Electron for the desktop shell and `asciidoctor.js` for
 - Support for AsciiDoc includes, conditionals, passthrough blocks, and substitutions
 - Built-in file browser for navigating document folders
 - Syntax-highlighted editor
-- Light and dark editor themes
-- Built-in preview themes plus custom preview CSS support
+- Multiple app and editor themes, including Nocturne, Porcelain, Nord, Darcula, and Solarized
+- Multiple built-in preview themes, configurable preview font styles, and custom preview CSS support
+- Dedicated settings overlay for shell and preview configuration
 - Distraction-free writing mode
 - Export to HTML, PDF, and DocBook 5
 - Packaged Linux AppImage output

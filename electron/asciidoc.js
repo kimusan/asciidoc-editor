@@ -30,12 +30,57 @@ const BUILTIN_PREVIEW_THEMES = {
       --adoc-accent: #78b7ff;
       --adoc-code-bg: #0f1318;
     }
+  `,
+  nord: `
+    :root {
+      color-scheme: dark;
+      --adoc-bg: #262c37;
+      --adoc-surface: #2f3744;
+      --adoc-text: #e5edf6;
+      --adoc-subtle: #b6c2d1;
+      --adoc-border: rgba(216, 222, 233, 0.12);
+      --adoc-link: #88c0d0;
+      --adoc-accent: #81a1c1;
+      --adoc-code-bg: #232933;
+    }
+  `,
+  darcula: `
+    :root {
+      color-scheme: dark;
+      --adoc-bg: #232427;
+      --adoc-surface: #2b2d30;
+      --adoc-text: #f0f0f0;
+      --adoc-subtle: #b9b9b9;
+      --adoc-border: rgba(255, 255, 255, 0.12);
+      --adoc-link: #6897bb;
+      --adoc-accent: #ffc66d;
+      --adoc-code-bg: #1f2022;
+    }
+  `,
+  solarized: `
+    :root {
+      color-scheme: light;
+      --adoc-bg: #fdf6e3;
+      --adoc-surface: #fffaf0;
+      --adoc-text: #47565d;
+      --adoc-subtle: #6c7a80;
+      --adoc-border: rgba(88, 110, 117, 0.14);
+      --adoc-link: #268bd2;
+      --adoc-accent: #2aa198;
+      --adoc-code-bg: #f4ecd8;
+    }
   `
+};
+
+const PREVIEW_FONT_STACKS = {
+  serif: "\"Iowan Old Style\", \"Palatino Linotype\", \"Book Antiqua\", Palatino, \"Noto Serif\", serif",
+  sans: "\"Aptos\", \"Segoe UI Variable Text\", \"Inter\", \"Noto Sans\", sans-serif",
+  mono: "\"IBM Plex Mono\", \"Cascadia Code\", \"SFMono-Regular\", Consolas, monospace"
 };
 
 const BASE_PREVIEW_STYLES = `
   :root {
-    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, "Noto Serif", serif;
+    font-family: var(--adoc-font-family);
     line-height: 1.65;
     font-size: 16px;
   }
@@ -196,13 +241,14 @@ export async function renderPreview(source, filePath, options = {}) {
   }
 
   const previewTheme = BUILTIN_PREVIEW_THEMES[options.previewTheme] ?? BUILTIN_PREVIEW_THEMES.paper;
+  const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
 
   return `<!doctype html>
   <html lang="en">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>${previewTheme}${BASE_PREVIEW_STYLES}${customStyles}</style>
+      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${BASE_PREVIEW_STYLES}${customStyles}</style>
     </head>
     <body>
       <main>
@@ -218,12 +264,14 @@ export async function exportDocument({
   destinationPath,
   format,
   stylesheetPath,
-  previewTheme
+  previewTheme,
+  previewFontFamily
 }) {
   if (format === "html") {
     const html = await renderPreview(source, filePath, {
       stylesheetPath,
-      previewTheme
+      previewTheme,
+      previewFontFamily
     });
     await fs.writeFile(destinationPath, html, "utf8");
     return destinationPath;
@@ -242,7 +290,8 @@ export async function exportDocument({
     const { BrowserWindow } = await import("electron");
     const html = await renderPreview(source, filePath, {
       stylesheetPath,
-      previewTheme
+      previewTheme,
+      previewFontFamily
     });
     const printWindow = new BrowserWindow({
       show: false,
