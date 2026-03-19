@@ -192,20 +192,6 @@ function createLayout() {
               <div id="document-name" class="document-name">Untitled.adoc</div>
               <div id="document-status" class="document-status">Preview synced</div>
             </div>
-            <div class="document-metrics">
-              <div class="metric-pill">
-                <span class="metric-label">Words</span>
-                <strong id="word-count">0</strong>
-              </div>
-              <div class="metric-pill">
-                <span class="metric-label">Lines</span>
-                <strong id="line-count">1</strong>
-              </div>
-              <div class="metric-pill accent">
-                <span class="metric-label">Preview</span>
-                <strong id="preview-mode-label">Paper</strong>
-              </div>
-            </div>
           </div>
           <div class="editor-commandbar">
             <div class="command-group">
@@ -236,6 +222,16 @@ function createLayout() {
           <div class="editor-surface">
             <div class="editor-surface-meta">
               <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
+              <div class="document-metrics">
+                <div class="metric-pill">
+                  <span class="metric-label">Words</span>
+                  <strong id="word-count">0</strong>
+                </div>
+                <div class="metric-pill">
+                  <span class="metric-label">Lines</span>
+                  <strong id="line-count">1</strong>
+                </div>
+              </div>
             </div>
             <div id="split-layout" class="split-layout">
               <section class="split-panel split-panel-editor">
@@ -303,7 +299,6 @@ function createLayout() {
   elements.splitter = document.querySelector("#splitter");
   elements.wordCount = document.querySelector("#word-count");
   elements.lineCount = document.querySelector("#line-count");
-  elements.previewModeLabel = document.querySelector("#preview-mode-label");
   elements.focusButtonLabel = document.querySelector("#focus-button-label");
   elements.referenceOverlay = document.querySelector("#reference-overlay");
   elements.referenceBackdrop = document.querySelector("#reference-backdrop");
@@ -408,7 +403,6 @@ function updateDocumentChrome() {
     : "No custom preview CSS";
   elements.wordCount.textContent = String(wordCount);
   elements.lineCount.textContent = String(lineCount);
-  elements.previewModeLabel.textContent = appState.previewTheme === "paper" ? "Paper" : "Slate";
   elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
   elements.shell.dataset.theme = appState.theme;
   elements.shell.classList.toggle("focus-mode", appState.distractionFree);
