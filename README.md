@@ -1,5 +1,9 @@
 # The AsciiDoc Editor
 
+<p align="center">
+  <img src="build/icon.svg" alt="AsciiDoc Editor logo" width="156" />
+</p>
+
 The AsciiDoc Editor is a stand-alone desktop editor for AsciiDoc with live preview, file browsing, export support, editor and preview theming, and a distraction-free writing mode.
 
 This implementation uses Electron for the desktop shell and `asciidoctor.js` for document rendering. That choice keeps the app portable, gives a modern UI surface for Windows and Linux, and avoids reimplementing the AsciiDoc language.

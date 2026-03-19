@@ -27,13 +27,16 @@
       "package.json"
     ],
     "asar": true,
+    "icon": "build/icon.png",
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "AppImage"
       ],
       "category": "Office"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "portable"
       ]

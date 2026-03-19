@@ -247,24 +247,32 @@ input:focus-visible,
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 24px 26px 16px;
+  padding: 16px 26px 10px;
 }
 
 .editor-title-stack {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+
+.document-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .document-name {
   font-family: "Iowan Old Style", "Georgia", serif;
-  font-size: 2rem;
+  font-size: 1.42rem;
   letter-spacing: -0.04em;
+  line-height: 1.12;
 }
 
 .document-status {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.82rem;
 }
 
 .document-metrics {
@@ -298,7 +306,7 @@ input:focus-visible,
 .editor-commandbar {
   justify-content: space-between;
   gap: 18px;
-  padding: 0 26px 18px;
+  padding: 0 26px 12px;
   border-bottom: 1px solid var(--panel-border);
 }
 

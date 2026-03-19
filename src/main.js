@@ -191,9 +191,11 @@ function createLayout() {
         <section class="editor-stage panel">
           <div class="editor-stage-header">
             <div class="editor-title-stack">
-              <div class="document-kicker">Active Draft</div>
+              <div class="document-meta-row">
+                <div class="document-kicker">Active Draft</div>
+                <div id="document-status" class="document-status">Preview synced</div>
+              </div>
               <div id="document-name" class="document-name">Untitled.adoc</div>
-              <div id="document-status" class="document-status">Preview synced</div>
             </div>
           </div>
           <div class="editor-commandbar">
