@@ -42,11 +42,16 @@ const BASE_PREVIEW_STYLES = `
 
   html, body {
     margin: 0;
-    background: linear-gradient(180deg, var(--adoc-bg) 0%, color-mix(in srgb, var(--adoc-bg) 72%, #000 8%) 100%);
+    min-height: 100%;
+    background-color: var(--adoc-bg);
+    background-image: linear-gradient(180deg, var(--adoc-bg) 0%, color-mix(in srgb, var(--adoc-bg) 72%, #000 8%) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     color: var(--adoc-text);
   }
 
   body {
+    min-height: 100vh;
     padding: 32px;
   }
 
