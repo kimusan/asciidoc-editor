@@ -1283,7 +1283,8 @@ async function bindEvents() {
 }
 
 function registerBootSequence() {
-  window.desktop.onBoot(async ({ state, initialDocument }) => {
+  void (async () => {
+    const { state, initialDocument } = await window.desktop.getBootPayload();
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
       previewTheme: normalizePreviewThemeValue(state?.previewTheme),
@@ -1298,7 +1299,7 @@ function registerBootSequence() {
       await renderPreviewNow();
       await refreshFileTree();
     }
-  });
+  })();
 }
 
 createLayout();

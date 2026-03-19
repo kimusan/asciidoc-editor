@@ -12,7 +12,7 @@
     "start": "electron .",
     "test": "node --test",
     "package:linux": "npm run build && electron-builder --linux AppImage",
-    "package:win": "npm run build && electron-builder --win portable"
+    "package:win": "npm run build && electron-builder --win portable --x64"
   },
   "build": {
     "appId": "org.kimusan.asciidoceditor",
@@ -27,6 +27,9 @@
       "package.json"
     ],
     "asar": true,
+    "electronLanguages": [
+      "en-US"
+    ],
     "icon": "build/icon.png",
     "linux": {
       "icon": "build/icon.png",
@@ -38,7 +41,12 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        "portable"
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     }
   },

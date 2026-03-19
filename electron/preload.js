@@ -1,9 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("desktop", {
-  onBoot(callback) {
-    ipcRenderer.on("app:boot", (_, payload) => callback(payload));
-  },
+  getBootPayload: () => ipcRenderer.invoke("app:get-boot-payload"),
   openFile: () => ipcRenderer.invoke("dialog:open-file"),
   openFolder: () => ipcRenderer.invoke("dialog:open-folder"),
   saveDialog: (defaultPath) => ipcRenderer.invoke("dialog:save-file", defaultPath),

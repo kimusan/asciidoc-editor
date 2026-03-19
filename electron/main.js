@@ -54,7 +54,6 @@ async function listDirectory(rootPath) {
 }
 
 async function createWindow() {
-  const state = await loadState();
   const window = new BrowserWindow({
     width: 1560,
     height: 980,
@@ -79,22 +78,6 @@ async function createWindow() {
   window.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
-  });
-
-  window.webContents.on("did-finish-load", async () => {
-    let initialDocument = null;
-    if (state.openFilePath) {
-      try {
-        initialDocument = await loadDocument(state.openFilePath);
-      } catch {
-        initialDocument = null;
-      }
-    }
-
-    window.webContents.send("app:boot", {
-      state,
-      initialDocument
-    });
   });
 }
 
@@ -238,6 +221,24 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("export:document", async (_, payload) => exportDocument(payload));
   ipcMain.handle("shell:open-external", async (_, url) => shell.openExternal(url));
+
+  ipcMain.handle("app:get-boot-payload", async () => {
+    const state = await loadState();
+    let initialDocument = null;
+
+    if (state.openFilePath) {
+      try {
+        initialDocument = await loadDocument(state.openFilePath);
+      } catch {
+        initialDocument = null;
+      }
+    }
+
+    return {
+      state,
+      initialDocument
+    };
+  });
 
   ipcMain.handle("state:update", async (_, partialState) => saveState(partialState));
   ipcMain.handle("state:load", async () => loadState());

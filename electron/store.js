@@ -13,29 +13,48 @@ const defaultState = {
   previewStylesheetPath: null
 };
 
+let writeQueue = Promise.resolve();
+
+async function readStateFile() {
+  const content = await fs.readFile(getStatePath(), "utf8");
+  return {
+    ...defaultState,
+    ...JSON.parse(content)
+  };
+}
+
 function getStatePath() {
   return path.join(app.getPath("userData"), "state.json");
 }
 
 export async function loadState() {
+  await writeQueue;
+
   try {
-    const content = await fs.readFile(getStatePath(), "utf8");
-    return {
-      ...defaultState,
-      ...JSON.parse(content)
-    };
+    return await readStateFile();
   } catch {
     return { ...defaultState };
   }
 }
 
 export async function saveState(partialState) {
-  const nextState = {
-    ...(await loadState()),
-    ...partialState
-  };
+  writeQueue = writeQueue.then(async () => {
+    let currentState = { ...defaultState };
+    try {
+      currentState = await readStateFile();
+    } catch {
+      currentState = { ...defaultState };
+    }
 
-  await fs.mkdir(path.dirname(getStatePath()), { recursive: true });
-  await fs.writeFile(getStatePath(), JSON.stringify(nextState, null, 2), "utf8");
-  return nextState;
+    const nextState = {
+      ...currentState,
+      ...partialState
+    };
+
+    await fs.mkdir(path.dirname(getStatePath()), { recursive: true });
+    await fs.writeFile(getStatePath(), JSON.stringify(nextState, null, 2), "utf8");
+    return nextState;
+  });
+
+  return writeQueue;
 }
