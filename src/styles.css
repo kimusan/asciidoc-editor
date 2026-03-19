@@ -37,6 +37,22 @@ select {
   transition: transform 140ms ease, border-color 140ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
+select {
+  color: var(--text-primary);
+  background-color: color-mix(in srgb, var(--panel-bg-strong) 88%, transparent);
+  padding-right: 2.7rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%237cf2d8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 7 5 6 5-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.95rem center;
+  background-size: 0.95rem;
+}
+
+select option,
+select optgroup {
+  color: var(--text-primary);
+  background: var(--panel-bg-strong);
+}
+
 button:hover,
 select:hover {
   transform: translateY(-1px);
