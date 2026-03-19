@@ -72,6 +72,20 @@ const BUILTIN_PREVIEW_THEMES = {
   `
 };
 
+const PRINT_THEME = `
+  :root {
+    color-scheme: light;
+    --adoc-bg: #ffffff;
+    --adoc-surface: #ffffff;
+    --adoc-text: #141414;
+    --adoc-subtle: #4f4f4f;
+    --adoc-border: rgba(20, 20, 20, 0.18);
+    --adoc-link: #0f3d8a;
+    --adoc-accent: #2f4f6f;
+    --adoc-code-bg: #f4f4f4;
+  }
+`;
+
 const PREVIEW_FONT_STACKS = {
   serif: "\"Iowan Old Style\", \"Palatino Linotype\", \"Book Antiqua\", Palatino, \"Noto Serif\", serif",
   sans: "\"Aptos\", \"Segoe UI Variable Text\", \"Inter\", \"Noto Sans\", sans-serif",
@@ -179,6 +193,109 @@ const BASE_PREVIEW_STYLES = `
   }
 `;
 
+const BASE_PRINT_STYLES = `
+  :root {
+    font-family: var(--adoc-font-family);
+    line-height: 1.6;
+    font-size: 11pt;
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm;
+  }
+
+  html, body {
+    margin: 0;
+    background: #ffffff;
+    color: var(--adoc-text);
+  }
+
+  body {
+    padding: 0;
+  }
+
+  main {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  a {
+    color: var(--adoc-link);
+    text-decoration: underline;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin-top: 1.35em;
+    margin-bottom: 0.55em;
+    break-after: avoid-page;
+  }
+
+  h1 {
+    font-size: 24pt;
+    margin-top: 0;
+    border-bottom: 1.5pt solid var(--adoc-accent);
+    padding-bottom: 0.25em;
+  }
+
+  pre, code {
+    font-family: "IBM Plex Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  }
+
+  pre {
+    background: var(--adoc-code-bg);
+    border: 1px solid var(--adoc-border);
+    border-radius: 8px;
+    padding: 10pt 12pt;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    break-inside: avoid-page;
+  }
+
+  code {
+    background: color-mix(in srgb, var(--adoc-code-bg) 88%, #ffffff);
+    padding: 0.1em 0.28em;
+    border-radius: 0.25em;
+  }
+
+  blockquote {
+    margin: 1.2em 0;
+    padding: 0.1em 0 0.1em 1em;
+    border-left: 3px solid var(--adoc-accent);
+    color: var(--adoc-subtle);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25em 0;
+    border: 1px solid var(--adoc-border);
+    break-inside: avoid-page;
+  }
+
+  th, td {
+    padding: 0.55em 0.7em;
+    border-bottom: 1px solid var(--adoc-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: color-mix(in srgb, var(--adoc-code-bg) 78%, #ffffff);
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 0;
+  }
+`;
+
 function resolveBaseDir(filePath) {
   if (!filePath) {
     return process.cwd();
@@ -240,15 +357,19 @@ export async function renderPreview(source, filePath, options = {}) {
     }
   }
 
-  const previewTheme = BUILTIN_PREVIEW_THEMES[options.previewTheme] ?? BUILTIN_PREVIEW_THEMES.paper;
+  const documentMode = options.documentMode ?? "preview";
+  const previewTheme = documentMode === "print"
+    ? PRINT_THEME
+    : (BUILTIN_PREVIEW_THEMES[options.previewTheme] ?? BUILTIN_PREVIEW_THEMES.paper);
   const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
+  const baseStyles = documentMode === "print" ? BASE_PRINT_STYLES : BASE_PREVIEW_STYLES;
 
   return `<!doctype html>
   <html lang="en">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${BASE_PREVIEW_STYLES}${customStyles}</style>
+      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${baseStyles}${customStyles}</style>
     </head>
     <body>
       <main>
@@ -291,7 +412,8 @@ export async function exportDocument({
     const html = await renderPreview(source, filePath, {
       stylesheetPath,
       previewTheme,
-      previewFontFamily
+      previewFontFamily,
+      documentMode: "print"
     });
     const printWindow = new BrowserWindow({
       show: false,

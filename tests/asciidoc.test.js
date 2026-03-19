@@ -41,3 +41,15 @@ test("renderPreview supports extended preview themes and font families", async (
   assert.match(html, /--adoc-link: #88c0d0;/);
   assert.match(html, /--adoc-font-family: "Aptos", "Segoe UI Variable Text", "Inter", "Noto Sans", sans-serif;/);
 });
+
+test("renderPreview can render a print-friendly document without preview chrome", async () => {
+  const html = await renderPreview("= Demo\n\nA paragraph.", null, {
+    previewTheme: "darcula",
+    documentMode: "print"
+  });
+
+  assert.match(html, /@page\s*\{/);
+  assert.match(html, /--adoc-bg: #ffffff;/);
+  assert.doesNotMatch(html, /box-shadow: 0 24px 60px/);
+  assert.doesNotMatch(html, /border-radius: 24px/);
+});
