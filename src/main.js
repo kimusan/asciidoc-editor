@@ -94,6 +94,43 @@ const THEME_STYLES = {
   }
 };
 
+const ICONS = {
+  brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  open: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18.5A1.5 1.5 0 0 1 4.5 17V7A1.5 1.5 0 0 1 6 5.5h4l1.5 2H18A1.5 1.5 0 0 1 19.5 9v8A1.5 1.5 0 0 1 18 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12h6m-3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  save: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h9.879a2 2 0 0 1 1.414.586l.621.621A2 2 0 0 1 19 7.621V17.5A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  export: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M6 16.5v1A1.5 1.5 0 0 0 7.5 19h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  spark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6zM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8zM6 15.5l.9 2.6 2.6.9-2.6.9L6 22.5l-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>`,
+  reference: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 5h8A1.5 1.5 0 0 1 17 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 17.5v-11A1.5 1.5 0 0 1 7.5 5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h5m-5 3h6m-6 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`
+};
+
+const MARKUP_REFERENCE = [
+  { title: "Document Title", syntax: "= Project Notes", detail: "Top-level document title. Use this once at the top of the file.", tags: ["header", "title", "document"] },
+  { title: "Section Heading", syntax: "== Implementation Notes", detail: "Create sections with repeated equals signs. More equals means deeper nesting.", tags: ["heading", "sections", "outline"] },
+  { title: "Attribute", syntax: ":toc: left", detail: "Define document attributes for features such as tables of contents, icons, or custom values.", tags: ["attributes", "toc", "settings"] },
+  { title: "Bold and Italic", syntax: "*bold* and _italic_", detail: "Inline emphasis for strong or subtle emphasis.", tags: ["inline", "formatting", "emphasis"] },
+  { title: "Code Block", syntax: "[source,js]\n----\nconsole.log('hello')\n----", detail: "Add fenced source blocks with an optional language for syntax highlighting.", tags: ["code", "listing", "source"] },
+  { title: "Admonition", syntax: "NOTE: Remember to save before export.", detail: "Create note, tip, warning, caution, and important callouts.", tags: ["note", "warning", "admonition"] },
+  { title: "Link", syntax: "https://docs.asciidoctor.org[Docs]", detail: "External links open in the default browser from preview.", tags: ["link", "url", "external"] },
+  { title: "Cross Reference", syntax: "xref:chapter-two.adoc#tables[Tables chapter]", detail: "Link to sections in the same document or another AsciiDoc file.", tags: ["xref", "reference", "anchors"] },
+  { title: "Image", syntax: "image::diagrams/flow.png[Flow, width=640]", detail: "Embed local or remote images with alt text and attributes.", tags: ["image", "media", "figures"] },
+  { title: "Table", syntax: "|===\n|Name |Role\n|Kim |Editor\n|===", detail: "Pipe-delimited tables support formatting, widths, and nested content.", tags: ["table", "grid", "columns"] },
+  { title: "Include", syntax: "include::partials/header.adoc[]", detail: "Reuse content from other files. The editor preview resolves includes relative to the current document.", tags: ["include", "imports", "reuse"] },
+  { title: "Conditional", syntax: "ifdef::backend-html5[]\nOnly for HTML\nendif::[]", detail: "Conditionally render blocks based on attributes or backend.", tags: ["ifdef", "ifndef", "conditions"] },
+  { title: "Passthrough", syntax: "++++\n<div class=\"custom\">HTML</div>\n++++", detail: "Pass raw HTML or other markup through unchanged.", tags: ["passthrough", "raw", "html"] },
+  { title: "Footnote", syntax: "Footnote examplefootnote:[This note appears at the bottom.]", detail: "Add inline footnotes that render automatically in preview and export.", tags: ["footnote", "notes", "references"] }
+];
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 const appState = {
   workspacePath: null,
   openFilePath: null,
@@ -108,6 +145,7 @@ const appState = {
   previewInSync: true,
   isApplyingDocument: false,
   pendingPreviewAnchor: null,
+  referenceQuery: "",
   renderTimer: null,
   directoryCache: new Map()
 };
@@ -119,63 +157,124 @@ function createLayout() {
   const app = document.querySelector("#app");
   app.innerHTML = `
     <div class="shell" data-theme="dark">
-      <aside class="sidebar">
-        <div class="sidebar-header">
+      <header class="topbar">
+        <div class="topbar-brand">
+          <div class="brand-mark">${ICONS.brand}</div>
           <div>
-            <p class="eyebrow">Workspace</p>
+            <p class="eyebrow">2026 Writing Studio</p>
             <h1>AsciiDoc Editor</h1>
           </div>
-          <button id="open-folder" class="ghost-button">Folder</button>
         </div>
-        <div class="workspace-meta">
-          <span id="workspace-label">No folder selected</span>
+        <div class="topbar-actions">
+          <button id="open-folder" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Workspace</span></button>
+          <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
+          <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
+          <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
         </div>
-        <div id="file-tree" class="file-tree"></div>
-      </aside>
-      <div class="main-column">
-        <header class="toolbar">
-          <div class="toolbar-group">
-            <button id="open-file">Open</button>
-            <button id="save-file">Save</button>
-            <button id="save-file-as" class="ghost-button">Save As</button>
+      </header>
+      <main class="layout-grid">
+        <aside class="workspace-panel">
+          <div class="workspace-header">
+            <div>
+              <p class="eyebrow">Current Space</p>
+              <div id="workspace-label" class="workspace-label">No folder selected</div>
+            </div>
+            <div class="workspace-badge">
+              <span class="button-icon">${ICONS.spark}</span>
+              <span>Live</span>
+            </div>
           </div>
-          <div class="toolbar-title">
-            <span id="document-name">Untitled.adoc</span>
-            <span id="document-status" class="document-status">Preview synced</span>
+          <div class="workspace-note">Open a folder to browse source files and jump between chapters, includes, and references.</div>
+          <div id="file-tree" class="file-tree"></div>
+        </aside>
+        <section class="editor-stage panel">
+          <div class="editor-stage-header">
+            <div class="editor-title-stack">
+              <div class="document-kicker">Active Draft</div>
+              <div id="document-name" class="document-name">Untitled.adoc</div>
+              <div id="document-status" class="document-status">Preview synced</div>
+            </div>
+            <div class="document-metrics">
+              <div class="metric-pill">
+                <span class="metric-label">Words</span>
+                <strong id="word-count">0</strong>
+              </div>
+              <div class="metric-pill">
+                <span class="metric-label">Lines</span>
+                <strong id="line-count">1</strong>
+              </div>
+              <div class="metric-pill accent">
+                <span class="metric-label">Preview</span>
+                <strong id="preview-mode-label">Paper</strong>
+              </div>
+            </div>
           </div>
-          <div class="toolbar-group">
-            <select id="editor-theme">
-              <option value="dark">Dark Editor</option>
-              <option value="light">Light Editor</option>
-            </select>
-            <select id="preview-theme">
-              <option value="paper">Paper Preview</option>
-              <option value="slate">Slate Preview</option>
-            </select>
-            <button id="choose-stylesheet" class="ghost-button">Preview CSS</button>
-            <button id="toggle-focus" class="ghost-button">Focus</button>
-            <button id="export-html" class="ghost-button">HTML</button>
-            <button id="export-pdf" class="ghost-button">PDF</button>
-            <button id="export-docbook" class="ghost-button">DocBook</button>
+          <div class="editor-commandbar">
+            <div class="command-group">
+              <label class="select-shell">
+                <span>Editor</span>
+                <select id="editor-theme">
+                  <option value="dark">Nocturne</option>
+                  <option value="light">Porcelain</option>
+                </select>
+              </label>
+              <label class="select-shell">
+                <span>Preview</span>
+                <select id="preview-theme">
+                  <option value="paper">Paper</option>
+                  <option value="slate">Slate</option>
+                </select>
+              </label>
+              <button id="choose-stylesheet" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.preview}</span><span>Preview CSS</span></button>
+            </div>
+            <div class="command-group">
+              <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
+              <button id="export-html" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>HTML</span></button>
+              <button id="export-pdf" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>PDF</span></button>
+              <button id="export-docbook" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>DocBook</span></button>
+            </div>
           </div>
-        </header>
-        <section class="content-grid">
-          <div class="editor-panel panel">
-            <div class="panel-header">
-              <span>Editor</span>
+          <div class="editor-surface">
+            <div class="editor-surface-meta">
               <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
+              <span class="panel-chip">Distraction-free mode centers the editor and hides chrome</span>
             </div>
             <div id="editor-root" class="editor-root"></div>
           </div>
-          <div class="preview-panel panel">
+        </section>
+        <aside class="utility-column">
+          <section class="preview-panel panel">
             <div class="panel-header">
-              <span>Live Preview</span>
-              <span id="feature-chip" class="panel-chip">Includes, conditionals, substitutions enabled</span>
+              <div class="panel-header-main">
+                <span class="panel-icon">${ICONS.preview}</span>
+                <div>
+                  <div class="panel-title">Live Preview</div>
+                  <div class="panel-subtitle">Includes, conditionals, substitutions, and xrefs stay interactive.</div>
+                </div>
+              </div>
+              <span id="feature-chip" class="panel-chip">Asciidoctor-driven</span>
             </div>
             <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
-          </div>
-        </section>
-      </div>
+          </section>
+          <section class="reference-panel panel">
+            <div class="panel-header">
+              <div class="panel-header-main">
+                <span class="panel-icon">${ICONS.reference}</span>
+                <div>
+                  <div class="panel-title">Markup Reference</div>
+                  <div class="panel-subtitle">Search snippets, patterns, and common AsciiDoc structures.</div>
+                </div>
+              </div>
+              <span class="panel-chip">Instant</span>
+            </div>
+            <label class="reference-search-shell">
+              <span class="button-icon">${ICONS.search}</span>
+              <input id="reference-search" class="reference-search" type="search" placeholder="Search links, tables, attributes, passthrough..." />
+            </label>
+            <div id="reference-results" class="reference-results"></div>
+          </section>
+        </aside>
+      </main>
     </div>
   `;
 
@@ -188,6 +287,39 @@ function createLayout() {
   elements.editorTheme = document.querySelector("#editor-theme");
   elements.previewTheme = document.querySelector("#preview-theme");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
+  elements.wordCount = document.querySelector("#word-count");
+  elements.lineCount = document.querySelector("#line-count");
+  elements.previewModeLabel = document.querySelector("#preview-mode-label");
+  elements.focusButtonLabel = document.querySelector("#focus-button-label");
+  elements.referenceSearch = document.querySelector("#reference-search");
+  elements.referenceResults = document.querySelector("#reference-results");
+}
+
+function renderReferenceGuide() {
+  const query = appState.referenceQuery.trim().toLowerCase();
+  const visibleEntries = MARKUP_REFERENCE.filter((entry) => {
+    if (!query) {
+      return true;
+    }
+
+    return [entry.title, entry.syntax, entry.detail, entry.tags.join(" ")]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
+
+  elements.referenceResults.innerHTML = visibleEntries.length > 0
+    ? visibleEntries.map((entry) => `
+      <article class="reference-card">
+        <div class="reference-card-header">
+          <h3>${escapeHtml(entry.title)}</h3>
+          <div class="reference-tags">${entry.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>
+        </div>
+        <pre>${escapeHtml(entry.syntax)}</pre>
+        <p>${escapeHtml(entry.detail)}</p>
+      </article>
+    `).join("")
+    : `<div class="reference-empty">No reference entries match that search. Try “xref”, “table”, “ifdef”, or “attributes”.</div>`;
 }
 
 function createEditor() {
@@ -242,6 +374,10 @@ function createEditor() {
 
 function updateDocumentChrome() {
   const fileName = appState.openFilePath?.split(/[\\/]/).pop() ?? appState.currentFileName;
+  const trimmedContent = appState.currentContent.trim();
+  const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
+  const lineCount = appState.currentContent.split("\n").length;
+
   elements.documentName.textContent = appState.isDirty ? `${fileName} *` : fileName;
   if (appState.isDirty) {
     elements.documentStatus.textContent = appState.previewInSync ? "Unsaved changes" : "Preview updating";
@@ -252,6 +388,10 @@ function updateDocumentChrome() {
   elements.stylesheetChip.textContent = appState.previewStylesheetPath
     ? `Preview CSS: ${appState.previewStylesheetPath.split(/[\\/]/).pop()}`
     : "No custom preview CSS";
+  elements.wordCount.textContent = String(wordCount);
+  elements.lineCount.textContent = String(lineCount);
+  elements.previewModeLabel.textContent = appState.previewTheme === "paper" ? "Paper" : "Slate";
+  elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
   elements.shell.dataset.theme = appState.theme;
   elements.shell.classList.toggle("focus-mode", appState.distractionFree);
   elements.editorTheme.value = appState.theme;
@@ -591,6 +731,11 @@ async function bindEvents() {
     void exportCurrentDocument("docbook");
   });
 
+  elements.referenceSearch.addEventListener("input", (event) => {
+    appState.referenceQuery = event.target.value;
+    renderReferenceGuide();
+  });
+
   elements.previewFrame.addEventListener("load", () => {
     installPreviewInteractions();
   });
@@ -654,5 +799,6 @@ createLayout();
 createEditor();
 bindEvents();
 registerBootSequence();
+renderReferenceGuide();
 updateDocumentChrome();
 void renderPreviewNow();
