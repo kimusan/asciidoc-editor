@@ -52,7 +52,8 @@ button:active {
 button:focus-visible,
 select:focus-visible,
 input:focus-visible,
-.tree-entry:focus-visible {
+.tree-entry:focus-visible,
+.splitter:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -81,20 +82,20 @@ input:focus-visible,
     radial-gradient(circle at 82% 14%, rgba(255, 136, 73, 0.18), transparent 22%),
     linear-gradient(180deg, #081016 0%, #101723 48%, #111521 100%);
   --panel-bg: rgba(10, 16, 23, 0.72);
-  --panel-bg-strong: rgba(12, 19, 28, 0.88);
+  --panel-bg-strong: rgba(12, 19, 28, 0.92);
   --panel-border: rgba(255, 255, 255, 0.08);
   --text-primary: #eef4ff;
   --text-secondary: rgba(238, 244, 255, 0.68);
   --text-tertiary: rgba(238, 244, 255, 0.46);
   --accent: #27d1c1;
   --accent-strong: #7cf2d8;
-  --warm: #ff8849;
   --focus-ring: rgba(124, 242, 216, 0.85);
   --control-bg: rgba(255, 255, 255, 0.05);
   --control-bg-hover: rgba(255, 255, 255, 0.09);
   --control-border: rgba(255, 255, 255, 0.1);
   --control-border-hover: rgba(124, 242, 216, 0.38);
   --shadow: 0 24px 72px rgba(0, 0, 0, 0.22);
+  --split-ratio: 0.5;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
@@ -109,15 +110,14 @@ input:focus-visible,
     radial-gradient(circle at 12% 10%, rgba(59, 145, 255, 0.14), transparent 25%),
     radial-gradient(circle at 84% 8%, rgba(255, 132, 64, 0.16), transparent 18%),
     linear-gradient(180deg, #eef4fb 0%, #f7f3ea 52%, #efe7db 100%);
-  --panel-bg: rgba(255, 255, 255, 0.72);
-  --panel-bg-strong: rgba(255, 255, 255, 0.9);
+  --panel-bg: rgba(255, 255, 255, 0.78);
+  --panel-bg-strong: rgba(255, 255, 255, 0.95);
   --panel-border: rgba(32, 45, 61, 0.08);
   --text-primary: #16202c;
   --text-secondary: rgba(22, 32, 44, 0.7);
   --text-tertiary: rgba(22, 32, 44, 0.46);
   --accent: #1f79ff;
   --accent-strong: #0ea5a3;
-  --warm: #eb6a2f;
   --focus-ring: rgba(31, 121, 255, 0.55);
   --control-bg: rgba(22, 32, 44, 0.04);
   --control-bg-hover: rgba(22, 32, 44, 0.08);
@@ -128,7 +128,8 @@ input:focus-visible,
 
 .topbar,
 .workspace-panel,
-.panel {
+.panel,
+.reference-dialog {
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   backdrop-filter: blur(24px);
@@ -164,7 +165,7 @@ input:focus-visible,
   color: var(--accent-strong);
   background:
     radial-gradient(circle at 30% 30%, rgba(124, 242, 216, 0.28), transparent 42%),
-    linear-gradient(145deg, rgba(124, 242, 216, 0.18), rgba(255, 136, 73, 0.16));
+    linear-gradient(145deg, rgba(124, 242, 216, 0.18), rgba(31, 121, 255, 0.18));
   border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
@@ -197,7 +198,7 @@ input:focus-visible,
 
 .layout-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 18px;
   min-height: 0;
 }
@@ -221,22 +222,6 @@ input:focus-visible,
   color: var(--text-secondary);
   line-height: 1.55;
   font-size: 0.93rem;
-}
-
-.workspace-badge,
-.metric-pill,
-.panel-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--control-border);
-  background: var(--control-bg);
-}
-
-.workspace-badge {
-  padding: 0.65rem 0.9rem;
-  color: var(--accent-strong);
 }
 
 .file-tree {
@@ -285,6 +270,16 @@ input:focus-visible,
   flex-wrap: wrap;
 }
 
+.metric-pill,
+.panel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+}
+
 .metric-pill {
   padding: 0.7rem 0.95rem;
   min-width: 86px;
@@ -297,7 +292,7 @@ input:focus-visible,
 
 .metric-pill.accent {
   border-color: rgba(124, 242, 216, 0.26);
-  background: linear-gradient(135deg, rgba(124, 242, 216, 0.12), rgba(255, 136, 73, 0.1));
+  background: linear-gradient(135deg, rgba(124, 242, 216, 0.12), rgba(31, 121, 255, 0.1));
 }
 
 .editor-commandbar {
@@ -331,7 +326,6 @@ input:focus-visible,
 .editor-surface-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 14px 26px;
   border-bottom: 1px solid var(--panel-border);
@@ -343,23 +337,28 @@ input:focus-visible,
   font-size: 0.82rem;
 }
 
-.editor-root {
-  min-height: 0;
-}
-
-.utility-column {
+.split-layout {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: 18px;
+  grid-template-columns:
+    minmax(320px, calc((100% - 14px) * var(--split-ratio)))
+    14px
+    minmax(320px, calc((100% - 14px) * (1 - var(--split-ratio))));
 }
 
-.panel {
+.split-panel {
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  border-radius: 30px;
-  overflow: hidden;
+}
+
+.split-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .panel-header {
@@ -392,15 +391,69 @@ input:focus-visible,
   font-size: 0.88rem;
 }
 
+.editor-root,
 .preview-frame {
+  min-height: 0;
   width: 100%;
   height: 100%;
+}
+
+.preview-frame {
   border: 0;
   background: #0c1118;
 }
 
-.reference-panel {
+.splitter {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.splitter::before {
+  content: "";
+  position: absolute;
+  inset: 12px 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(124, 242, 216, 0.34), rgba(31, 121, 255, 0.24));
+  opacity: 0.5;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.splitter:hover::before,
+.shell.is-resizing .splitter::before {
+  opacity: 1;
+  transform: scaleX(1.15);
+}
+
+.reference-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 40;
+}
+
+.reference-overlay[hidden] {
+  display: none;
+}
+
+.reference-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 10, 16, 0.48);
+  backdrop-filter: blur(8px);
+}
+
+.reference-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(960px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 56px));
+  border-radius: 32px;
+  display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--panel-bg-strong);
 }
 
 .reference-search-shell {
@@ -539,7 +592,7 @@ details[open] > summary.tree-entry-directory::before {
 
 .tree-entry-file.is-active,
 .tree-entry:hover {
-  background: linear-gradient(135deg, rgba(124, 242, 216, 0.14), rgba(255, 136, 73, 0.1));
+  background: linear-gradient(135deg, rgba(124, 242, 216, 0.14), rgba(31, 121, 255, 0.1));
   border-color: rgba(124, 242, 216, 0.24);
 }
 
@@ -559,12 +612,13 @@ details[open] > summary.tree-entry-directory::before {
 
 .shell.focus-mode .topbar,
 .shell.focus-mode .workspace-panel,
-.shell.focus-mode .utility-column {
+.shell.focus-mode .split-panel-preview,
+.shell.focus-mode .splitter {
   display: none;
 }
 
 .shell.focus-mode .layout-grid {
-  grid-template-columns: minmax(0, 940px);
+  grid-template-columns: minmax(0, 960px);
   justify-content: center;
 }
 
@@ -573,40 +627,32 @@ details[open] > summary.tree-entry-directory::before {
   background: var(--panel-bg-strong);
 }
 
-.shell.focus-mode .editor-stage-header,
-.shell.focus-mode .editor-commandbar,
-.shell.focus-mode .editor-surface-meta {
-  padding-left: 32px;
-  padding-right: 32px;
-}
-
 .shell.focus-mode .editor-commandbar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: linear-gradient(180deg, var(--panel-bg-strong), rgba(255, 255, 255, 0));
+  justify-content: flex-end;
 }
 
-.shell.focus-mode .editor-commandbar .command-group:first-child,
-.shell.focus-mode .editor-surface-meta .panel-chip:last-child {
+.shell.focus-mode .editor-commandbar .command-group:first-child {
   display: none;
 }
 
-@media (max-width: 1360px) {
+.shell.focus-mode .split-layout {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 1260px) {
   .layout-grid {
-    grid-template-columns: 240px minmax(0, 1fr) 330px;
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 }
 
-@media (max-width: 1160px) {
-  .layout-grid {
-    grid-template-columns: 260px minmax(0, 1fr);
+@media (max-width: 1100px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(360px, 1fr) minmax(320px, 1fr);
   }
 
-  .utility-column {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: none;
+  .splitter {
+    display: none;
   }
 }
 
@@ -624,18 +670,12 @@ details[open] > summary.tree-entry-directory::before {
     grid-template-columns: 1fr;
   }
 
-  .workspace-panel,
-  .utility-column {
-    min-height: 280px;
-  }
-
-  .utility-column {
-    grid-template-columns: 1fr;
+  .workspace-panel {
+    min-height: 220px;
   }
 
   .editor-stage-header,
-  .editor-commandbar,
-  .editor-surface-meta {
+  .editor-commandbar {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -644,5 +684,10 @@ details[open] > summary.tree-entry-directory::before {
   .topbar-actions,
   .command-group {
     width: 100%;
+  }
+
+  .reference-dialog {
+    width: calc(100vw - 28px);
+    height: calc(100vh - 28px);
   }
 }

@@ -146,6 +146,8 @@ const appState = {
   isApplyingDocument: false,
   pendingPreviewAnchor: null,
   referenceQuery: "",
+  referenceOpen: false,
+  splitRatio: 0.5,
   renderTimer: null,
   directoryCache: new Map()
 };
@@ -178,10 +180,6 @@ function createLayout() {
             <div>
               <p class="eyebrow">Current Space</p>
               <div id="workspace-label" class="workspace-label">No folder selected</div>
-            </div>
-            <div class="workspace-badge">
-              <span class="button-icon">${ICONS.spark}</span>
-              <span>Live</span>
             </div>
           </div>
           <div class="workspace-note">Open a folder to browse source files and jump between chapters, includes, and references.</div>
@@ -226,6 +224,7 @@ function createLayout() {
                 </select>
               </label>
               <button id="choose-stylesheet" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.preview}</span><span>Preview CSS</span></button>
+              <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
             </div>
             <div class="command-group">
               <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
@@ -237,44 +236,57 @@ function createLayout() {
           <div class="editor-surface">
             <div class="editor-surface-meta">
               <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
-              <span class="panel-chip">Distraction-free mode centers the editor and hides chrome</span>
             </div>
-            <div id="editor-root" class="editor-root"></div>
+            <div id="split-layout" class="split-layout">
+              <section class="split-panel split-panel-editor">
+                <div class="split-panel-header">
+                  <div class="panel-header-main">
+                    <span class="panel-icon">${ICONS.brand}</span>
+                    <div>
+                      <div class="panel-title">Editor</div>
+                      <div class="panel-subtitle">Write with live syntax highlighting and keyboard-first editing.</div>
+                    </div>
+                  </div>
+                </div>
+                <div id="editor-root" class="editor-root"></div>
+              </section>
+              <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview"></div>
+              <section class="split-panel split-panel-preview">
+                <div class="split-panel-header">
+                  <div class="panel-header-main">
+                    <span class="panel-icon">${ICONS.preview}</span>
+                    <div>
+                      <div class="panel-title">Live Preview</div>
+                      <div class="panel-subtitle">Follow xrefs, inspect final structure, and validate output as you write.</div>
+                    </div>
+                  </div>
+                </div>
+                <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
+              </section>
+            </div>
           </div>
         </section>
-        <aside class="utility-column">
-          <section class="preview-panel panel">
-            <div class="panel-header">
-              <div class="panel-header-main">
-                <span class="panel-icon">${ICONS.preview}</span>
-                <div>
-                  <div class="panel-title">Live Preview</div>
-                  <div class="panel-subtitle">Includes, conditionals, substitutions, and xrefs stay interactive.</div>
-                </div>
-              </div>
-              <span id="feature-chip" class="panel-chip">Asciidoctor-driven</span>
-            </div>
-            <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
-          </section>
-          <section class="reference-panel panel">
-            <div class="panel-header">
-              <div class="panel-header-main">
-                <span class="panel-icon">${ICONS.reference}</span>
-                <div>
-                  <div class="panel-title">Markup Reference</div>
-                  <div class="panel-subtitle">Search snippets, patterns, and common AsciiDoc structures.</div>
-                </div>
-              </div>
-              <span class="panel-chip">Instant</span>
-            </div>
-            <label class="reference-search-shell">
-              <span class="button-icon">${ICONS.search}</span>
-              <input id="reference-search" class="reference-search" type="search" placeholder="Search links, tables, attributes, passthrough..." />
-            </label>
-            <div id="reference-results" class="reference-results"></div>
-          </section>
-        </aside>
       </main>
+      <div id="reference-overlay" class="reference-overlay" hidden>
+        <div id="reference-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog panel" role="dialog" aria-modal="true" aria-labelledby="reference-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.reference}</span>
+              <div>
+                <div id="reference-title" class="panel-title">Markup Reference</div>
+                <div class="panel-subtitle">Search snippets, patterns, and common AsciiDoc structures.</div>
+              </div>
+            </div>
+            <button id="close-reference" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <label class="reference-search-shell">
+            <span class="button-icon">${ICONS.search}</span>
+            <input id="reference-search" class="reference-search" type="search" placeholder="Search links, tables, attributes, passthrough..." />
+          </label>
+          <div id="reference-results" class="reference-results"></div>
+        </section>
+      </div>
     </div>
   `;
 
@@ -287,10 +299,16 @@ function createLayout() {
   elements.editorTheme = document.querySelector("#editor-theme");
   elements.previewTheme = document.querySelector("#preview-theme");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
+  elements.splitLayout = document.querySelector("#split-layout");
+  elements.splitter = document.querySelector("#splitter");
   elements.wordCount = document.querySelector("#word-count");
   elements.lineCount = document.querySelector("#line-count");
   elements.previewModeLabel = document.querySelector("#preview-mode-label");
   elements.focusButtonLabel = document.querySelector("#focus-button-label");
+  elements.referenceOverlay = document.querySelector("#reference-overlay");
+  elements.referenceBackdrop = document.querySelector("#reference-backdrop");
+  elements.openReference = document.querySelector("#open-reference");
+  elements.closeReference = document.querySelector("#close-reference");
   elements.referenceSearch = document.querySelector("#reference-search");
   elements.referenceResults = document.querySelector("#reference-results");
 }
@@ -394,8 +412,62 @@ function updateDocumentChrome() {
   elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
   elements.shell.dataset.theme = appState.theme;
   elements.shell.classList.toggle("focus-mode", appState.distractionFree);
+  elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
   elements.editorTheme.value = appState.theme;
   elements.previewTheme.value = appState.previewTheme;
+  elements.referenceOverlay.hidden = !appState.referenceOpen;
+  elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
+}
+
+function setSplitRatio(nextRatio) {
+  appState.splitRatio = Math.min(0.75, Math.max(0.25, nextRatio));
+  elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
+}
+
+function openReferenceOverlay() {
+  appState.referenceOpen = true;
+  updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.referenceSearch.focus();
+    elements.referenceSearch.select();
+  });
+}
+
+function closeReferenceOverlay() {
+  appState.referenceOpen = false;
+  updateDocumentChrome();
+}
+
+function bindSplitter() {
+  const handlePointerMove = (event) => {
+    if (!elements.splitLayout) {
+      return;
+    }
+
+    const bounds = elements.splitLayout.getBoundingClientRect();
+    if (bounds.width <= 0) {
+      return;
+    }
+
+    setSplitRatio((event.clientX - bounds.left) / bounds.width);
+  };
+
+  const handlePointerUp = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    elements.shell.classList.remove("is-resizing");
+  };
+
+  elements.splitter.addEventListener("pointerdown", (event) => {
+    if (window.matchMedia("(max-width: 1100px)").matches) {
+      return;
+    }
+
+    event.preventDefault();
+    elements.shell.classList.add("is-resizing");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  });
 }
 
 function applyEditorTheme(theme) {
@@ -731,6 +803,18 @@ async function bindEvents() {
     void exportCurrentDocument("docbook");
   });
 
+  elements.openReference.addEventListener("click", () => {
+    openReferenceOverlay();
+  });
+
+  elements.closeReference.addEventListener("click", () => {
+    closeReferenceOverlay();
+  });
+
+  elements.referenceBackdrop.addEventListener("click", () => {
+    closeReferenceOverlay();
+  });
+
   elements.referenceSearch.addEventListener("input", (event) => {
     appState.referenceQuery = event.target.value;
     renderReferenceGuide();
@@ -778,6 +862,19 @@ async function bindEvents() {
       previewStylesheetPath: appState.previewStylesheetPath
     });
   });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && appState.referenceOpen) {
+      closeReferenceOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      openReferenceOverlay();
+    }
+  });
+
+  bindSplitter();
 }
 
 function registerBootSequence() {
