@@ -984,33 +984,73 @@ function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame, behavior
   });
 }
 
-function toAsciidoctorId(title) {
-  const normalized = title
-    .normalize("NFKD")
-    .replaceAll(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replaceAll(/<[^>]+>/g, "")
-    .replaceAll(/&[a-z0-9#]+;/gi, "")
-    .replaceAll(/[^a-z0-9]+/g, "_")
-    .replaceAll(/^_+|_+$/g, "");
+function getSourceSections() {
+  return appState.currentContent
+    .split("\n")
+    .map((line, index) => {
+      const match = line.match(/^(={2,6})\s+(.+)$/);
+      if (!match) {
+        return null;
+      }
 
-  return normalized ? `_${normalized}` : null;
+      return {
+        lineNumber: index + 1,
+        level: match[1].length,
+        title: match[2].trim()
+      };
+    })
+    .filter(Boolean);
 }
 
-function findNearestSectionAnchor(lineNumber) {
-  const lines = appState.currentContent.split("\n");
-  let anchorId = null;
+function getPreviewSectionHeadings(frame = elements.previewFrame) {
+  return Array.from(
+    frame.contentDocument?.querySelectorAll("#content h2, #content h3, #content h4, #content h5, #content h6") ?? []
+  );
+}
 
-  for (let index = 0; index < Math.min(lineNumber, lines.length); index += 1) {
-    const match = lines[index].match(/^={2,6}\s+(.+)$/);
-    if (!match) {
-      continue;
+function findNearestSectionIndex(lineNumber) {
+  const sections = getSourceSections();
+  let sectionIndex = -1;
+
+  for (let index = 0; index < sections.length; index += 1) {
+    if (sections[index].lineNumber <= lineNumber) {
+      sectionIndex = index;
+    } else {
+      break;
     }
-
-    anchorId = toAsciidoctorId(match[1].trim());
   }
 
-  return anchorId;
+  return sectionIndex;
+}
+
+function getEditorSyncLineNumber() {
+  const selectionLine = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+  const viewportStartLine = editorView.state.doc.lineAt(editorView.viewport.from).number;
+  const viewportEndLine = editorView.state.doc.lineAt(editorView.viewport.to).number;
+
+  if (selectionLine >= viewportStartLine && selectionLine <= viewportEndLine) {
+    return selectionLine;
+  }
+
+  return viewportStartLine;
+}
+
+function scrollPreviewToSectionIndex(sectionIndex, frame = elements.previewFrame, behavior = "auto") {
+  if (sectionIndex < 0) {
+    scrollPreviewToTop(frame);
+    return;
+  }
+
+  const headings = getPreviewSectionHeadings(frame);
+  const target = headings[sectionIndex];
+  if (!target) {
+    return;
+  }
+
+  target.scrollIntoView({
+    behavior,
+    block: "start"
+  });
 }
 
 function syncPreviewToEditorPosition() {
@@ -1018,17 +1058,11 @@ function syncPreviewToEditorPosition() {
     return;
   }
 
-  const syncLine = editorView.state.doc.lineAt(editorView.viewport.from).number;
-  const anchorId = findNearestSectionAnchor(syncLine);
+  const syncLine = getEditorSyncLineNumber();
+  const sectionIndex = findNearestSectionIndex(syncLine);
 
-  if (!anchorId) {
-    scrollPreviewToTop(elements.previewFrame);
-    scrollPreviewToTop(elements.previewFrameExpanded);
-    return;
-  }
-
-  scrollPreviewToAnchor(anchorId, elements.previewFrame, "auto");
-  scrollPreviewToAnchor(anchorId, elements.previewFrameExpanded, "auto");
+  scrollPreviewToSectionIndex(sectionIndex, elements.previewFrame, "auto");
+  scrollPreviewToSectionIndex(sectionIndex, elements.previewFrameExpanded, "auto");
 }
 
 function schedulePreviewSync() {
@@ -1075,7 +1109,7 @@ async function handlePreviewLinkClick(event, frame) {
     return;
   }
 
-    if (result.type === "anchor") {
+  if (result.type === "anchor") {
     scrollPreviewToAnchor(result.anchorId, frame, "smooth");
     return;
   }
