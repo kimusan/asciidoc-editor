@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import Asciidoctor from "asciidoctor";
+import Asciidoctor from "@asciidoctor/core";
 import hljs from "highlight.js/lib/common";
 
 const asciidoctor = Asciidoctor();
