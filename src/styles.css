@@ -319,6 +319,10 @@ input:focus-visible,
   color: var(--text-tertiary);
 }
 
+.workspace-search:focus-visible {
+  outline: none;
+}
+
 .file-tree {
   min-height: 0;
   overflow: auto;
