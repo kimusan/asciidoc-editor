@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld("desktop", {
   openFile: () => ipcRenderer.invoke("dialog:open-file"),
   openFolder: () => ipcRenderer.invoke("dialog:open-folder"),
   saveDialog: (payload) => ipcRenderer.invoke("dialog:save-file", payload),
-  chooseStylesheet: () => ipcRenderer.invoke("dialog:choose-stylesheet"),
+  chooseStylesheet: (kind) => ipcRenderer.invoke("dialog:choose-stylesheet", kind),
   listDirectory: (rootPath) => ipcRenderer.invoke("fs:list-directory", rootPath),
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),

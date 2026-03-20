@@ -35,13 +35,12 @@ test("renderPreview includes the document header title", async () => {
   assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });
 
-test("renderPreview supports extended preview themes and font families", async () => {
+test("renderPreview supports configurable font families", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
-    previewTheme: "nord",
     previewFontFamily: "sans"
   });
 
-  assert.match(html, /--adoc-link: #88c0d0;/);
+  assert.match(html, /--adoc-link: #0f3d8a;/);
   assert.match(html, /--adoc-font-family: "Aptos", "Segoe UI Variable Text", "Inter", "Noto Sans", sans-serif;/);
 });
 
@@ -54,7 +53,6 @@ test("renderPreview applies syntax highlighting when a supported source language
 
 test("renderPreview can render a print-friendly document without preview chrome", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
-    previewTheme: "darcula",
     documentMode: "print",
     pdfPaperSize: "Letter"
   });

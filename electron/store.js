@@ -7,12 +7,12 @@ const defaultState = {
   openFilePath: null,
   recentFiles: [],
   theme: "nocturne",
-  previewTheme: "paper",
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
   distractionFree: false,
   workspaceCollapsed: false,
-  previewStylesheetPath: null
+  previewStylesheetPath: null,
+  pdfStylesheetPath: null
 };
 
 let writeQueue = Promise.resolve();

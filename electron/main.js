@@ -186,9 +186,9 @@ app.whenReady().then(async () => {
     return canceled ? null : filePath;
   });
 
-  ipcMain.handle("dialog:choose-stylesheet", async () => {
+  ipcMain.handle("dialog:choose-stylesheet", async (_, kind = "preview") => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: "Choose preview stylesheet",
+      title: kind === "pdf" ? "Choose PDF stylesheet" : "Choose preview stylesheet",
       properties: ["openFile"],
       filters: [
         { name: "CSS", extensions: ["css"] },
@@ -200,7 +200,6 @@ app.whenReady().then(async () => {
       return null;
     }
 
-    await saveState({ previewStylesheetPath: filePaths[0] });
     return filePaths[0];
   });
 
@@ -239,7 +238,6 @@ app.whenReady().then(async () => {
     payload.filePath,
     {
       stylesheetPath: payload.stylesheetPath,
-      previewTheme: payload.previewTheme,
       previewFontFamily: payload.previewFontFamily
     }
   ));

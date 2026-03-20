@@ -7,75 +7,7 @@ import hljs from "highlight.js/lib/common";
 const asciidoctor = Asciidoctor();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const BUILTIN_PREVIEW_THEMES = {
-  paper: `
-    :root {
-      color-scheme: light;
-      --adoc-bg: #f7f4ec;
-      --adoc-surface: #fffdf8;
-      --adoc-text: #1d1b18;
-      --adoc-subtle: #645c52;
-      --adoc-border: rgba(45, 35, 24, 0.14);
-      --adoc-link: #7f3f00;
-      --adoc-accent: #dcb35c;
-      --adoc-code-bg: #f0eadc;
-    }
-  `,
-  slate: `
-    :root {
-      color-scheme: dark;
-      --adoc-bg: #161a1f;
-      --adoc-surface: #1d232b;
-      --adoc-text: #e7e4dc;
-      --adoc-subtle: #a5a098;
-      --adoc-border: rgba(255, 255, 255, 0.11);
-      --adoc-link: #f8bf5d;
-      --adoc-accent: #78b7ff;
-      --adoc-code-bg: #0f1318;
-    }
-  `,
-  nord: `
-    :root {
-      color-scheme: dark;
-      --adoc-bg: #262c37;
-      --adoc-surface: #2f3744;
-      --adoc-text: #e5edf6;
-      --adoc-subtle: #b6c2d1;
-      --adoc-border: rgba(216, 222, 233, 0.12);
-      --adoc-link: #88c0d0;
-      --adoc-accent: #81a1c1;
-      --adoc-code-bg: #232933;
-    }
-  `,
-  darcula: `
-    :root {
-      color-scheme: dark;
-      --adoc-bg: #232427;
-      --adoc-surface: #2b2d30;
-      --adoc-text: #f0f0f0;
-      --adoc-subtle: #b9b9b9;
-      --adoc-border: rgba(255, 255, 255, 0.12);
-      --adoc-link: #6897bb;
-      --adoc-accent: #ffc66d;
-      --adoc-code-bg: #1f2022;
-    }
-  `,
-  solarized: `
-    :root {
-      color-scheme: light;
-      --adoc-bg: #fdf6e3;
-      --adoc-surface: #fffaf0;
-      --adoc-text: #47565d;
-      --adoc-subtle: #6c7a80;
-      --adoc-border: rgba(88, 110, 117, 0.14);
-      --adoc-link: #268bd2;
-      --adoc-accent: #2aa198;
-      --adoc-code-bg: #f4ecd8;
-    }
-  `
-};
-
-const PRINT_THEME = `
+const DOCUMENT_THEME = `
   :root {
     color-scheme: light;
     --adoc-bg: #ffffff;
@@ -562,9 +494,6 @@ export async function renderPreview(source, filePath, options = {}) {
 
   const highlightThemeCss = await loadHighlightThemeCss();
   const documentMode = options.documentMode ?? "preview";
-  const previewTheme = documentMode === "print"
-    ? PRINT_THEME
-    : (BUILTIN_PREVIEW_THEMES[options.previewTheme] ?? BUILTIN_PREVIEW_THEMES.paper);
   const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
   const baseStyles = documentMode === "print"
     ? buildPrintStyles(options.pdfPaperSize ?? "A4")
@@ -576,7 +505,7 @@ export async function renderPreview(source, filePath, options = {}) {
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${escapeHtml(title)}</title>
-      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${baseStyles}${highlightThemeCss}${customStyles}</style>
+      <style>:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}</style>
     </head>
     <body>
       <main>
@@ -592,14 +521,12 @@ export async function exportDocument({
   destinationPath,
   format,
   stylesheetPath,
-  previewTheme,
   previewFontFamily,
   pdfPaperSize
 }) {
   if (format === "html") {
     const html = await renderPreview(source, filePath, {
       stylesheetPath,
-      previewTheme,
       previewFontFamily
     });
     await fs.writeFile(destinationPath, html, "utf8");
@@ -619,7 +546,6 @@ export async function exportDocument({
     const { BrowserWindow } = await import("electron");
     const html = await renderPreview(source, filePath, {
       stylesheetPath,
-      previewTheme,
       previewFontFamily,
       pdfPaperSize,
       documentMode: "print"

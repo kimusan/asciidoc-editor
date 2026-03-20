@@ -268,14 +268,6 @@ const APP_THEME_OPTIONS = [
   { value: "solarized", label: "Solarized" }
 ];
 
-const PREVIEW_THEME_OPTIONS = [
-  { value: "paper", label: "Paper" },
-  { value: "slate", label: "Slate" },
-  { value: "nord", label: "Nord" },
-  { value: "darcula", label: "Darcula" },
-  { value: "solarized", label: "Solarized" }
-];
-
 const ICONS = {
   brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
@@ -340,11 +332,6 @@ function normalizeThemeValue(value) {
   return THEME_STYLES[value] ? value : "nocturne";
 }
 
-function normalizePreviewThemeValue(value) {
-  const allowed = new Set(PREVIEW_THEME_OPTIONS.map((option) => option.value));
-  return allowed.has(value) ? value : "paper";
-}
-
 function normalizePreviewFontValue(value) {
   const allowed = new Set(PREVIEW_FONT_OPTIONS.map((option) => option.value));
   return allowed.has(value) ? value : "serif";
@@ -384,7 +371,7 @@ const appState = {
   openFilePath: null,
   recentFiles: [],
   previewStylesheetPath: null,
-  previewTheme: "paper",
+  pdfStylesheetPath: null,
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
   theme: "nocturne",
@@ -589,14 +576,8 @@ function createLayout() {
             <article class="settings-card">
               <div class="settings-card-header">
                 <h3>Preview Style</h3>
-                <p>Configure the preview palette and reading typography.</p>
+                <p>Configure preview reading typography.</p>
               </div>
-              <label class="settings-field">
-                <span>Preview theme</span>
-                <select id="settings-preview-theme">
-                  ${renderOptionMarkup(PREVIEW_THEME_OPTIONS)}
-                </select>
-              </label>
               <label class="settings-field">
                 <span>Preview font</span>
                 <select id="settings-preview-font">
@@ -620,7 +601,7 @@ function createLayout() {
             <article class="settings-card">
               <div class="settings-card-header">
                 <h3>PDF Export</h3>
-                <p>Select the default paper format used for PDF generation.</p>
+                <p>Select the default paper format and optional print stylesheet used for PDF generation.</p>
               </div>
               <label class="settings-field">
                 <span>Paper format</span>
@@ -628,6 +609,13 @@ function createLayout() {
                   ${renderOptionMarkup(PDF_PAPER_OPTIONS)}
                 </select>
               </label>
+              <div class="settings-css-row">
+                <div id="settings-pdf-stylesheet-status" class="settings-note">No custom PDF CSS selected.</div>
+                <div class="command-group">
+                  <button id="choose-pdf-stylesheet" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Choose CSS</span></button>
+                  <button id="clear-pdf-stylesheet" class="toolbar-button ghost-button"><span>Clear</span></button>
+                </div>
+              </div>
             </article>
           </div>
         </section>
@@ -703,12 +691,14 @@ function createLayout() {
   elements.settingsBackdrop = document.querySelector("#settings-backdrop");
   elements.closeSettings = document.querySelector("#close-settings");
   elements.settingsAppTheme = document.querySelector("#settings-app-theme");
-  elements.settingsPreviewTheme = document.querySelector("#settings-preview-theme");
   elements.settingsPreviewFont = document.querySelector("#settings-preview-font");
   elements.settingsPdfPaperSize = document.querySelector("#settings-pdf-paper-size");
   elements.settingsStylesheetStatus = document.querySelector("#settings-stylesheet-status");
   elements.chooseStylesheet = document.querySelector("#choose-stylesheet");
   elements.clearStylesheet = document.querySelector("#clear-stylesheet");
+  elements.settingsPdfStylesheetStatus = document.querySelector("#settings-pdf-stylesheet-status");
+  elements.choosePdfStylesheet = document.querySelector("#choose-pdf-stylesheet");
+  elements.clearPdfStylesheet = document.querySelector("#clear-pdf-stylesheet");
   elements.openAbout = document.querySelector("#open-about");
   elements.aboutOverlay = document.querySelector("#about-overlay");
   elements.aboutBackdrop = document.querySelector("#about-backdrop");
@@ -843,6 +833,9 @@ function updateDocumentChrome() {
   elements.settingsStylesheetStatus.textContent = appState.previewStylesheetPath
     ? appState.previewStylesheetPath.split(/[\\/]/).pop()
     : "No custom preview CSS selected.";
+  elements.settingsPdfStylesheetStatus.textContent = appState.pdfStylesheetPath
+    ? appState.pdfStylesheetPath.split(/[\\/]/).pop()
+    : "No custom PDF CSS selected.";
   elements.wordCount.textContent = String(wordCount);
   elements.lineCount.textContent = String(lineCount);
   elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
@@ -854,10 +847,10 @@ function updateDocumentChrome() {
   elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
   applyShellTheme(appState.theme);
   elements.settingsAppTheme.value = appState.theme;
-  elements.settingsPreviewTheme.value = appState.previewTheme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
-  elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize}).`;
+  const pdfCssSuffix = appState.pdfStylesheetPath ? " with custom PDF CSS." : ".";
+  elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize})${pdfCssSuffix}`;
   elements.settingsOverlay.hidden = !appState.settingsOpen;
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
   elements.previewOverlay.hidden = !appState.previewOverlayOpen;
@@ -1025,7 +1018,6 @@ function buildPreviewPayload() {
     content: appState.currentContent,
     filePath: appState.openFilePath,
     stylesheetPath: appState.previewStylesheetPath,
-    previewTheme: appState.previewTheme,
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
   };
@@ -1372,8 +1364,7 @@ async function exportCurrentDocument(format) {
     filePath: appState.openFilePath,
     destinationPath,
     format,
-    stylesheetPath: appState.previewStylesheetPath,
-    previewTheme: appState.previewTheme,
+    stylesheetPath: format === "pdf" ? appState.pdfStylesheetPath : appState.previewStylesheetPath,
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
   });
@@ -1471,13 +1462,6 @@ async function bindEvents() {
     await window.desktop.updateState({ theme: appState.theme });
   });
 
-  elements.settingsPreviewTheme.addEventListener("change", async (event) => {
-    appState.previewTheme = normalizePreviewThemeValue(event.target.value);
-    updateDocumentChrome();
-    await renderPreviewNow();
-    await window.desktop.updateState({ previewTheme: appState.previewTheme });
-  });
-
   elements.settingsPreviewFont.addEventListener("change", async (event) => {
     appState.previewFontFamily = normalizePreviewFontValue(event.target.value);
     updateDocumentChrome();
@@ -1492,7 +1476,7 @@ async function bindEvents() {
   });
 
   elements.chooseStylesheet.addEventListener("click", async () => {
-    const selectedStylesheet = await window.desktop.chooseStylesheet();
+    const selectedStylesheet = await window.desktop.chooseStylesheet("preview");
     if (!selectedStylesheet) {
       return;
     }
@@ -1500,6 +1484,7 @@ async function bindEvents() {
     appState.previewStylesheetPath = selectedStylesheet;
     updateDocumentChrome();
     await renderPreviewNow();
+    await window.desktop.updateState({ previewStylesheetPath: appState.previewStylesheetPath });
   });
 
   elements.clearStylesheet.addEventListener("click", async () => {
@@ -1507,6 +1492,23 @@ async function bindEvents() {
     updateDocumentChrome();
     await renderPreviewNow();
     await window.desktop.updateState({ previewStylesheetPath: null });
+  });
+
+  elements.choosePdfStylesheet.addEventListener("click", async () => {
+    const selectedStylesheet = await window.desktop.chooseStylesheet("pdf");
+    if (!selectedStylesheet) {
+      return;
+    }
+
+    appState.pdfStylesheetPath = selectedStylesheet;
+    updateDocumentChrome();
+    await window.desktop.updateState({ pdfStylesheetPath: appState.pdfStylesheetPath });
+  });
+
+  elements.clearPdfStylesheet.addEventListener("click", async () => {
+    appState.pdfStylesheetPath = null;
+    updateDocumentChrome();
+    await window.desktop.updateState({ pdfStylesheetPath: null });
   });
 
   elements.openReference.addEventListener("click", () => {
@@ -1579,12 +1581,12 @@ async function bindEvents() {
       workspacePath: appState.workspacePath,
       openFilePath: appState.openFilePath,
       theme: appState.theme,
-      previewTheme: appState.previewTheme,
       previewFontFamily: appState.previewFontFamily,
       pdfPaperSize: appState.pdfPaperSize,
       distractionFree: appState.distractionFree,
       workspaceCollapsed: appState.workspaceCollapsed,
-      previewStylesheetPath: appState.previewStylesheetPath
+      previewStylesheetPath: appState.previewStylesheetPath,
+      pdfStylesheetPath: appState.pdfStylesheetPath
     });
   });
 
@@ -1640,7 +1642,6 @@ function registerBootSequence() {
     const { state, initialDocument } = await window.desktop.getBootPayload();
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
-      previewTheme: normalizePreviewThemeValue(state?.previewTheme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       workspaceCollapsed: Boolean(state?.workspaceCollapsed)
