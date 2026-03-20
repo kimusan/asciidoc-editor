@@ -451,7 +451,6 @@ function createLayout() {
                   <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
                 </div>
                 <div class="command-group">
-                  <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
                   <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
                 </div>
               </div>
@@ -478,6 +477,16 @@ function createLayout() {
                     <span class="panel-icon">${ICONS.brand}</span>
                     <div class="panel-title">Editor</div>
                   </div>
+                  <div class="document-metrics document-metrics-compact">
+                    <div class="metric-pill metric-pill-compact">
+                      <span class="metric-label">Words</span>
+                      <strong id="word-count">0</strong>
+                    </div>
+                    <div class="metric-pill metric-pill-compact">
+                      <span class="metric-label">Lines</span>
+                      <strong id="line-count">1</strong>
+                    </div>
+                  </div>
                 </div>
                 <div id="editor-root" class="editor-root"></div>
               </section>
@@ -486,9 +495,10 @@ function createLayout() {
                 <div class="split-panel-header">
                   <div class="panel-header-main panel-header-compact">
                     <span class="panel-icon">${ICONS.preview}</span>
-                    <div class="panel-title">Live Preview</div>
+                  <div class="panel-title">Live Preview</div>
                   </div>
                   <div class="split-panel-actions">
+                    <button id="toggle-focus" class="toolbar-button ghost-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
                     <button id="open-preview-overlay" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.expand}</span><span>Expand</span></button>
                   </div>
                 </div>

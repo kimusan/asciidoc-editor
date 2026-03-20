@@ -330,6 +330,11 @@ input:focus-visible,
   margin-left: auto;
 }
 
+.document-metrics-compact {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .metric-pill,
 .panel-chip {
   display: inline-flex;
@@ -348,6 +353,21 @@ input:focus-visible,
 
 .metric-pill strong {
   font-size: 0.94rem;
+}
+
+.metric-pill-compact {
+  padding: 0.28rem 0.5rem;
+  min-width: 58px;
+  gap: 0.36rem;
+}
+
+.metric-pill-compact .metric-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+}
+
+.metric-pill-compact strong {
+  font-size: 0.82rem;
 }
 
 .editor-commandbar {
