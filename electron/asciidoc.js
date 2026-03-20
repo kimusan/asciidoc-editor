@@ -102,26 +102,23 @@ const BASE_PREVIEW_STYLES = `
   html, body {
     margin: 0;
     min-height: 100%;
-    background-color: var(--adoc-bg);
-    background-image: linear-gradient(180deg, var(--adoc-bg) 0%, color-mix(in srgb, var(--adoc-bg) 72%, #000 8%) 100%);
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    color: var(--adoc-text);
+    background: #ffffff;
+    color: #171717;
   }
 
   body {
     min-height: 100vh;
-    padding: 32px;
+    padding: 24px 28px 48px;
   }
 
   main {
     max-width: 920px;
     margin: 0 auto;
-    background: var(--adoc-surface);
-    border: 1px solid var(--adoc-border);
-    border-radius: 24px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
-    padding: 40px 48px 64px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
   }
 
   a {
@@ -147,15 +144,15 @@ const BASE_PREVIEW_STYLES = `
   }
 
   pre {
-    background: var(--adoc-code-bg);
-    border: 1px solid var(--adoc-border);
-    border-radius: 16px;
+    background: #f4f4f4;
+    border: 1px solid rgba(23, 23, 23, 0.14);
+    border-radius: 8px;
     padding: 16px 18px;
     overflow-x: auto;
   }
 
   code {
-    background: color-mix(in srgb, var(--adoc-code-bg) 88%, var(--adoc-surface));
+    background: #f4f4f4;
     padding: 0.15em 0.35em;
     border-radius: 0.35em;
   }
@@ -164,7 +161,7 @@ const BASE_PREVIEW_STYLES = `
     margin: 1.4em 0;
     padding: 0.2em 0 0.2em 1.2em;
     border-left: 4px solid var(--adoc-accent);
-    color: var(--adoc-subtle);
+    color: #5d5d5d;
   }
 
   table {
@@ -172,24 +169,24 @@ const BASE_PREVIEW_STYLES = `
     border-collapse: collapse;
     margin: 1.5em 0;
     overflow: hidden;
-    border-radius: 14px;
-    border: 1px solid var(--adoc-border);
+    border-radius: 0;
+    border: 1px solid rgba(23, 23, 23, 0.14);
   }
 
   th, td {
     padding: 0.75em 0.85em;
-    border-bottom: 1px solid var(--adoc-border);
+    border-bottom: 1px solid rgba(23, 23, 23, 0.14);
     text-align: left;
     vertical-align: top;
   }
 
   th {
-    background: color-mix(in srgb, var(--adoc-code-bg) 84%, var(--adoc-surface));
+    background: #f6f6f6;
   }
 
   img {
     max-width: 100%;
-    border-radius: 18px;
+    border-radius: 0;
   }
 `;
 

@@ -150,7 +150,8 @@ input:focus-visible,
 .panel-header-main,
 .editor-commandbar,
 .topbar-actions,
-.command-group {
+.command-group,
+.split-panel-actions {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -393,7 +394,7 @@ input:focus-visible,
 
 .preview-frame {
   border: 0;
-  background: #0c1118;
+  background: #ffffff;
 }
 
 .splitter {
@@ -453,6 +454,49 @@ input:focus-visible,
   width: min(760px, calc(100vw - 48px));
   height: auto;
   max-height: min(680px, calc(100vh - 56px));
+}
+
+.preview-dialog {
+  width: min(1240px, calc(100vw - 40px));
+  height: min(900px, calc(100vh - 40px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.preview-frame-expanded {
+  background: #ffffff;
+}
+
+.export-dialog {
+  width: min(760px, calc(100vw - 48px));
+  height: auto;
+  max-height: min(620px, calc(100vh - 56px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.format-grid {
+  padding: 18px 20px 22px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.format-card {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  border-radius: 22px;
+  padding: 18px;
+  min-height: 150px;
+}
+
+.format-card strong {
+  font-size: 1rem;
+}
+
+.format-card span {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 0.92rem;
 }
 
 .settings-dialog {
@@ -819,6 +863,7 @@ details[open] > summary.tree-entry-directory::before {
     height: auto;
   }
 
+  .format-grid,
   .about-grid {
     grid-template-columns: 1fr;
   }

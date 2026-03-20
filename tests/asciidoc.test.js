@@ -23,6 +23,8 @@ test("renderPreview injects preview chrome and custom theme variables", async ()
   assert.match(html, /--adoc-bg/);
   assert.match(html, />Demo</);
   assert.match(html, /A paragraph\./);
+  assert.doesNotMatch(html, /border-radius: 24px/);
+  assert.doesNotMatch(html, /box-shadow: 0 24px 60px/);
 });
 
 test("renderPreview includes the document header title", async () => {

@@ -277,6 +277,7 @@ const ICONS = {
   info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v5M12 7.5h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19 12a7.2 7.2 0 0 0-.08-1l1.86-1.45-1.75-3.03-2.25.72a7.55 7.55 0 0 0-1.72-.99L14.7 3h-3.4l-.36 2.25a7.55 7.55 0 0 0-1.72.99l-2.25-.72-1.75 3.03L5.08 11a7.2 7.2 0 0 0 0 2l-1.86 1.45 1.75 3.03 2.25-.72c.53.4 1.11.73 1.72.99L11.3 21h3.4l.36-2.25c.61-.26 1.19-.59 1.72-.99l2.25.72 1.75-3.03L18.92 13c.05-.33.08-.66.08-1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
   focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  expand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4H20v5.5M20 4l-7 7M9.5 20H4v-5.5M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`
 };
@@ -346,6 +347,8 @@ const appState = {
   previewInSync: true,
   isApplyingDocument: false,
   pendingPreviewAnchor: null,
+  previewOverlayOpen: false,
+  exportOverlayOpen: false,
   referenceQuery: "",
   referenceOpen: false,
   settingsOpen: false,
@@ -406,9 +409,7 @@ function createLayout() {
             </div>
             <div class="command-group">
               <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
-              <button id="export-html" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>HTML</span></button>
-              <button id="export-pdf" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>PDF</span></button>
-              <button id="export-docbook" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>DocBook</span></button>
+              <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
             </div>
           </div>
           <div class="editor-surface">
@@ -448,6 +449,9 @@ function createLayout() {
                       <div class="panel-subtitle">Follow xrefs, inspect final structure, and validate output as you write.</div>
                     </div>
                   </div>
+                  <div class="split-panel-actions">
+                    <button id="open-preview-overlay" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.expand}</span><span>Expand</span></button>
+                  </div>
                 </div>
                 <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
               </section>
@@ -455,6 +459,51 @@ function createLayout() {
           </div>
         </section>
       </main>
+      <div id="preview-overlay" class="reference-overlay" hidden>
+        <div id="preview-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog preview-dialog panel" role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.preview}</span>
+              <div>
+                <div id="preview-dialog-title" class="panel-title">Expanded Preview</div>
+                <div class="panel-subtitle">Read the document in a larger print-like view without leaving the editor.</div>
+              </div>
+            </div>
+            <button id="close-preview-overlay" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <iframe id="preview-frame-expanded" class="preview-frame preview-frame-expanded" title="Expanded AsciiDoc preview"></iframe>
+        </section>
+      </div>
+      <div id="export-overlay" class="reference-overlay" hidden>
+        <div id="export-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog export-dialog panel" role="dialog" aria-modal="true" aria-labelledby="export-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.export}</span>
+              <div>
+                <div id="export-title" class="panel-title">Export Document</div>
+                <div class="panel-subtitle">Choose the output format for the current document.</div>
+              </div>
+            </div>
+            <button id="close-export" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <div class="format-grid">
+            <button class="format-card" data-export-format="html">
+              <strong>HTML</strong>
+              <span>Styled HTML document for sharing or publishing.</span>
+            </button>
+            <button class="format-card" data-export-format="pdf">
+              <strong>PDF</strong>
+              <span>Clean print-friendly document export.</span>
+            </button>
+            <button class="format-card" data-export-format="docbook">
+              <strong>DocBook 5</strong>
+              <span>Structured XML export for downstream processing.</span>
+            </button>
+          </div>
+        </section>
+      </div>
       <div id="settings-overlay" class="reference-overlay" hidden>
         <div id="settings-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog settings-dialog panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -595,6 +644,16 @@ function createLayout() {
   elements.aboutOverlay = document.querySelector("#about-overlay");
   elements.aboutBackdrop = document.querySelector("#about-backdrop");
   elements.closeAbout = document.querySelector("#close-about");
+  elements.previewOverlay = document.querySelector("#preview-overlay");
+  elements.previewBackdrop = document.querySelector("#preview-backdrop");
+  elements.openPreviewOverlay = document.querySelector("#open-preview-overlay");
+  elements.closePreviewOverlay = document.querySelector("#close-preview-overlay");
+  elements.previewFrameExpanded = document.querySelector("#preview-frame-expanded");
+  elements.exportOverlay = document.querySelector("#export-overlay");
+  elements.exportBackdrop = document.querySelector("#export-backdrop");
+  elements.openExport = document.querySelector("#open-export");
+  elements.closeExport = document.querySelector("#close-export");
+  elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
   elements.fileTree = document.querySelector("#file-tree");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.documentName = document.querySelector("#document-name");
@@ -721,6 +780,10 @@ function updateDocumentChrome() {
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsOverlay.hidden = !appState.settingsOpen;
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
+  elements.previewOverlay.hidden = !appState.previewOverlayOpen;
+  elements.previewOverlay.classList.toggle("is-open", appState.previewOverlayOpen);
+  elements.exportOverlay.hidden = !appState.exportOverlayOpen;
+  elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
   elements.referenceOverlay.hidden = !appState.referenceOpen;
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
   elements.aboutOverlay.hidden = !appState.aboutOpen;
@@ -743,6 +806,26 @@ function openReferenceOverlay() {
 
 function closeReferenceOverlay() {
   appState.referenceOpen = false;
+  updateDocumentChrome();
+}
+
+function openPreviewOverlay() {
+  appState.previewOverlayOpen = true;
+  updateDocumentChrome();
+}
+
+function closePreviewOverlay() {
+  appState.previewOverlayOpen = false;
+  updateDocumentChrome();
+}
+
+function openExportOverlay() {
+  appState.exportOverlayOpen = true;
+  updateDocumentChrome();
+}
+
+function closeExportOverlay() {
+  appState.exportOverlayOpen = false;
   updateDocumentChrome();
 }
 
@@ -861,22 +944,25 @@ async function renderPreviewNow() {
   try {
     const html = await window.desktop.renderPreview(buildPreviewPayload());
     elements.previewFrame.srcdoc = html;
+    elements.previewFrameExpanded.srcdoc = html;
     appState.previewInSync = true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    elements.previewFrame.srcdoc = `<!doctype html><html><body style="font-family: sans-serif; padding: 24px;"><h2>Preview failed</h2><pre>${message}</pre></body></html>`;
+    const fallbackHtml = `<!doctype html><html><body style="font-family: sans-serif; padding: 24px;"><h2>Preview failed</h2><pre>${message}</pre></body></html>`;
+    elements.previewFrame.srcdoc = fallbackHtml;
+    elements.previewFrameExpanded.srcdoc = fallbackHtml;
     appState.previewInSync = false;
   }
 
   updateDocumentChrome();
 }
 
-function scrollPreviewToAnchor(anchorId) {
+function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame) {
   if (!anchorId) {
     return;
   }
 
-  const previewDocument = elements.previewFrame.contentDocument;
+  const previewDocument = frame.contentDocument;
   const target = previewDocument?.getElementById(anchorId);
   if (!target) {
     return;
@@ -888,9 +974,25 @@ function scrollPreviewToAnchor(anchorId) {
   });
 }
 
-async function handlePreviewLinkClick(event) {
-  const target = event.target instanceof Element ? event.target : event.target?.parentElement;
-  const anchor = target?.closest("a[href]");
+function findClosestLink(event) {
+  const path = typeof event.composedPath === "function"
+    ? event.composedPath()
+    : [event.target];
+
+  for (const candidate of path) {
+    if (candidate && typeof candidate.closest === "function") {
+      const anchor = candidate.closest("a[href]");
+      if (anchor) {
+        return anchor;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function handlePreviewLinkClick(event, frame) {
+  const anchor = findClosestLink(event);
   if (!anchor) {
     return;
   }
@@ -910,7 +1012,7 @@ async function handlePreviewLinkClick(event) {
   }
 
   if (result.type === "anchor") {
-    scrollPreviewToAnchor(result.anchorId);
+    scrollPreviewToAnchor(result.anchorId, frame);
     return;
   }
 
@@ -919,23 +1021,25 @@ async function handlePreviewLinkClick(event) {
   }
 }
 
-function installPreviewInteractions() {
-  const previewDocument = elements.previewFrame.contentDocument;
+function installPreviewInteractions(frame) {
+  const previewDocument = frame.contentDocument;
   if (!previewDocument?.body || previewDocument.body.dataset.previewBound === "true") {
     if (appState.pendingPreviewAnchor) {
-      scrollPreviewToAnchor(appState.pendingPreviewAnchor);
+      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame);
+      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded);
       appState.pendingPreviewAnchor = null;
     }
     return;
   }
 
   previewDocument.addEventListener("click", (event) => {
-    void handlePreviewLinkClick(event);
+    void handlePreviewLinkClick(event, frame);
   });
   previewDocument.body.dataset.previewBound = "true";
 
   if (appState.pendingPreviewAnchor) {
-    scrollPreviewToAnchor(appState.pendingPreviewAnchor);
+    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame);
+    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded);
     appState.pendingPreviewAnchor = null;
   }
 }
@@ -1113,6 +1217,37 @@ async function bindEvents() {
     openSettingsOverlay();
   });
 
+  elements.openPreviewOverlay.addEventListener("click", () => {
+    openPreviewOverlay();
+  });
+
+  elements.closePreviewOverlay.addEventListener("click", () => {
+    closePreviewOverlay();
+  });
+
+  elements.previewBackdrop.addEventListener("click", () => {
+    closePreviewOverlay();
+  });
+
+  elements.openExport.addEventListener("click", () => {
+    openExportOverlay();
+  });
+
+  elements.closeExport.addEventListener("click", () => {
+    closeExportOverlay();
+  });
+
+  elements.exportBackdrop.addEventListener("click", () => {
+    closeExportOverlay();
+  });
+
+  elements.exportFormats.forEach((button) => {
+    button.addEventListener("click", () => {
+      closeExportOverlay();
+      void exportCurrentDocument(button.dataset.exportFormat);
+    });
+  });
+
   elements.closeSettings.addEventListener("click", () => {
     closeSettingsOverlay();
   });
@@ -1160,16 +1295,6 @@ async function bindEvents() {
     await window.desktop.updateState({ previewStylesheetPath: null });
   });
 
-  document.querySelector("#export-html").addEventListener("click", () => {
-    void exportCurrentDocument("html");
-  });
-  document.querySelector("#export-pdf").addEventListener("click", () => {
-    void exportCurrentDocument("pdf");
-  });
-  document.querySelector("#export-docbook").addEventListener("click", () => {
-    void exportCurrentDocument("docbook");
-  });
-
   elements.openReference.addEventListener("click", () => {
     openReferenceOverlay();
   });
@@ -1200,7 +1325,11 @@ async function bindEvents() {
   });
 
   elements.previewFrame.addEventListener("load", () => {
-    installPreviewInteractions();
+    installPreviewInteractions(elements.previewFrame);
+  });
+
+  elements.previewFrameExpanded.addEventListener("load", () => {
+    installPreviewInteractions(elements.previewFrameExpanded);
   });
 
   elements.fileTree.addEventListener("click", async (event) => {
@@ -1245,6 +1374,14 @@ async function bindEvents() {
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (appState.exportOverlayOpen) {
+        closeExportOverlay();
+      }
+
+      if (appState.previewOverlayOpen) {
+        closePreviewOverlay();
+      }
+
       if (appState.settingsOpen) {
         closeSettingsOverlay();
       }
