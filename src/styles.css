@@ -466,6 +466,10 @@ input:focus-visible,
   min-width: 0;
   min-height: 0;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.split-panel-editor {
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
