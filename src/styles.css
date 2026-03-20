@@ -199,12 +199,13 @@ input:focus-visible,
 
 .layout-grid {
   display: grid;
-  grid-template-columns: 280px 0 minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 18px;
   min-height: 0;
 }
 
 .workspace-panel {
+  grid-column: 1;
   min-height: 0;
   border-radius: 30px;
   padding: 20px;
@@ -221,6 +222,7 @@ input:focus-visible,
 }
 
 .workspace-rail {
+  grid-column: 2;
   align-self: stretch;
   justify-self: center;
   width: 30px;
@@ -236,6 +238,15 @@ input:focus-visible,
   display: none;
 }
 
+.editor-stage {
+  grid-column: 2;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 34px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .shell.workspace-collapsed .layout-grid {
   grid-template-columns: 0 30px minmax(0, 1fr);
 }
@@ -247,6 +258,17 @@ input:focus-visible,
   transform: translateX(-16px);
   padding: 0;
   border-color: transparent;
+}
+
+.shell.workspace-collapsed .editor-stage {
+  grid-column: 3;
+}
+
+.editor-stage-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 26px 10px;
 }
 
 .workspace-label {
@@ -265,21 +287,6 @@ input:focus-visible,
   min-height: 0;
   overflow: auto;
   padding-right: 6px;
-}
-
-.editor-stage {
-  min-height: 0;
-  overflow: hidden;
-  border-radius: 34px;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-}
-
-.editor-stage-header {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 16px 26px 10px;
 }
 
 .editor-title-stack {
@@ -895,7 +902,7 @@ details[open] > summary.tree-entry-directory::before {
 
 @media (max-width: 1260px) {
   .layout-grid {
-    grid-template-columns: 240px 0 minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 
   .shell.workspace-collapsed .layout-grid {
@@ -926,6 +933,13 @@ details[open] > summary.tree-entry-directory::before {
 
   .layout-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-panel,
+  .workspace-rail,
+  .editor-stage,
+  .shell.workspace-collapsed .editor-stage {
+    grid-column: 1;
   }
 
   .workspace-rail {
