@@ -512,9 +512,8 @@ input:focus-visible,
 }
 
 .editor-searchbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  gap: 8px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--panel-border);
   background: color-mix(in srgb, var(--panel-bg-strong) 72%, transparent);
@@ -522,6 +521,12 @@ input:focus-visible,
 
 .editor-searchbar[hidden] {
   display: none;
+}
+
+.editor-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .editor-search-shell {
@@ -534,6 +539,16 @@ input:focus-visible,
   border: 1px solid var(--control-border);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
+}
+
+.editor-replace-shell {
+  flex: 1 1 auto;
+}
+
+.editor-search-label {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .editor-search-shell .button-icon {
@@ -1126,6 +1141,10 @@ details[open] > summary.tree-entry-directory::before {
   }
 
   .editor-searchbar {
+    gap: 10px;
+  }
+
+  .editor-search-row {
     flex-wrap: wrap;
   }
 

@@ -10,7 +10,9 @@ import {
   setSearchQuery,
   getSearchQuery,
   findNext,
-  findPrevious
+  findPrevious,
+  replaceNext,
+  replaceAll
 } from "@codemirror/search";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
@@ -427,6 +429,8 @@ const appState = {
   workspaceQuery: "",
   editorSearchOpen: false,
   editorSearchQuery: "",
+  editorReplaceOpen: false,
+  editorReplaceQuery: "",
   editorSearchCaseSensitive: false,
   editorSearchWholeWord: false,
   editorSearchRegex: false,
@@ -539,18 +543,31 @@ function createLayout() {
                   </div>
                 </div>
                 <div id="editor-searchbar" class="editor-searchbar" hidden>
-                  <label class="editor-search-shell">
-                    <span class="button-icon">${ICONS.search}</span>
-                    <input id="editor-search-input" class="editor-search-input" type="search" placeholder="Find in document..." />
-                  </label>
-                  <div id="editor-search-status" class="editor-search-status">0 matches</div>
-                  <div class="editor-search-actions">
-                    <button id="editor-search-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
-                    <button id="editor-search-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
-                    <button id="editor-search-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
-                    <button id="editor-search-prev" class="toolbar-button ghost-button" type="button">Prev</button>
-                    <button id="editor-search-next" class="toolbar-button ghost-button" type="button">Next</button>
-                    <button id="editor-search-close" class="toolbar-button ghost-button" type="button">Close</button>
+                  <div class="editor-search-row">
+                    <label class="editor-search-shell">
+                      <span class="button-icon">${ICONS.search}</span>
+                      <input id="editor-search-input" class="editor-search-input" type="search" placeholder="Find in document..." />
+                    </label>
+                    <div id="editor-search-status" class="editor-search-status">0 matches</div>
+                    <div class="editor-search-actions">
+                      <button id="editor-search-show-replace" class="toolbar-button ghost-button search-toggle" type="button">Replace</button>
+                      <button id="editor-search-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
+                      <button id="editor-search-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
+                      <button id="editor-search-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
+                      <button id="editor-search-prev" class="toolbar-button ghost-button" type="button">Prev</button>
+                      <button id="editor-search-next" class="toolbar-button ghost-button" type="button">Next</button>
+                      <button id="editor-search-close" class="toolbar-button ghost-button" type="button">Close</button>
+                    </div>
+                  </div>
+                  <div id="editor-replace-row" class="editor-search-row editor-replace-row" hidden>
+                    <label class="editor-search-shell editor-replace-shell">
+                      <span class="editor-search-label">Replace</span>
+                      <input id="editor-replace-input" class="editor-search-input" type="text" placeholder="Replace with..." />
+                    </label>
+                    <div class="editor-search-actions">
+                      <button id="editor-replace-next" class="toolbar-button ghost-button" type="button">Replace</button>
+                      <button id="editor-replace-all" class="toolbar-button ghost-button" type="button">Replace All</button>
+                    </div>
                   </div>
                 </div>
                 <div id="editor-root" class="editor-root"></div>
@@ -796,6 +813,11 @@ function createLayout() {
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
+  elements.editorSearchShowReplace = document.querySelector("#editor-search-show-replace");
+  elements.editorReplaceRow = document.querySelector("#editor-replace-row");
+  elements.editorReplaceInput = document.querySelector("#editor-replace-input");
+  elements.editorReplaceNext = document.querySelector("#editor-replace-next");
+  elements.editorReplaceAll = document.querySelector("#editor-replace-all");
   elements.editorSearchStatus = document.querySelector("#editor-search-status");
   elements.editorSearchCase = document.querySelector("#editor-search-case");
   elements.editorSearchWord = document.querySelector("#editor-search-word");
@@ -846,6 +868,7 @@ function renderReferenceGuide() {
 function buildEditorSearchQuery() {
   return new SearchQuery({
     search: appState.editorSearchQuery,
+    replace: appState.editorReplaceQuery,
     caseSensitive: appState.editorSearchCaseSensitive,
     wholeWord: appState.editorSearchWholeWord,
     regexp: appState.editorSearchRegex
@@ -900,8 +923,9 @@ function syncEditorSearchQuery() {
   updateEditorSearchStatus();
 }
 
-function openEditorSearch(prefillSelection = false) {
+function openEditorSearch({ prefillSelection = false, showReplace = false } = {}) {
   appState.editorSearchOpen = true;
+  appState.editorReplaceOpen = showReplace || appState.editorReplaceOpen;
 
   if (prefillSelection) {
     const selection = editorView.state.selection.main;
@@ -922,7 +946,9 @@ function openEditorSearch(prefillSelection = false) {
 
 function closeEditorSearch() {
   appState.editorSearchOpen = false;
+  appState.editorReplaceOpen = false;
   appState.editorSearchQuery = "";
+  appState.editorReplaceQuery = "";
   updateDocumentChrome();
   syncEditorSearchQuery();
   editorView.focus();
@@ -930,7 +956,7 @@ function closeEditorSearch() {
 
 function runEditorSearchNavigation(direction) {
   if (!appState.editorSearchOpen) {
-    openEditorSearch(true);
+    openEditorSearch({ prefillSelection: true });
   }
 
   syncEditorSearchQuery();
@@ -940,6 +966,34 @@ function runEditorSearchNavigation(direction) {
 
   const command = direction === "previous" ? findPrevious : findNext;
   command(editorView);
+  updateEditorSearchStatus();
+}
+
+function runEditorReplaceNext() {
+  if (!appState.editorSearchOpen) {
+    openEditorSearch({ prefillSelection: true, showReplace: true });
+  }
+
+  syncEditorSearchQuery();
+  if (!appState.editorSearchQuery.trim()) {
+    return;
+  }
+
+  replaceNext(editorView);
+  updateEditorSearchStatus();
+}
+
+function runEditorReplaceAll() {
+  if (!appState.editorSearchOpen) {
+    openEditorSearch({ prefillSelection: true, showReplace: true });
+  }
+
+  syncEditorSearchQuery();
+  if (!appState.editorSearchQuery.trim()) {
+    return;
+  }
+
+  replaceAll(editorView);
   updateEditorSearchStatus();
 }
 
@@ -956,7 +1010,14 @@ function createEditor() {
       {
         key: "Mod-f",
         run: () => {
-          openEditorSearch(true);
+          openEditorSearch({ prefillSelection: true });
+          return true;
+        }
+      },
+      {
+        key: "Mod-h",
+        run: () => {
+          openEditorSearch({ prefillSelection: true, showReplace: true });
           return true;
         }
       },
@@ -1057,7 +1118,10 @@ function updateDocumentChrome() {
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
+  elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
   elements.editorSearchInput.value = appState.editorSearchQuery;
+  elements.editorReplaceInput.value = appState.editorReplaceQuery;
+  elements.editorSearchShowReplace.classList.toggle("is-active", appState.editorReplaceOpen);
   elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
   elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
@@ -1772,6 +1836,35 @@ async function bindEvents() {
     }
   });
 
+  elements.editorSearchShowReplace.addEventListener("click", () => {
+    appState.editorReplaceOpen = !appState.editorReplaceOpen;
+    updateDocumentChrome();
+    if (appState.editorReplaceOpen) {
+      requestAnimationFrame(() => {
+        elements.editorReplaceInput.focus();
+      });
+    } else {
+      elements.editorSearchInput.focus();
+    }
+  });
+
+  elements.editorReplaceInput.addEventListener("input", () => {
+    appState.editorReplaceQuery = elements.editorReplaceInput.value;
+    syncEditorSearchQuery();
+  });
+
+  elements.editorReplaceInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runEditorReplaceNext();
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeEditorSearch();
+    }
+  });
+
   elements.editorSearchCase.addEventListener("click", () => {
     appState.editorSearchCaseSensitive = !appState.editorSearchCaseSensitive;
     updateDocumentChrome();
@@ -1800,6 +1893,14 @@ async function bindEvents() {
 
   elements.editorSearchClose.addEventListener("click", () => {
     closeEditorSearch();
+  });
+
+  elements.editorReplaceNext.addEventListener("click", () => {
+    runEditorReplaceNext();
+  });
+
+  elements.editorReplaceAll.addEventListener("click", () => {
+    runEditorReplaceAll();
   });
 
   elements.openReference.addEventListener("click", () => {
@@ -1921,6 +2022,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key === ",") {
       event.preventDefault();
       openSettingsOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "h") {
+      event.preventDefault();
+      openEditorSearch({ prefillSelection: true, showReplace: true });
     }
 
     if (event.key === "F3") {
