@@ -466,7 +466,7 @@ input:focus-visible,
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .split-panel-header {
@@ -505,6 +505,71 @@ input:focus-visible,
 .panel-title {
   font-weight: 700;
   font-size: 0.9rem;
+}
+
+.editor-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--panel-border);
+  background: color-mix(in srgb, var(--panel-bg-strong) 72%, transparent);
+}
+
+.editor-searchbar[hidden] {
+  display: none;
+}
+
+.editor-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0.88rem;
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.editor-search-shell .button-icon {
+  color: var(--text-tertiary);
+}
+
+.editor-search-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.7rem 0;
+}
+
+.editor-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.editor-search-input:focus-visible {
+  outline: none;
+}
+
+.editor-search-status {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.editor-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.search-toggle.is-active {
+  border-color: var(--control-border-hover);
+  background: color-mix(in srgb, var(--accent) 14%, var(--control-bg));
+  color: var(--text-primary);
 }
 
 .panel-subtitle {
@@ -1054,6 +1119,15 @@ details[open] > summary.tree-entry-directory::before {
   .editor-stage-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .editor-searchbar {
+    flex-wrap: wrap;
+  }
+
+  .editor-search-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .document-metrics,

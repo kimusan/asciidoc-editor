@@ -2,7 +2,16 @@ import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import {
+  search,
+  searchKeymap,
+  highlightSelectionMatches,
+  SearchQuery,
+  setSearchQuery,
+  getSearchQuery,
+  findNext,
+  findPrevious
+} from "@codemirror/search";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { asciidocLanguage } from "./syntax/asciidoc-language.js";
@@ -416,6 +425,11 @@ const appState = {
   distractionFree: false,
   workspaceCollapsed: false,
   workspaceQuery: "",
+  editorSearchOpen: false,
+  editorSearchQuery: "",
+  editorSearchCaseSensitive: false,
+  editorSearchWholeWord: false,
+  editorSearchRegex: false,
   currentContent: "= Untitled\n\nStart writing...",
   currentFileName: "Untitled.adoc",
   isDirty: false,
@@ -522,6 +536,21 @@ function createLayout() {
                         <strong id="line-count">1</strong>
                       </div>
                     </div>
+                  </div>
+                </div>
+                <div id="editor-searchbar" class="editor-searchbar" hidden>
+                  <label class="editor-search-shell">
+                    <span class="button-icon">${ICONS.search}</span>
+                    <input id="editor-search-input" class="editor-search-input" type="search" placeholder="Find in document..." />
+                  </label>
+                  <div id="editor-search-status" class="editor-search-status">0 matches</div>
+                  <div class="editor-search-actions">
+                    <button id="editor-search-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
+                    <button id="editor-search-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
+                    <button id="editor-search-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
+                    <button id="editor-search-prev" class="toolbar-button ghost-button" type="button">Prev</button>
+                    <button id="editor-search-next" class="toolbar-button ghost-button" type="button">Next</button>
+                    <button id="editor-search-close" class="toolbar-button ghost-button" type="button">Close</button>
                   </div>
                 </div>
                 <div id="editor-root" class="editor-root"></div>
@@ -765,6 +794,15 @@ function createLayout() {
   elements.documentStatus = document.querySelector("#document-status");
   elements.previewFrame = document.querySelector("#preview-frame");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
+  elements.editorSearchBar = document.querySelector("#editor-searchbar");
+  elements.editorSearchInput = document.querySelector("#editor-search-input");
+  elements.editorSearchStatus = document.querySelector("#editor-search-status");
+  elements.editorSearchCase = document.querySelector("#editor-search-case");
+  elements.editorSearchWord = document.querySelector("#editor-search-word");
+  elements.editorSearchRegex = document.querySelector("#editor-search-regex");
+  elements.editorSearchPrev = document.querySelector("#editor-search-prev");
+  elements.editorSearchNext = document.querySelector("#editor-search-next");
+  elements.editorSearchClose = document.querySelector("#editor-search-close");
   elements.splitLayout = document.querySelector("#split-layout");
   elements.splitter = document.querySelector("#splitter");
   elements.wordCount = document.querySelector("#word-count");
@@ -805,15 +843,137 @@ function renderReferenceGuide() {
     : `<div class="reference-empty">No reference entries match that search. Try “xref”, “table”, “ifdef”, or “attributes”.</div>`;
 }
 
+function buildEditorSearchQuery() {
+  return new SearchQuery({
+    search: appState.editorSearchQuery,
+    caseSensitive: appState.editorSearchCaseSensitive,
+    wholeWord: appState.editorSearchWholeWord,
+    regexp: appState.editorSearchRegex
+  });
+}
+
+function updateEditorSearchStatus() {
+  if (!editorView) {
+    return;
+  }
+
+  const query = getSearchQuery(editorView.state);
+  if (!query.search) {
+    elements.editorSearchStatus.textContent = "0 matches";
+    return;
+  }
+
+  if (!query.valid) {
+    elements.editorSearchStatus.textContent = "Invalid pattern";
+    return;
+  }
+
+  const cursor = query.getCursor(editorView.state.doc.toString());
+  const selection = editorView.state.selection.main;
+  let total = 0;
+  let current = 0;
+
+  for (let next = cursor.next(); !next.done; next = cursor.next()) {
+    total += 1;
+    const { from, to } = next.value;
+    if (
+      (selection.from === from && selection.to === to)
+      || (selection.head >= from && selection.head <= to)
+    ) {
+      current = total;
+    }
+  }
+
+  elements.editorSearchStatus.textContent = total === 0
+    ? "0 matches"
+    : `${current || 1}/${total}`;
+}
+
+function syncEditorSearchQuery() {
+  if (!editorView) {
+    return;
+  }
+
+  editorView.dispatch({
+    effects: setSearchQuery.of(buildEditorSearchQuery())
+  });
+  updateEditorSearchStatus();
+}
+
+function openEditorSearch(prefillSelection = false) {
+  appState.editorSearchOpen = true;
+
+  if (prefillSelection) {
+    const selection = editorView.state.selection.main;
+    const selectedText = selection.empty ? "" : editorView.state.sliceDoc(selection.from, selection.to);
+    if (selectedText) {
+      appState.editorSearchQuery = selectedText;
+    }
+  }
+
+  updateDocumentChrome();
+  syncEditorSearchQuery();
+
+  requestAnimationFrame(() => {
+    elements.editorSearchInput.focus();
+    elements.editorSearchInput.select();
+  });
+}
+
+function closeEditorSearch() {
+  appState.editorSearchOpen = false;
+  appState.editorSearchQuery = "";
+  updateDocumentChrome();
+  syncEditorSearchQuery();
+  editorView.focus();
+}
+
+function runEditorSearchNavigation(direction) {
+  if (!appState.editorSearchOpen) {
+    openEditorSearch(true);
+  }
+
+  syncEditorSearchQuery();
+  if (!appState.editorSearchQuery.trim()) {
+    return;
+  }
+
+  const command = direction === "previous" ? findPrevious : findNext;
+  command(editorView);
+  updateEditorSearchStatus();
+}
+
 function createEditor() {
   const baseExtensions = [
     lineNumbers(),
     history(),
     drawSelection(),
+    search(),
     highlightActiveLine(),
     highlightSelectionMatches(),
     autocompletion(),
     keymap.of([
+      {
+        key: "Mod-f",
+        run: () => {
+          openEditorSearch(true);
+          return true;
+        }
+      },
+      {
+        key: "F3",
+        run: () => {
+          runEditorSearchNavigation("next");
+          return true;
+        }
+      },
+      {
+        key: "Shift-F3",
+        run: () => {
+          runEditorSearchNavigation("previous");
+          return true;
+        }
+      },
       ...defaultKeymap,
       ...historyKeymap,
       ...searchKeymap,
@@ -844,6 +1004,10 @@ function createEditor() {
 
       if ((update.docChanged || update.selectionSet || update.viewportChanged) && !appState.isApplyingDocument) {
         schedulePreviewSync();
+      }
+
+      if (update.docChanged || update.selectionSet) {
+        updateEditorSearchStatus();
       }
     })
   ];
@@ -892,6 +1056,11 @@ function updateDocumentChrome() {
   elements.settingsAppTheme.value = appState.theme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
+  elements.editorSearchBar.hidden = !appState.editorSearchOpen;
+  elements.editorSearchInput.value = appState.editorSearchQuery;
+  elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
+  elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
+  elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
   const pdfCssSuffix = appState.pdfStylesheetPath ? " with custom PDF CSS." : ".";
   elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize})${pdfCssSuffix}`;
   elements.settingsOverlay.hidden = !appState.settingsOpen;
@@ -1586,6 +1755,53 @@ async function bindEvents() {
     await window.desktop.updateState({ pdfStylesheetPath: null });
   });
 
+  elements.editorSearchInput.addEventListener("input", () => {
+    appState.editorSearchQuery = elements.editorSearchInput.value;
+    syncEditorSearchQuery();
+  });
+
+  elements.editorSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runEditorSearchNavigation(event.shiftKey ? "previous" : "next");
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeEditorSearch();
+    }
+  });
+
+  elements.editorSearchCase.addEventListener("click", () => {
+    appState.editorSearchCaseSensitive = !appState.editorSearchCaseSensitive;
+    updateDocumentChrome();
+    syncEditorSearchQuery();
+  });
+
+  elements.editorSearchWord.addEventListener("click", () => {
+    appState.editorSearchWholeWord = !appState.editorSearchWholeWord;
+    updateDocumentChrome();
+    syncEditorSearchQuery();
+  });
+
+  elements.editorSearchRegex.addEventListener("click", () => {
+    appState.editorSearchRegex = !appState.editorSearchRegex;
+    updateDocumentChrome();
+    syncEditorSearchQuery();
+  });
+
+  elements.editorSearchPrev.addEventListener("click", () => {
+    runEditorSearchNavigation("previous");
+  });
+
+  elements.editorSearchNext.addEventListener("click", () => {
+    runEditorSearchNavigation("next");
+  });
+
+  elements.editorSearchClose.addEventListener("click", () => {
+    closeEditorSearch();
+  });
+
   elements.openReference.addEventListener("click", () => {
     openReferenceOverlay();
   });
@@ -1691,6 +1907,10 @@ async function bindEvents() {
       if (appState.referenceOpen) {
         closeReferenceOverlay();
       }
+
+      if (appState.editorSearchOpen) {
+        closeEditorSearch();
+      }
     }
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
@@ -1701,6 +1921,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key === ",") {
       event.preventDefault();
       openSettingsOverlay();
+    }
+
+    if (event.key === "F3") {
+      event.preventDefault();
+      runEditorSearchNavigation(event.shiftKey ? "previous" : "next");
     }
   });
 
