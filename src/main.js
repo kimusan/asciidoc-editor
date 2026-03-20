@@ -438,24 +438,24 @@ function createLayout() {
         </button>
         <section class="editor-stage panel">
           <div class="editor-stage-header">
-            <div class="editor-title-stack">
-              <div class="document-meta-row">
-                <div class="document-kicker">Active Draft</div>
-                <div id="document-status" class="document-status">Preview synced</div>
+            <div class="editor-stage-bar">
+              <div class="editor-title-stack">
+                <div class="document-meta-row">
+                  <div class="document-kicker">Active Draft</div>
+                  <div id="document-status" class="document-status">Preview synced</div>
+                </div>
+                <div id="document-name" class="document-name">Untitled.adoc</div>
               </div>
-              <div id="document-name" class="document-name">Untitled.adoc</div>
+              <div class="editor-commandbar">
+                <div class="command-group">
+                  <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
+                </div>
+                <div class="command-group">
+                  <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
+                  <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="editor-commandbar">
-            <div class="command-group">
-              <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
-            </div>
-            <div class="command-group">
-              <button id="toggle-focus" class="toolbar-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
-              <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
-            </div>
-          </div>
-          <div class="editor-surface">
             <div class="editor-surface-meta">
               <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
               <div class="document-metrics">
@@ -469,15 +469,14 @@ function createLayout() {
                 </div>
               </div>
             </div>
+          </div>
+          <div class="editor-surface">
             <div id="split-layout" class="split-layout">
               <section class="split-panel split-panel-editor">
                 <div class="split-panel-header">
-                  <div class="panel-header-main">
+                  <div class="panel-header-main panel-header-compact">
                     <span class="panel-icon">${ICONS.brand}</span>
-                    <div>
-                      <div class="panel-title">Editor</div>
-                      <div class="panel-subtitle">Write with live syntax highlighting and keyboard-first editing.</div>
-                    </div>
+                    <div class="panel-title">Editor</div>
                   </div>
                 </div>
                 <div id="editor-root" class="editor-root"></div>
@@ -485,12 +484,9 @@ function createLayout() {
               <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview"></div>
               <section class="split-panel split-panel-preview">
                 <div class="split-panel-header">
-                  <div class="panel-header-main">
+                  <div class="panel-header-main panel-header-compact">
                     <span class="panel-icon">${ICONS.preview}</span>
-                    <div>
-                      <div class="panel-title">Live Preview</div>
-                      <div class="panel-subtitle">Follow xrefs, inspect final structure, and validate output as you write.</div>
-                    </div>
+                    <div class="panel-title">Live Preview</div>
                   </div>
                   <div class="split-panel-actions">
                     <button id="open-preview-overlay" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.expand}</span><span>Expand</span></button>
