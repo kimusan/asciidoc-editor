@@ -333,6 +333,7 @@ input:focus-visible,
 .document-metrics-compact {
   gap: 8px;
   flex-wrap: nowrap;
+  margin-left: 0;
 }
 
 .metric-pill,
@@ -398,10 +399,24 @@ input:focus-visible,
   padding-bottom: 10px;
 }
 
+.editor-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-left: auto;
+}
+
 .panel-chip {
   padding: 0.42rem 0.72rem;
   color: var(--text-secondary);
   font-size: 0.76rem;
+}
+
+.panel-chip-compact {
+  padding: 0.3rem 0.58rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .split-layout {

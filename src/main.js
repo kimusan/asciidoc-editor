@@ -493,9 +493,6 @@ function createLayout() {
                 </div>
               </div>
             </div>
-            <div class="editor-surface-meta">
-              <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
-            </div>
           </div>
           <div class="editor-surface">
             <div id="split-layout" class="split-layout">
@@ -505,14 +502,17 @@ function createLayout() {
                     <span class="panel-icon">${ICONS.brand}</span>
                     <div class="panel-title">Editor</div>
                   </div>
-                  <div class="document-metrics document-metrics-compact">
-                    <div class="metric-pill metric-pill-compact">
-                      <span class="metric-label">Words</span>
-                      <strong id="word-count">0</strong>
-                    </div>
-                    <div class="metric-pill metric-pill-compact">
-                      <span class="metric-label">Lines</span>
-                      <strong id="line-count">1</strong>
+                  <div class="editor-panel-meta">
+                    <span id="stylesheet-chip" class="panel-chip panel-chip-compact">No custom preview CSS</span>
+                    <div class="document-metrics document-metrics-compact">
+                      <div class="metric-pill metric-pill-compact">
+                        <span class="metric-label">Words</span>
+                        <strong id="word-count">0</strong>
+                      </div>
+                      <div class="metric-pill metric-pill-compact">
+                        <span class="metric-label">Lines</span>
+                        <strong id="line-count">1</strong>
+                      </div>
                     </div>
                   </div>
                 </div>
