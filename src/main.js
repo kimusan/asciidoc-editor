@@ -337,6 +337,7 @@ const ICONS = {
   expand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4H20v5.5M20 4l-7 7M9.5 20H4v-5.5M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   collapseSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M13.5 9 10 12l3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   expandSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M10.5 9 14 12l-3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 };
@@ -604,6 +605,9 @@ function createLayout() {
         </button>
         <section class="editor-stage panel">
           <div class="editor-stage-header">
+            <button id="exit-focus-mode" class="toolbar-button ghost-button focus-exit-button" type="button" aria-label="Exit focus mode">
+              <span class="button-icon">${ICONS.close}</span>
+            </button>
             <div class="editor-stage-bar">
               <div class="editor-title-stack">
                 <div class="document-meta-row">
@@ -934,6 +938,7 @@ function createLayout() {
   elements.expandWorkspace = document.querySelector("#expand-workspace");
   elements.workspaceSearch = document.querySelector("#workspace-search");
   elements.workspaceLabel = document.querySelector("#workspace-label");
+  elements.exitFocusMode = document.querySelector("#exit-focus-mode");
   elements.documentName = document.querySelector("#document-name");
   elements.documentStatus = document.querySelector("#document-status");
   elements.previewFrame = document.querySelector("#preview-frame");
@@ -1277,6 +1282,12 @@ async function setWorkspaceCollapsed(nextValue) {
   appState.workspaceCollapsed = nextValue;
   updateDocumentChrome();
   await window.desktop.updateState({ workspaceCollapsed: appState.workspaceCollapsed });
+}
+
+async function setDistractionFree(nextValue) {
+  appState.distractionFree = nextValue;
+  updateDocumentChrome();
+  await window.desktop.updateState({ distractionFree: appState.distractionFree });
 }
 
 function openReferenceOverlay() {
@@ -1857,9 +1868,11 @@ async function bindEvents() {
   });
 
   document.querySelector("#toggle-focus").addEventListener("click", async () => {
-    appState.distractionFree = !appState.distractionFree;
-    updateDocumentChrome();
-    await window.desktop.updateState({ distractionFree: appState.distractionFree });
+    await setDistractionFree(!appState.distractionFree);
+  });
+
+  elements.exitFocusMode.addEventListener("click", async () => {
+    await setDistractionFree(false);
   });
 
   elements.openSettings.addEventListener("click", () => {

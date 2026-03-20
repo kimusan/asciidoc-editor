@@ -265,6 +265,7 @@ input:focus-visible,
 }
 
 .editor-stage-header {
+  position: relative;
   display: grid;
   gap: 10px;
   padding: 12px 20px 10px;
@@ -1150,6 +1151,16 @@ details[open] > summary.tree-entry-directory::before {
   border-color: rgba(124, 242, 216, 0.22);
 }
 
+.focus-exit-button {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  min-width: 0;
+  padding: 0.6rem;
+  z-index: 2;
+}
+
 .shell.focus-mode {
   gap: 0;
   padding: 28px;
@@ -1164,13 +1175,21 @@ details[open] > summary.tree-entry-directory::before {
 }
 
 .shell.focus-mode .layout-grid {
-  grid-template-columns: minmax(0, 960px);
+  grid-template-columns: minmax(0, 1fr);
   justify-content: center;
 }
 
 .shell.focus-mode .editor-stage {
+  width: min(90vw, 1560px);
+  min-width: min(760px, 100%);
+  max-width: 100%;
+  justify-self: center;
   min-height: calc(100vh - 56px);
   background: var(--panel-bg-strong);
+}
+
+.shell.focus-mode .editor-stage-header {
+  padding-right: 72px;
 }
 
 .shell.focus-mode .editor-commandbar {
@@ -1179,6 +1198,10 @@ details[open] > summary.tree-entry-directory::before {
 
 .shell.focus-mode .editor-commandbar .command-group:first-child {
   display: none;
+}
+
+.shell.focus-mode .focus-exit-button {
+  display: inline-flex;
 }
 
 .shell.focus-mode .split-layout {
@@ -1239,6 +1262,11 @@ details[open] > summary.tree-entry-directory::before {
   .editor-stage-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .focus-exit-button {
+    top: 10px;
+    right: 12px;
   }
 
   .editor-searchbar {
