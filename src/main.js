@@ -495,16 +495,6 @@ function createLayout() {
             </div>
             <div class="editor-surface-meta">
               <span id="stylesheet-chip" class="panel-chip">No custom preview CSS</span>
-              <div class="document-metrics">
-                <div class="metric-pill">
-                  <span class="metric-label">Words</span>
-                  <strong id="word-count">0</strong>
-                </div>
-                <div class="metric-pill">
-                  <span class="metric-label">Lines</span>
-                  <strong id="line-count">1</strong>
-                </div>
-              </div>
             </div>
           </div>
           <div class="editor-surface">
