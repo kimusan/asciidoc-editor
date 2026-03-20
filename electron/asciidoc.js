@@ -510,16 +510,46 @@ function loadDocument(source, filePath, options = {}) {
   return asciidoctor.load(source, buildLoadOptions(filePath, options));
 }
 
-export function convertDocument(source, filePath, options = {}) {
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function resolveDocumentTitle(document, filePath) {
+  const title = document.getDocumentTitle?.() ?? document.getDoctitle?.();
+  if (title) {
+    return title;
+  }
+
+  if (filePath) {
+    return path.parse(filePath).name;
+  }
+
+  return "AsciiDoc Document";
+}
+
+function renderDocument(source, filePath, options = {}) {
   const document = loadDocument(source, filePath, options);
-  return document.convert();
+  return {
+    title: resolveDocumentTitle(document, filePath),
+    content: document.convert()
+  };
+}
+
+export function convertDocument(source, filePath, options = {}) {
+  return renderDocument(source, filePath, options).content;
 }
 
 export async function renderPreview(source, filePath, options = {}) {
-  const rendered = highlightCodeBlocks(extractBodyContents(convertDocument(source, filePath, {
+  const { title, content } = renderDocument(source, filePath, {
     standalone: true,
     stylesheetPath: options.stylesheetPath
-  })));
+  });
+  const rendered = highlightCodeBlocks(extractBodyContents(content));
 
   let customStyles = "";
   if (options.stylesheetPath) {
@@ -545,6 +575,7 @@ export async function renderPreview(source, filePath, options = {}) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${escapeHtml(title)}</title>
       <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${baseStyles}${highlightThemeCss}${customStyles}</style>
     </head>
     <body>
