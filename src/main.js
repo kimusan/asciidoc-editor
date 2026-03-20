@@ -154,6 +154,26 @@ const THEME_STYLES = {
     quote: "#6c71c4",
     emphasis: "#586e75",
     strong: "#073642"
+  }),
+  material: createEditorTheme({
+    bg: "#f7f2fa",
+    text: "#1d1b20",
+    gutter: "#efe7f3",
+    gutterText: "#7a757f",
+    gutterBorder: "rgba(73, 69, 79, 0.12)",
+    activeLine: "rgba(103, 80, 164, 0.08)",
+    activeLineGutter: "rgba(103, 80, 164, 0.12)",
+    selection: "rgba(98, 91, 113, 0.24)",
+    heading: "#6750a4",
+    comment: "#7d7489",
+    keyword: "#7f67be",
+    string: "#2e7d32",
+    attribute: "#00639b",
+    url: "#0b57d0",
+    literal: "#b3261e",
+    quote: "#8e24aa",
+    emphasis: "#49454f",
+    strong: "#1d1b20"
   })
 };
 
@@ -242,6 +262,23 @@ const APP_THEME_VARS = {
     "--control-border": "rgba(88, 110, 117, 0.1)",
     "--control-border-hover": "rgba(38, 139, 210, 0.28)",
     "--shadow": "0 24px 72px rgba(88, 110, 117, 0.14)"
+  },
+  material: {
+    "--page-bg": "radial-gradient(circle at 12% 10%, rgba(103, 80, 164, 0.18), transparent 24%), radial-gradient(circle at 88% 12%, rgba(98, 91, 113, 0.16), transparent 22%), linear-gradient(180deg, #f8f4ff 0%, #f4eff8 48%, #ece6f0 100%)",
+    "--panel-bg": "rgba(255, 251, 254, 0.82)",
+    "--panel-bg-strong": "rgba(255, 251, 254, 0.96)",
+    "--panel-border": "rgba(73, 69, 79, 0.08)",
+    "--text-primary": "#1d1b20",
+    "--text-secondary": "rgba(29, 27, 32, 0.7)",
+    "--text-tertiary": "rgba(29, 27, 32, 0.48)",
+    "--accent": "#6750a4",
+    "--accent-strong": "#7f67be",
+    "--focus-ring": "rgba(103, 80, 164, 0.42)",
+    "--control-bg": "rgba(29, 27, 32, 0.04)",
+    "--control-bg-hover": "rgba(29, 27, 32, 0.08)",
+    "--control-border": "rgba(73, 69, 79, 0.1)",
+    "--control-border-hover": "rgba(103, 80, 164, 0.28)",
+    "--shadow": "0 24px 72px rgba(103, 80, 164, 0.12)"
   }
 };
 
@@ -265,7 +302,8 @@ const APP_THEME_OPTIONS = [
   { value: "porcelain", label: "Porcelain" },
   { value: "nord", label: "Nord" },
   { value: "darcula", label: "Darcula" },
-  { value: "solarized", label: "Solarized" }
+  { value: "solarized", label: "Solarized" },
+  { value: "material", label: "Material Design" }
 ];
 
 const ICONS = {
@@ -984,7 +1022,7 @@ function applyShellTheme(theme) {
   Object.entries(themeVars).forEach(([name, value]) => {
     elements.shell.style.setProperty(name, value);
   });
-  document.documentElement.style.colorScheme = theme === "porcelain" || theme === "solarized" ? "light" : "dark";
+  document.documentElement.style.colorScheme = theme === "porcelain" || theme === "solarized" || theme === "material" ? "light" : "dark";
 }
 
 function setEditorContent(content) {
