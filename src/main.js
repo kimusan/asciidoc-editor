@@ -279,6 +279,12 @@ const PREVIEW_THEME_OPTIONS = [
 const ICONS = {
   brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  fileAsciiDoc: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="currentColor" opacity=".14"/><path d="M8.5 9.25h7M8.5 12h7M8.5 14.75h4.5M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileCode: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-3.5 4 3.5 4M15 8l3.5 4-3.5 4M13 6l-2 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileImage: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5.5" width="15" height="13" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m6.5 16 3.5-3 2.5 2 2.5-2.5 2.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  filePdf: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.25 15.25v-5h2.15a1.55 1.55 0 0 1 0 3.1H8.25M13 15.25v-5h1.7a2.5 2.5 0 1 1 0 5ZM15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileStyle: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 5.25h11.5L16 18.75l-4-2-4 2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9.25h6M9.5 12.25h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  fileText: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 9.25h7M8.5 12h7M8.5 14.75h5M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   open: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18.5A1.5 1.5 0 0 1 4.5 17V7A1.5 1.5 0 0 1 6 5.5h4l1.5 2H18A1.5 1.5 0 0 1 19.5 9v8A1.5 1.5 0 0 1 18 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12h6m-3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   save: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h9.879a2 2 0 0 1 1.414.586l.621.621A2 2 0 0 1 19 7.621V17.5A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
   export: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M6 16.5v1A1.5 1.5 0 0 0 7.5 19h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -312,7 +318,8 @@ function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;");
 }
 
 function renderOptionMarkup(options) {
@@ -344,6 +351,30 @@ function normalizePreviewFontValue(value) {
 function normalizePdfPaperSize(value) {
   const allowed = new Set(PDF_PAPER_OPTIONS.map((option) => option.value));
   return allowed.has(value) ? value : "A4";
+}
+
+function getFileTypeMeta(name) {
+  if (/\.(adoc|asciidoc|asc)$/i.test(name)) {
+    return { icon: ICONS.fileAsciiDoc, kind: "asciidoc" };
+  }
+
+  if (/\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i.test(name)) {
+    return { icon: ICONS.fileImage, kind: "image" };
+  }
+
+  if (/\.(css|scss|sass|less)$/i.test(name)) {
+    return { icon: ICONS.fileStyle, kind: "style" };
+  }
+
+  if (/\.(pdf)$/i.test(name)) {
+    return { icon: ICONS.filePdf, kind: "pdf" };
+  }
+
+  if (/\.(js|mjs|cjs|ts|tsx|jsx|json|yml|yaml|xml|html|htm|sh|ps1|bat)$/i.test(name)) {
+    return { icon: ICONS.fileCode, kind: "code" };
+  }
+
+  return { icon: ICONS.fileText, kind: "text" };
 }
 
 const appState = {
@@ -1191,17 +1222,25 @@ function renderTreeNodes(items, depth = 0) {
       const isOpen = appState.directoryCache.get(item.path)?.open ?? depth < 1;
       return `
         <details class="tree-node" data-path="${item.path}" ${isOpen ? "open" : ""}>
-          <summary class="tree-entry tree-entry-directory" data-path="${item.path}" data-type="directory">${item.name}</summary>
+          <summary class="tree-entry tree-entry-directory" data-path="${escapeHtml(item.path)}" data-type="directory">
+            <span class="tree-entry-content">
+              <span class="tree-entry-icon">${ICONS.folder}</span>
+              <span class="tree-entry-label">${escapeHtml(item.name)}</span>
+            </span>
+          </summary>
           <div class="tree-children"></div>
         </details>
       `;
     }
 
     const isActive = item.path === appState.openFilePath;
-    const fileClass = /\.(adoc|asciidoc|asc)$/i.test(item.name) ? "is-asciidoc" : "";
+    const fileType = getFileTypeMeta(item.name);
     return `
-      <button class="tree-entry tree-entry-file ${fileClass} ${isActive ? "is-active" : ""}" data-path="${item.path}" data-type="file">
-        ${item.name}
+      <button class="tree-entry tree-entry-file is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file">
+        <span class="tree-entry-content">
+          <span class="tree-entry-icon">${fileType.icon}</span>
+          <span class="tree-entry-label">${escapeHtml(item.name)}</span>
+        </span>
       </button>
     `;
   }).join("");
@@ -1247,7 +1286,10 @@ async function refreshFileTree() {
 async function saveCurrentDocument() {
   let filePath = appState.openFilePath;
   if (!filePath) {
-    filePath = await window.desktop.saveDialog(pathWithExtension(appState.currentFileName || "Untitled.adoc"));
+    filePath = await window.desktop.saveDialog({
+      defaultPath: pathWithExtension(appState.currentFileName || "Untitled.adoc"),
+      kind: "document"
+    });
   }
 
   if (!filePath) {
@@ -1269,9 +1311,10 @@ function pathWithExtension(name) {
 }
 
 async function saveAsCurrentDocument() {
-  const targetPath = await window.desktop.saveDialog(
-    appState.openFilePath ?? pathWithExtension(appState.currentFileName || "Untitled.adoc")
-  );
+  const targetPath = await window.desktop.saveDialog({
+    defaultPath: appState.openFilePath ?? pathWithExtension(appState.currentFileName || "Untitled.adoc"),
+    kind: "document"
+  });
 
   if (!targetPath) {
     return;
@@ -1293,10 +1336,11 @@ async function exportCurrentDocument(format) {
     pdf: "pdf",
     docbook: "xml"
   };
-  const destinationPath = await window.desktop.saveDialog(
-    (appState.openFilePath ?? pathWithExtension(appState.currentFileName || "Untitled.adoc"))
-      .replace(/\.(adoc|asciidoc|asc)$/i, `.${extensionMap[format]}`)
-  );
+  const destinationPath = await window.desktop.saveDialog({
+    defaultPath: (appState.openFilePath ?? pathWithExtension(appState.currentFileName || "Untitled.adoc"))
+      .replace(/\.(adoc|asciidoc|asc)$/i, `.${extensionMap[format]}`),
+    kind: format
+  });
 
   if (!destinationPath) {
     return;

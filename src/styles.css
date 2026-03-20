@@ -744,6 +744,33 @@ input:focus-visible,
   font-size: 0.94rem;
 }
 
+.tree-entry-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tree-entry-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--text-tertiary);
+}
+
+.tree-entry-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tree-entry-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tree-entry-directory::before {
   content: "▸";
   margin-right: 8px;
@@ -758,10 +785,32 @@ details[open] > summary.tree-entry-directory::before {
   border-color: rgba(124, 242, 216, 0.12);
 }
 
+.tree-entry-file.is-asciidoc .tree-entry-icon {
+  color: var(--accent-strong);
+}
+
+.tree-entry-file.is-code .tree-entry-icon,
+.tree-entry-file.is-style .tree-entry-icon {
+  color: #7fb6ff;
+}
+
+.tree-entry-file.is-image .tree-entry-icon {
+  color: #f7b955;
+}
+
+.tree-entry-file.is-pdf .tree-entry-icon {
+  color: #ff8f70;
+}
+
 .tree-entry-file.is-active,
 .tree-entry:hover {
   background: linear-gradient(135deg, rgba(124, 242, 216, 0.14), rgba(31, 121, 255, 0.1));
   border-color: rgba(124, 242, 216, 0.24);
+}
+
+.tree-entry.is-active .tree-entry-icon,
+.tree-entry:hover .tree-entry-icon {
+  color: var(--text-primary);
 }
 
 .empty-state {

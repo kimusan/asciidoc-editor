@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld("desktop", {
   getBootPayload: () => ipcRenderer.invoke("app:get-boot-payload"),
   openFile: () => ipcRenderer.invoke("dialog:open-file"),
   openFolder: () => ipcRenderer.invoke("dialog:open-folder"),
-  saveDialog: (defaultPath) => ipcRenderer.invoke("dialog:save-file", defaultPath),
+  saveDialog: (payload) => ipcRenderer.invoke("dialog:save-file", payload),
   chooseStylesheet: () => ipcRenderer.invoke("dialog:choose-stylesheet"),
   listDirectory: (rootPath) => ipcRenderer.invoke("fs:list-directory", rootPath),
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),

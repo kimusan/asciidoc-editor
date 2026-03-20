@@ -13,6 +13,63 @@ function normalizeRecentFiles(recentFiles, filePath) {
   return [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
 }
 
+function buildSaveDialogConfig(payload) {
+  const options = typeof payload === "string" ? { defaultPath: payload, kind: "document" } : (payload ?? {});
+  const kind = options.kind ?? "document";
+
+  const baseOptions = {
+    defaultPath: options.defaultPath,
+    filters: [{ name: "All files", extensions: ["*"] }]
+  };
+
+  if (kind === "document") {
+    return {
+      ...baseOptions,
+      title: "Save AsciiDoc file",
+      filters: [
+        { name: "AsciiDoc", extensions: ["adoc", "asciidoc", "asc"] },
+        { name: "Text", extensions: ["txt"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    };
+  }
+
+  if (kind === "html") {
+    return {
+      ...baseOptions,
+      title: "Export HTML",
+      filters: [
+        { name: "HTML", extensions: ["html", "htm"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    };
+  }
+
+  if (kind === "pdf") {
+    return {
+      ...baseOptions,
+      title: "Export PDF",
+      filters: [
+        { name: "PDF", extensions: ["pdf"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    };
+  }
+
+  if (kind === "docbook") {
+    return {
+      ...baseOptions,
+      title: "Export DocBook",
+      filters: [
+        { name: "DocBook XML", extensions: ["xml"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    };
+  }
+
+  return baseOptions;
+}
+
 async function loadDocument(filePath) {
   const content = await fs.readFile(filePath, "utf8");
   const stat = await fs.stat(filePath);
@@ -124,10 +181,8 @@ app.whenReady().then(async () => {
     return filePaths[0];
   });
 
-  ipcMain.handle("dialog:save-file", async (_, defaultPath) => {
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      defaultPath
-    });
+  ipcMain.handle("dialog:save-file", async (_, payload) => {
+    const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig(payload));
     return canceled ? null : filePath;
   });
 
