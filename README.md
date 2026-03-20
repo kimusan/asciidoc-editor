@@ -65,7 +65,7 @@ npm run package:win
 
 - `npm test` passes
 - `npm run build` passes
-- `npm run package:linux` passes and produces `release/AsciiDoc Editor-0.1.0.AppImage`
+- `npm run package:linux` passes and produces `release/AsciiDoc Editor-0.2.0.AppImage`
 - `npm run package:win` reaches the Windows packaging step but cannot complete from this Linux environment without `wine`
 
 ## Important Limitations
