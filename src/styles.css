@@ -362,7 +362,9 @@ input:focus-visible,
 
 .editor-surface {
   min-height: 0;
-  display: block;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .editor-surface-meta {
@@ -384,6 +386,7 @@ input:focus-visible,
 
 .split-layout {
   min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns:
     minmax(320px, calc((100% - 14px) * var(--split-ratio)))
