@@ -412,7 +412,7 @@ const appState = {
   pdfStylesheetPath: null,
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
-  theme: "nocturne",
+  theme: "nord",
   distractionFree: false,
   workspaceCollapsed: false,
   workspaceQuery: "",

@@ -6,7 +6,7 @@ const defaultState = {
   workspacePath: null,
   openFilePath: null,
   recentFiles: [],
-  theme: "nocturne",
+  theme: "nord",
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
   distractionFree: false,
