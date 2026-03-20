@@ -330,6 +330,7 @@ const ICONS = {
   save: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h9.879a2 2 0 0 1 1.414.586l.621.621A2 2 0 0 1 19 7.621V17.5A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
   export: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M6 16.5v1A1.5 1.5 0 0 0 7.5 19h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   reference: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 5h8A1.5 1.5 0 0 1 17 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 17.5v-11A1.5 1.5 0 0 1 7.5 5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h5m-5 3h6m-6 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  shortcuts: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 10h1.5M11 10h1.5M14.5 10H16M7.5 14h4M13 14h3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v5M12 7.5h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19 12a7.2 7.2 0 0 0-.08-1l1.86-1.45-1.75-3.03-2.25.72a7.55 7.55 0 0 0-1.72-.99L14.7 3h-3.4l-.36 2.25a7.55 7.55 0 0 0-1.72.99l-2.25-.72-1.75 3.03L5.08 11a7.2 7.2 0 0 0 0 2l-1.86 1.45 1.75 3.03 2.25-.72c.53.4 1.11.73 1.72.99L11.3 21h3.4l.36-2.25c.61-.26 1.19-.59 1.72-.99l2.25.72 1.75-3.03L18.92 13c.05-.33.08-.66.08-1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
   focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
@@ -357,6 +358,74 @@ const MARKUP_REFERENCE = [
   { title: "Footnote", syntax: "Footnote examplefootnote:[This note appears at the bottom.]", detail: "Add inline footnotes that render automatically in preview and export.", tags: ["footnote", "notes", "references"] }
 ];
 
+const SHORTCUT_SECTIONS = [
+  {
+    title: "Document",
+    items: [
+      {
+        title: "Save current document",
+        detail: "Write changes to the open file or prompt for a destination when needed.",
+        shortcuts: [["Ctrl", "S"], ["Cmd", "S"]]
+      },
+      {
+        title: "Open keyboard help",
+        detail: "Show this shortcuts guide from anywhere in the app.",
+        shortcuts: [["F1"], ["Ctrl", "/"], ["Cmd", "/"]]
+      },
+      {
+        title: "Close active panel",
+        detail: "Dismiss the current overlay or the in-editor search bar.",
+        shortcuts: [["Esc"]]
+      }
+    ]
+  },
+  {
+    title: "Search and Replace",
+    items: [
+      {
+        title: "Find in document",
+        detail: "Open the editor search bar and prefill from the current selection when possible.",
+        shortcuts: [["Ctrl", "F"], ["Cmd", "F"]]
+      },
+      {
+        title: "Replace in document",
+        detail: "Open the search bar with replace controls visible.",
+        shortcuts: [["Ctrl", "H"], ["Cmd", "H"]]
+      },
+      {
+        title: "Next match",
+        detail: "Jump to the next search hit in the current document.",
+        shortcuts: [["F3"], ["Enter"]]
+      },
+      {
+        title: "Previous match",
+        detail: "Jump to the previous search hit.",
+        shortcuts: [["Shift", "F3"], ["Shift", "Enter"]]
+      },
+      {
+        title: "Replace current match",
+        detail: "When the replace field is focused, replace the current match and move on.",
+        shortcuts: [["Enter"]]
+      }
+    ]
+  },
+  {
+    title: "Panels",
+    items: [
+      {
+        title: "Open settings",
+        detail: "Adjust theme, preview typography, PDF settings, and custom stylesheets.",
+        shortcuts: [["Ctrl", ","], ["Cmd", ","]]
+      },
+      {
+        title: "Open markup reference",
+        detail: "Browse searchable AsciiDoc examples and snippets.",
+        shortcuts: [["Ctrl", "Shift", "K"], ["Cmd", "Shift", "K"]]
+      }
+    ]
+  }
+];
+
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
@@ -367,6 +436,37 @@ function escapeHtml(value) {
 
 function renderOptionMarkup(options) {
   return options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
+}
+
+function renderShortcutSequence(sequence) {
+  return `
+    <span class="shortcut-sequence">
+      ${sequence.map((part) => `<kbd class="shortcut-key">${escapeHtml(part)}</kbd>`).join('<span class="shortcut-plus">+</span>')}
+    </span>
+  `;
+}
+
+function renderShortcutSections() {
+  return SHORTCUT_SECTIONS.map((section) => `
+    <article class="shortcut-card">
+      <div class="shortcut-card-header">
+        <h3>${escapeHtml(section.title)}</h3>
+      </div>
+      <div class="shortcut-list">
+        ${section.items.map((item) => `
+          <div class="shortcut-row">
+            <div class="shortcut-copy">
+              <strong>${escapeHtml(item.title)}</strong>
+              <p>${escapeHtml(item.detail)}</p>
+            </div>
+            <div class="shortcut-keyset">
+              ${item.shortcuts.map((sequence) => renderShortcutSequence(sequence)).join('<span class="shortcut-or">or</span>')}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `).join("");
 }
 
 function normalizeThemeValue(value) {
@@ -445,6 +545,7 @@ const appState = {
   referenceQuery: "",
   referenceOpen: false,
   settingsOpen: false,
+  helpOpen: false,
   aboutOpen: false,
   splitRatio: 0.5,
   renderTimer: null,
@@ -469,6 +570,7 @@ function createLayout() {
         </div>
         <div class="topbar-actions">
           <button id="open-settings" class="toolbar-button ghost-button" aria-label="Settings"><span class="button-icon">${ICONS.settings}</span><span>Settings</span></button>
+          <button id="open-help" class="toolbar-button ghost-button" aria-label="Keyboard shortcuts"><span class="button-icon">${ICONS.shortcuts}</span><span>Help</span></button>
           <button id="open-about" class="toolbar-button ghost-button info-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span></button>
           <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
           <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
@@ -728,6 +830,27 @@ function createLayout() {
           <div id="reference-results" class="reference-results"></div>
         </section>
       </div>
+      <div id="help-overlay" class="reference-overlay" hidden>
+        <div id="help-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog shortcuts-dialog panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.shortcuts}</span>
+              <div>
+                <div id="help-title" class="panel-title">Keyboard Shortcuts</div>
+                <div class="panel-subtitle">Fast access to document, search, and workspace actions.</div>
+              </div>
+            </div>
+            <button id="close-help" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <div class="shortcuts-content">
+            <p class="shortcuts-note">Use <strong>Ctrl</strong> on Windows and Linux. The same shortcuts use <strong>Cmd</strong> on macOS where shown.</p>
+            <div class="shortcut-grid">
+              ${renderShortcutSections()}
+            </div>
+          </div>
+        </section>
+      </div>
       <div id="about-overlay" class="reference-overlay" hidden>
         <div id="about-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog about-dialog panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
@@ -787,6 +910,10 @@ function createLayout() {
   elements.settingsPdfStylesheetStatus = document.querySelector("#settings-pdf-stylesheet-status");
   elements.choosePdfStylesheet = document.querySelector("#choose-pdf-stylesheet");
   elements.clearPdfStylesheet = document.querySelector("#clear-pdf-stylesheet");
+  elements.openHelp = document.querySelector("#open-help");
+  elements.helpOverlay = document.querySelector("#help-overlay");
+  elements.helpBackdrop = document.querySelector("#help-backdrop");
+  elements.closeHelp = document.querySelector("#close-help");
   elements.openAbout = document.querySelector("#open-about");
   elements.aboutOverlay = document.querySelector("#about-overlay");
   elements.aboutBackdrop = document.querySelector("#about-backdrop");
@@ -1135,6 +1262,8 @@ function updateDocumentChrome() {
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
   elements.referenceOverlay.hidden = !appState.referenceOpen;
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
+  elements.helpOverlay.hidden = !appState.helpOpen;
+  elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
   elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
 }
@@ -1194,6 +1323,19 @@ function openSettingsOverlay() {
 
 function closeSettingsOverlay() {
   appState.settingsOpen = false;
+  updateDocumentChrome();
+}
+
+function openHelpOverlay() {
+  appState.helpOpen = true;
+  updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closeHelp.focus();
+  });
+}
+
+function closeHelpOverlay() {
+  appState.helpOpen = false;
   updateDocumentChrome();
 }
 
@@ -1724,6 +1866,10 @@ async function bindEvents() {
     openSettingsOverlay();
   });
 
+  elements.openHelp.addEventListener("click", () => {
+    openHelpOverlay();
+  });
+
   elements.openPreviewOverlay.addEventListener("click", () => {
     openPreviewOverlay();
   });
@@ -1911,6 +2057,10 @@ async function bindEvents() {
     openAboutOverlay();
   });
 
+  elements.closeHelp.addEventListener("click", () => {
+    closeHelpOverlay();
+  });
+
   elements.closeReference.addEventListener("click", () => {
     closeReferenceOverlay();
   });
@@ -1921,6 +2071,10 @@ async function bindEvents() {
 
   elements.referenceBackdrop.addEventListener("click", () => {
     closeReferenceOverlay();
+  });
+
+  elements.helpBackdrop.addEventListener("click", () => {
+    closeHelpOverlay();
   });
 
   elements.aboutBackdrop.addEventListener("click", () => {
@@ -2001,6 +2155,10 @@ async function bindEvents() {
         closeSettingsOverlay();
       }
 
+      if (appState.helpOpen) {
+        closeHelpOverlay();
+      }
+
       if (appState.aboutOpen) {
         closeAboutOverlay();
       }
@@ -2022,6 +2180,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key === ",") {
       event.preventDefault();
       openSettingsOverlay();
+    }
+
+    if (event.key === "F1" || ((event.metaKey || event.ctrlKey) && (event.key === "/" || event.code === "Slash"))) {
+      event.preventDefault();
+      openHelpOverlay();
     }
 
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "h") {

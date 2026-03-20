@@ -668,6 +668,13 @@ input:focus-visible,
   max-height: min(680px, calc(100vh - 56px));
 }
 
+.shortcuts-dialog {
+  width: min(920px, calc(100vw - 48px));
+  height: auto;
+  max-height: min(760px, calc(100vh - 56px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .preview-dialog {
   width: min(1240px, calc(100vw - 40px));
   height: min(900px, calc(100vh - 40px));
@@ -827,6 +834,100 @@ input:focus-visible,
   padding: 22px 22px 24px;
   display: grid;
   gap: 18px;
+}
+
+.shortcuts-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.shortcuts-note {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.shortcut-card {
+  border: 1px solid var(--control-border);
+  border-radius: 24px;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.shortcut-card-header h3,
+.shortcut-copy strong {
+  margin: 0;
+}
+
+.shortcut-list {
+  display: grid;
+  gap: 14px;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.shortcut-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.shortcut-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.shortcut-keyset,
+.shortcut-sequence {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shortcut-keyset {
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.shortcut-sequence {
+  gap: 6px;
+}
+
+.shortcut-key {
+  min-width: 2.2rem;
+  border: 1px solid var(--control-border);
+  border-bottom-color: color-mix(in srgb, var(--control-border-hover) 65%, var(--control-border));
+  border-radius: 12px;
+  padding: 0.28rem 0.56rem;
+  background: color-mix(in srgb, var(--panel-bg-strong) 74%, transparent);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  text-align: center;
+  font-family: "IBM Plex Mono", "Cascadia Code", monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.shortcut-plus,
+.shortcut-or {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
 }
 
 .about-hero {
@@ -1169,8 +1270,17 @@ details[open] > summary.tree-entry-directory::before {
   }
 
   .format-grid,
-  .about-grid {
+  .about-grid,
+  .shortcut-grid {
     grid-template-columns: 1fr;
+  }
+
+  .shortcut-row {
+    grid-template-columns: 1fr;
+  }
+
+  .shortcut-keyset {
+    justify-content: flex-start;
   }
 
   .settings-grid {
