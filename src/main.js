@@ -415,6 +415,7 @@ const appState = {
   theme: "nocturne",
   distractionFree: false,
   workspaceCollapsed: false,
+  workspaceQuery: "",
   currentContent: "= Untitled\n\nStart writing...",
   currentFileName: "Untitled.adoc",
   isDirty: false,
@@ -451,7 +452,6 @@ function createLayout() {
         <div class="topbar-actions">
           <button id="open-settings" class="toolbar-button ghost-button" aria-label="Settings"><span class="button-icon">${ICONS.settings}</span><span>Settings</span></button>
           <button id="open-about" class="toolbar-button ghost-button info-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span></button>
-          <button id="open-folder" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Workspace</span></button>
           <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
           <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
           <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
@@ -468,7 +468,15 @@ function createLayout() {
               <span class="button-icon">${ICONS.collapseSidebar}</span>
             </button>
           </div>
-          <div class="workspace-note">Open a folder to browse source files and jump between chapters, includes, and references.</div>
+          <div class="workspace-controls">
+            <button id="open-folder" class="toolbar-button ghost-button workspace-button" title="Choose a workspace folder to browse, search, and open files.">
+              <span class="button-icon">${ICONS.folder}</span><span>Workspace</span>
+            </button>
+            <label class="workspace-search-shell">
+              <span class="button-icon">${ICONS.search}</span>
+              <input id="workspace-search" class="workspace-search" type="search" placeholder="Find files in workspace..." />
+            </label>
+          </div>
           <div id="file-tree" class="file-tree"></div>
         </aside>
         <button id="expand-workspace" class="workspace-rail" aria-label="Expand file manager" title="Show file manager">
@@ -751,6 +759,7 @@ function createLayout() {
   elements.fileTree = document.querySelector("#file-tree");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
+  elements.workspaceSearch = document.querySelector("#workspace-search");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.documentName = document.querySelector("#document-name");
   elements.documentStatus = document.querySelector("#document-status");
@@ -1293,6 +1302,24 @@ function renderTreeNodes(items, depth = 0) {
   }).join("");
 }
 
+function renderSearchResults(items) {
+  return items.map((item) => {
+    const isActive = item.path === appState.openFilePath;
+    const fileType = getFileTypeMeta(item.name);
+    return `
+      <button class="tree-entry tree-entry-file tree-entry-search is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file">
+        <span class="tree-entry-content">
+          <span class="tree-entry-icon">${fileType.icon}</span>
+          <span class="tree-entry-search-copy">
+            <span class="tree-entry-label">${escapeHtml(item.name)}</span>
+            <span class="tree-entry-path">${escapeHtml(item.relativePath ?? item.name)}</span>
+          </span>
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
 async function ensureDirectoryLoaded(dirPath) {
   if (appState.directoryCache.get(dirPath)?.children) {
     return appState.directoryCache.get(dirPath).children;
@@ -1320,6 +1347,18 @@ async function fillDetailsNode(detailsNode, depth) {
 async function refreshFileTree() {
   if (!appState.workspacePath) {
     elements.fileTree.innerHTML = `<p class="empty-state">Choose a folder to browse your AsciiDoc documents.</p>`;
+    return;
+  }
+
+  if (appState.workspaceQuery.trim()) {
+    const results = await window.desktop.searchWorkspace({
+      rootPath: appState.workspacePath,
+      query: appState.workspaceQuery,
+      limit: 200
+    });
+    elements.fileTree.innerHTML = results.length > 0
+      ? renderSearchResults(results)
+      : `<p class="empty-state">No files match “${escapeHtml(appState.workspaceQuery)}”.</p>`;
     return;
   }
 
@@ -1418,6 +1457,8 @@ async function bindEvents() {
     const selectedFolder = await window.desktop.openFolder();
     if (selectedFolder) {
       appState.workspacePath = selectedFolder;
+      appState.workspaceQuery = "";
+      elements.workspaceSearch.value = "";
       appState.directoryCache.clear();
       await refreshFileTree();
       updateDocumentChrome();
@@ -1609,6 +1650,11 @@ async function bindEvents() {
       await fillDetailsNode(detailsNode, 0);
     }
   }, true);
+
+  elements.workspaceSearch.addEventListener("input", () => {
+    appState.workspaceQuery = elements.workspaceSearch.value;
+    void refreshFileTree();
+  });
 
   window.addEventListener("beforeunload", async () => {
     await window.desktop.updateState({

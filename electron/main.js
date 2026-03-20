@@ -110,6 +110,50 @@ async function listDirectory(rootPath) {
   return children;
 }
 
+async function searchWorkspace(rootPath, query, limit = 200) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const results = [];
+
+  async function visitDirectory(currentPath) {
+    if (results.length >= limit) {
+      return;
+    }
+
+    const entries = await fs.readdir(currentPath, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      if (results.length >= limit || entry.name.startsWith(".")) {
+        continue;
+      }
+
+      const fullPath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        await visitDirectory(fullPath);
+        continue;
+      }
+
+      const relativePath = path.relative(rootPath, fullPath);
+      if (
+        entry.name.toLowerCase().includes(normalizedQuery)
+        || relativePath.toLowerCase().includes(normalizedQuery)
+      ) {
+        results.push({
+          name: entry.name,
+          path: fullPath,
+          relativePath,
+          type: "file"
+        });
+      }
+    }
+  }
+
+  await visitDirectory(rootPath);
+  return results;
+}
+
 async function createWindow() {
   const window = new BrowserWindow({
     width: 1560,
@@ -204,6 +248,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("fs:list-directory", async (_, rootPath) => listDirectory(rootPath));
+  ipcMain.handle("fs:search-workspace", async (_, { rootPath, query, limit }) => searchWorkspace(rootPath, query, limit));
 
   ipcMain.handle("fs:read-document", async (_, filePath) => {
     const document = await loadDocument(filePath);

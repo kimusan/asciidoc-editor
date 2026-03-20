@@ -211,7 +211,7 @@ input:focus-visible,
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   transition: opacity 180ms ease, transform 180ms ease, padding 180ms ease, border-color 180ms ease;
 }
 
@@ -284,10 +284,39 @@ input:focus-visible,
   line-height: 1.35;
 }
 
-.workspace-note {
-  color: var(--text-secondary);
-  line-height: 1.55;
-  font-size: 0.93rem;
+.workspace-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-button {
+  justify-content: center;
+}
+
+.workspace-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  padding: 0 0.88rem;
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.workspace-search-shell .button-icon {
+  color: var(--text-tertiary);
+}
+
+.workspace-search {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.8rem 0;
+}
+
+.workspace-search::placeholder {
+  color: var(--text-tertiary);
 }
 
 .file-tree {
@@ -864,6 +893,21 @@ input:focus-visible,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-entry-search-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tree-entry-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
 }
 
 .tree-entry-directory::before {
