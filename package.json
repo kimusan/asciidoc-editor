@@ -63,6 +63,7 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.37.2",
     "@lezer/highlight": "^1.2.1",
-    "asciidoctor": "^3.0.4"
+    "asciidoctor": "^3.0.4",
+    "highlight.js": "^11.11.1"
   }
 }

@@ -355,6 +355,7 @@ const appState = {
   aboutOpen: false,
   splitRatio: 0.5,
   renderTimer: null,
+  syncTimer: null,
   directoryCache: new Map()
 };
 
@@ -725,19 +726,21 @@ function createEditor() {
     editorThemeCompartment.of(THEME_STYLES.nocturne.editor),
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
-      if (!update.docChanged) {
-        return;
+      if (update.docChanged) {
+        appState.currentContent = update.state.doc.toString();
+        if (appState.isApplyingDocument) {
+          return;
+        }
+
+        appState.isDirty = true;
+        appState.previewInSync = false;
+        updateDocumentChrome();
+        schedulePreviewRender();
       }
 
-      appState.currentContent = update.state.doc.toString();
-      if (appState.isApplyingDocument) {
-        return;
+      if ((update.docChanged || update.selectionSet || update.viewportChanged) && !appState.isApplyingDocument) {
+        schedulePreviewSync();
       }
-
-      appState.isDirty = true;
-      appState.previewInSync = false;
-      updateDocumentChrome();
-      schedulePreviewRender();
     })
   ];
 
@@ -927,6 +930,13 @@ async function openDocument(document) {
   await refreshFileTree();
 }
 
+function scrollPreviewToTop(frame = elements.previewFrame) {
+  frame.contentWindow?.scrollTo({
+    top: 0,
+    behavior: "auto"
+  });
+}
+
 function buildPreviewPayload() {
   return {
     content: appState.currentContent,
@@ -957,7 +967,7 @@ async function renderPreviewNow() {
   updateDocumentChrome();
 }
 
-function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame) {
+function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame, behavior = "smooth") {
   if (!anchorId) {
     return;
   }
@@ -969,9 +979,63 @@ function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame) {
   }
 
   target.scrollIntoView({
-    behavior: "smooth",
+    behavior,
     block: "start"
   });
+}
+
+function toAsciidoctorId(title) {
+  const normalized = title
+    .normalize("NFKD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replaceAll(/<[^>]+>/g, "")
+    .replaceAll(/&[a-z0-9#]+;/gi, "")
+    .replaceAll(/[^a-z0-9]+/g, "_")
+    .replaceAll(/^_+|_+$/g, "");
+
+  return normalized ? `_${normalized}` : null;
+}
+
+function findNearestSectionAnchor(lineNumber) {
+  const lines = appState.currentContent.split("\n");
+  let anchorId = null;
+
+  for (let index = 0; index < Math.min(lineNumber, lines.length); index += 1) {
+    const match = lines[index].match(/^={2,6}\s+(.+)$/);
+    if (!match) {
+      continue;
+    }
+
+    anchorId = toAsciidoctorId(match[1].trim());
+  }
+
+  return anchorId;
+}
+
+function syncPreviewToEditorPosition() {
+  if (!editorView || appState.pendingPreviewAnchor) {
+    return;
+  }
+
+  const syncLine = editorView.state.doc.lineAt(editorView.viewport.from).number;
+  const anchorId = findNearestSectionAnchor(syncLine);
+
+  if (!anchorId) {
+    scrollPreviewToTop(elements.previewFrame);
+    scrollPreviewToTop(elements.previewFrameExpanded);
+    return;
+  }
+
+  scrollPreviewToAnchor(anchorId, elements.previewFrame, "auto");
+  scrollPreviewToAnchor(anchorId, elements.previewFrameExpanded, "auto");
+}
+
+function schedulePreviewSync() {
+  clearTimeout(appState.syncTimer);
+  appState.syncTimer = setTimeout(() => {
+    syncPreviewToEditorPosition();
+  }, 90);
 }
 
 function findClosestLink(event) {
@@ -1011,8 +1075,8 @@ async function handlePreviewLinkClick(event, frame) {
     return;
   }
 
-  if (result.type === "anchor") {
-    scrollPreviewToAnchor(result.anchorId, frame);
+    if (result.type === "anchor") {
+    scrollPreviewToAnchor(result.anchorId, frame, "smooth");
     return;
   }
 
@@ -1025,9 +1089,11 @@ function installPreviewInteractions(frame) {
   const previewDocument = frame.contentDocument;
   if (!previewDocument?.body || previewDocument.body.dataset.previewBound === "true") {
     if (appState.pendingPreviewAnchor) {
-      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame);
-      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded);
+      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame, "auto");
+      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded, "auto");
       appState.pendingPreviewAnchor = null;
+    } else {
+      syncPreviewToEditorPosition();
     }
     return;
   }
@@ -1038,9 +1104,11 @@ function installPreviewInteractions(frame) {
   previewDocument.body.dataset.previewBound = "true";
 
   if (appState.pendingPreviewAnchor) {
-    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame);
-    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded);
+    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame, "auto");
+    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded, "auto");
     appState.pendingPreviewAnchor = null;
+  } else {
+    syncPreviewToEditorPosition();
   }
 }
 

@@ -1,8 +1,11 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import Asciidoctor from "asciidoctor";
+import hljs from "highlight.js/lib/common";
 
 const asciidoctor = Asciidoctor();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BUILTIN_PREVIEW_THEMES = {
   paper: `
@@ -91,6 +94,118 @@ const PREVIEW_FONT_STACKS = {
   sans: "\"Aptos\", \"Segoe UI Variable Text\", \"Inter\", \"Noto Sans\", sans-serif",
   mono: "\"IBM Plex Mono\", \"Cascadia Code\", \"SFMono-Regular\", Consolas, monospace"
 };
+
+const HIGHLIGHT_THEME_PATH = path.join(__dirname, "..", "node_modules", "highlight.js", "styles", "github.css");
+
+const SHARED_DOCUMENT_STYLES = `
+  .listingblock > .content {
+    position: relative;
+  }
+
+  .listingblock pre.highlightjs {
+    padding: 0;
+  }
+
+  .listingblock pre.highlightjs > code {
+    display: block;
+    padding: 1em;
+    border-radius: inherit;
+  }
+
+  .listingblock code[data-lang]::before {
+    display: none;
+    content: attr(data-lang);
+    position: absolute;
+    top: 0.7rem;
+    right: 0.85rem;
+    font-size: 0.72rem;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  .listingblock:hover code[data-lang]::before {
+    display: block;
+  }
+
+  p.tableblock:last-child {
+    margin-bottom: 0;
+  }
+
+  td.tableblock > .content {
+    margin-bottom: 1.25em;
+    word-wrap: anywhere;
+  }
+
+  td.tableblock > .content > :last-child {
+    margin-bottom: -1.25em;
+  }
+
+  table.tableblock, th.tableblock, td.tableblock {
+    border: 0 solid rgba(23, 23, 23, 0.14);
+  }
+
+  table.grid-all > * > tr > * {
+    border-width: 1px;
+  }
+
+  table.grid-cols > * > tr > * {
+    border-width: 0 1px;
+  }
+
+  table.grid-rows > * > tr > * {
+    border-width: 1px 0;
+  }
+
+  table.frame-all {
+    border-width: 1px;
+  }
+
+  table.frame-ends {
+    border-width: 1px 0;
+  }
+
+  table.frame-sides {
+    border-width: 0 1px;
+  }
+
+  table.frame-none > colgroup + * > :first-child > *,
+  table.frame-sides > colgroup + * > :first-child > * {
+    border-top-width: 0;
+  }
+
+  table.frame-none > :last-child > :last-child > *,
+  table.frame-sides > :last-child > :last-child > * {
+    border-bottom-width: 0;
+  }
+
+  table.frame-none > * > tr > :first-child,
+  table.frame-ends > * > tr > :first-child {
+    border-left-width: 0;
+  }
+
+  table.frame-none > * > tr > :last-child,
+  table.frame-ends > * > tr > :last-child {
+    border-right-width: 0;
+  }
+
+  table.stripes-all > * > tr,
+  table.stripes-odd > * > tr:nth-of-type(odd),
+  table.stripes-even > * > tr:nth-of-type(even),
+  table.stripes-hover > * > tr:hover {
+    background: #f8f8f7;
+  }
+
+  th.halign-left, td.halign-left { text-align: left; }
+  th.halign-right, td.halign-right { text-align: right; }
+  th.halign-center, td.halign-center { text-align: center; }
+  th.valign-top, td.valign-top { vertical-align: top; }
+  th.valign-middle, td.valign-middle { vertical-align: middle; }
+  th.valign-bottom, td.valign-bottom { vertical-align: bottom; }
+`;
+
+let cachedHighlightThemeCss;
 
 const BASE_PREVIEW_STYLES = `
   :root {
@@ -188,6 +303,8 @@ const BASE_PREVIEW_STYLES = `
     max-width: 100%;
     border-radius: 0;
   }
+
+  ${SHARED_DOCUMENT_STYLES}
 `;
 
 const BASE_PRINT_STYLES = `
@@ -291,6 +408,8 @@ const BASE_PRINT_STYLES = `
     max-width: 100%;
     border-radius: 0;
   }
+
+  ${SHARED_DOCUMENT_STYLES}
 `;
 
 function resolveBaseDir(filePath) {
@@ -330,6 +449,47 @@ function extractBodyContents(html) {
   return bodyMatch ? bodyMatch[1].trim() : html;
 }
 
+function decodeHtmlEntities(value) {
+  return value
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", "\"")
+    .replaceAll("&#39;", "'");
+}
+
+function highlightCodeBlocks(html) {
+  return html.replace(
+    /<code([^>]*)data-lang="([^"]+)"([^>]*)>([\s\S]*?)<\/code>/g,
+    (_, beforeAttrs, language, afterAttrs, code) => {
+      const source = decodeHtmlEntities(code);
+
+      let highlighted;
+      try {
+        highlighted = hljs.highlight(source, { language }).value;
+      } catch {
+        highlighted = hljs.highlightAuto(source).value;
+      }
+
+      return `<code${beforeAttrs}data-lang="${language}"${afterAttrs}>${highlighted}</code>`;
+    }
+  );
+}
+
+async function loadHighlightThemeCss() {
+  if (cachedHighlightThemeCss !== undefined) {
+    return cachedHighlightThemeCss;
+  }
+
+  try {
+    cachedHighlightThemeCss = await fs.readFile(HIGHLIGHT_THEME_PATH, "utf8");
+  } catch {
+    cachedHighlightThemeCss = "";
+  }
+
+  return cachedHighlightThemeCss;
+}
+
 function loadDocument(source, filePath, options = {}) {
   return asciidoctor.load(source, buildLoadOptions(filePath, options));
 }
@@ -340,10 +500,10 @@ export function convertDocument(source, filePath, options = {}) {
 }
 
 export async function renderPreview(source, filePath, options = {}) {
-  const rendered = extractBodyContents(convertDocument(source, filePath, {
+  const rendered = highlightCodeBlocks(extractBodyContents(convertDocument(source, filePath, {
     standalone: true,
     stylesheetPath: options.stylesheetPath
-  }));
+  })));
 
   let customStyles = "";
   if (options.stylesheetPath) {
@@ -354,6 +514,7 @@ export async function renderPreview(source, filePath, options = {}) {
     }
   }
 
+  const highlightThemeCss = await loadHighlightThemeCss();
   const documentMode = options.documentMode ?? "preview";
   const previewTheme = documentMode === "print"
     ? PRINT_THEME
@@ -366,7 +527,7 @@ export async function renderPreview(source, filePath, options = {}) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${baseStyles}${customStyles}</style>
+      <style>:root { --adoc-font-family: ${previewFontFamily}; }${previewTheme}${baseStyles}${highlightThemeCss}${customStyles}</style>
     </head>
     <body>
       <main>

@@ -44,6 +44,13 @@ test("renderPreview supports extended preview themes and font families", async (
   assert.match(html, /--adoc-font-family: "Aptos", "Segoe UI Variable Text", "Inter", "Noto Sans", sans-serif;/);
 });
 
+test("renderPreview applies syntax highlighting when a supported source language is provided", async () => {
+  const html = await renderPreview("= Demo\n\n[source,js]\n----\nconst total = 1;\n----");
+
+  assert.match(html, /hljs-keyword/);
+  assert.match(html, /\.hljs/);
+});
+
 test("renderPreview can render a print-friendly document without preview chrome", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
     previewTheme: "darcula",
