@@ -54,11 +54,14 @@ test("renderPreview applies syntax highlighting when a supported source language
 test("renderPreview can render a print-friendly document without preview chrome", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
     previewTheme: "darcula",
-    documentMode: "print"
+    documentMode: "print",
+    pdfPaperSize: "Letter"
   });
 
   assert.match(html, /@page\s*\{/);
+  assert.match(html, /size: Letter;/);
   assert.match(html, /--adoc-bg: #ffffff;/);
+  assert.match(html, /table-layout: fixed;/);
   assert.doesNotMatch(html, /box-shadow: 0 24px 60px/);
   assert.doesNotMatch(html, /border-radius: 24px/);
 });

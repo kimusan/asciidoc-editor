@@ -307,110 +307,126 @@ const BASE_PREVIEW_STYLES = `
   ${SHARED_DOCUMENT_STYLES}
 `;
 
-const BASE_PRINT_STYLES = `
-  :root {
-    font-family: var(--adoc-font-family);
-    line-height: 1.6;
-    font-size: 11pt;
-  }
+function buildPrintStyles(pageSize = "A4") {
+  return `
+    :root {
+      font-family: var(--adoc-font-family);
+      line-height: 1.6;
+      font-size: 10.5pt;
+    }
 
-  @page {
-    size: A4;
-    margin: 18mm 16mm 20mm;
-  }
+    @page {
+      size: ${pageSize};
+      margin: 18mm 12mm 20mm;
+    }
 
-  html, body {
-    margin: 0;
-    background: #ffffff;
-    color: var(--adoc-text);
-  }
+    html, body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--adoc-text);
+    }
 
-  body {
-    padding: 0;
-  }
+    body {
+      padding: 0;
+    }
 
-  main {
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
+    main {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      width: 100%;
+      max-width: none;
+    }
 
-  a {
-    color: var(--adoc-link);
-    text-decoration: underline;
-  }
+    a {
+      color: var(--adoc-link);
+      text-decoration: underline;
+      overflow-wrap: anywhere;
+    }
 
-  h1, h2, h3, h4, h5, h6 {
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-    margin-top: 1.35em;
-    margin-bottom: 0.55em;
-    break-after: avoid-page;
-  }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin-top: 1.35em;
+      margin-bottom: 0.55em;
+      break-after: avoid-page;
+    }
 
-  h1 {
-    font-size: 24pt;
-    margin-top: 0;
-    border-bottom: 1.5pt solid var(--adoc-accent);
-    padding-bottom: 0.25em;
-  }
+    h1 {
+      font-size: 24pt;
+      margin-top: 0;
+      border-bottom: 1.5pt solid var(--adoc-accent);
+      padding-bottom: 0.25em;
+    }
 
-  pre, code {
-    font-family: "IBM Plex Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  }
+    pre, code {
+      font-family: "IBM Plex Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
-  pre {
-    background: var(--adoc-code-bg);
-    border: 1px solid var(--adoc-border);
-    border-radius: 8px;
-    padding: 10pt 12pt;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    break-inside: avoid-page;
-  }
+    pre {
+      background: var(--adoc-code-bg);
+      border: 1px solid var(--adoc-border);
+      border-radius: 8px;
+      padding: 10pt 12pt;
+      overflow-x: hidden;
+      white-space: pre-wrap;
+      break-inside: avoid-page;
+    }
 
-  code {
-    background: color-mix(in srgb, var(--adoc-code-bg) 88%, #ffffff);
-    padding: 0.1em 0.28em;
-    border-radius: 0.25em;
-  }
+    code {
+      background: color-mix(in srgb, var(--adoc-code-bg) 88%, #ffffff);
+      padding: 0.1em 0.28em;
+      border-radius: 0.25em;
+    }
 
-  blockquote {
-    margin: 1.2em 0;
-    padding: 0.1em 0 0.1em 1em;
-    border-left: 3px solid var(--adoc-accent);
-    color: var(--adoc-subtle);
-  }
+    blockquote {
+      margin: 1.2em 0;
+      padding: 0.1em 0 0.1em 1em;
+      border-left: 3px solid var(--adoc-accent);
+      color: var(--adoc-subtle);
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1.25em 0;
-    border: 1px solid var(--adoc-border);
-    break-inside: avoid-page;
-  }
+    table {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      margin: 1.25em 0;
+      border: 1px solid var(--adoc-border);
+      break-inside: avoid-page;
+    }
 
-  th, td {
-    padding: 0.55em 0.7em;
-    border-bottom: 1px solid var(--adoc-border);
-    text-align: left;
-    vertical-align: top;
-  }
+    th, td {
+      padding: 0.55em 0.7em;
+      border-bottom: 1px solid var(--adoc-border);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
-  th {
-    background: color-mix(in srgb, var(--adoc-code-bg) 78%, #ffffff);
-  }
+    th {
+      background: color-mix(in srgb, var(--adoc-code-bg) 78%, #ffffff);
+    }
 
-  img {
-    max-width: 100%;
-    border-radius: 0;
-  }
+    p, li, td.tableblock, p.tableblock {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
-  ${SHARED_DOCUMENT_STYLES}
-`;
+    img {
+      max-width: 100%;
+      border-radius: 0;
+    }
+
+    ${SHARED_DOCUMENT_STYLES}
+  `;
+}
 
 function resolveBaseDir(filePath) {
   if (!filePath) {
@@ -520,7 +536,9 @@ export async function renderPreview(source, filePath, options = {}) {
     ? PRINT_THEME
     : (BUILTIN_PREVIEW_THEMES[options.previewTheme] ?? BUILTIN_PREVIEW_THEMES.paper);
   const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
-  const baseStyles = documentMode === "print" ? BASE_PRINT_STYLES : BASE_PREVIEW_STYLES;
+  const baseStyles = documentMode === "print"
+    ? buildPrintStyles(options.pdfPaperSize ?? "A4")
+    : BASE_PREVIEW_STYLES;
 
   return `<!doctype html>
   <html lang="en">
@@ -544,7 +562,8 @@ export async function exportDocument({
   format,
   stylesheetPath,
   previewTheme,
-  previewFontFamily
+  previewFontFamily,
+  pdfPaperSize
 }) {
   if (format === "html") {
     const html = await renderPreview(source, filePath, {
@@ -571,6 +590,7 @@ export async function exportDocument({
       stylesheetPath,
       previewTheme,
       previewFontFamily,
+      pdfPaperSize,
       documentMode: "print"
     });
     const printWindow = new BrowserWindow({
@@ -584,7 +604,8 @@ export async function exportDocument({
       await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
       const pdfBuffer = await printWindow.webContents.printToPDF({
         printBackground: true,
-        preferCSSPageSize: true
+        preferCSSPageSize: true,
+        pageSize: pdfPaperSize ?? "A4"
       });
       await fs.writeFile(destinationPath, pdfBuffer);
       return destinationPath;

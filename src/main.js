@@ -251,6 +251,15 @@ const PREVIEW_FONT_OPTIONS = [
   { value: "mono", label: "Mono" }
 ];
 
+const PDF_PAPER_OPTIONS = [
+  { value: "A4", label: "A4" },
+  { value: "Letter", label: "Letter" },
+  { value: "Legal", label: "Legal" },
+  { value: "A3", label: "A3" },
+  { value: "A5", label: "A5" },
+  { value: "Tabloid", label: "Tabloid" }
+];
+
 const APP_THEME_OPTIONS = [
   { value: "nocturne", label: "Nocturne" },
   { value: "porcelain", label: "Porcelain" },
@@ -332,6 +341,11 @@ function normalizePreviewFontValue(value) {
   return allowed.has(value) ? value : "serif";
 }
 
+function normalizePdfPaperSize(value) {
+  const allowed = new Set(PDF_PAPER_OPTIONS.map((option) => option.value));
+  return allowed.has(value) ? value : "A4";
+}
+
 const appState = {
   workspacePath: null,
   openFilePath: null,
@@ -339,6 +353,7 @@ const appState = {
   previewStylesheetPath: null,
   previewTheme: "paper",
   previewFontFamily: "serif",
+  pdfPaperSize: "A4",
   theme: "nocturne",
   distractionFree: false,
   currentContent: "= Untitled\n\nStart writing...",
@@ -496,7 +511,7 @@ function createLayout() {
             </button>
             <button class="format-card" data-export-format="pdf">
               <strong>PDF</strong>
-              <span>Clean print-friendly document export.</span>
+              <span id="export-pdf-description">Clean print-friendly document export.</span>
             </button>
             <button class="format-card" data-export-format="docbook">
               <strong>DocBook 5</strong>
@@ -561,6 +576,18 @@ function createLayout() {
                   <button id="clear-stylesheet" class="toolbar-button ghost-button"><span>Clear</span></button>
                 </div>
               </div>
+            </article>
+            <article class="settings-card">
+              <div class="settings-card-header">
+                <h3>PDF Export</h3>
+                <p>Select the default paper format used for PDF generation.</p>
+              </div>
+              <label class="settings-field">
+                <span>Paper format</span>
+                <select id="settings-pdf-paper-size">
+                  ${renderOptionMarkup(PDF_PAPER_OPTIONS)}
+                </select>
+              </label>
             </article>
           </div>
         </section>
@@ -638,6 +665,7 @@ function createLayout() {
   elements.settingsAppTheme = document.querySelector("#settings-app-theme");
   elements.settingsPreviewTheme = document.querySelector("#settings-preview-theme");
   elements.settingsPreviewFont = document.querySelector("#settings-preview-font");
+  elements.settingsPdfPaperSize = document.querySelector("#settings-pdf-paper-size");
   elements.settingsStylesheetStatus = document.querySelector("#settings-stylesheet-status");
   elements.chooseStylesheet = document.querySelector("#choose-stylesheet");
   elements.clearStylesheet = document.querySelector("#clear-stylesheet");
@@ -655,6 +683,7 @@ function createLayout() {
   elements.openExport = document.querySelector("#open-export");
   elements.closeExport = document.querySelector("#close-export");
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
+  elements.exportPdfDescription = document.querySelector("#export-pdf-description");
   elements.fileTree = document.querySelector("#file-tree");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.documentName = document.querySelector("#document-name");
@@ -781,6 +810,8 @@ function updateDocumentChrome() {
   elements.settingsAppTheme.value = appState.theme;
   elements.settingsPreviewTheme.value = appState.previewTheme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
+  elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
+  elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize}).`;
   elements.settingsOverlay.hidden = !appState.settingsOpen;
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
   elements.previewOverlay.hidden = !appState.previewOverlayOpen;
@@ -943,7 +974,8 @@ function buildPreviewPayload() {
     filePath: appState.openFilePath,
     stylesheetPath: appState.previewStylesheetPath,
     previewTheme: appState.previewTheme,
-    previewFontFamily: appState.previewFontFamily
+    previewFontFamily: appState.previewFontFamily,
+    pdfPaperSize: appState.pdfPaperSize
   };
 }
 
@@ -1277,7 +1309,8 @@ async function exportCurrentDocument(format) {
     format,
     stylesheetPath: appState.previewStylesheetPath,
     previewTheme: appState.previewTheme,
-    previewFontFamily: appState.previewFontFamily
+    previewFontFamily: appState.previewFontFamily,
+    pdfPaperSize: appState.pdfPaperSize
   });
   appState.previewInSync = true;
   elements.documentStatus.textContent = `Exported ${format.toUpperCase()}`;
@@ -1379,6 +1412,12 @@ async function bindEvents() {
     await window.desktop.updateState({ previewFontFamily: appState.previewFontFamily });
   });
 
+  elements.settingsPdfPaperSize.addEventListener("change", async (event) => {
+    appState.pdfPaperSize = normalizePdfPaperSize(event.target.value);
+    updateDocumentChrome();
+    await window.desktop.updateState({ pdfPaperSize: appState.pdfPaperSize });
+  });
+
   elements.chooseStylesheet.addEventListener("click", async () => {
     const selectedStylesheet = await window.desktop.chooseStylesheet();
     if (!selectedStylesheet) {
@@ -1469,6 +1508,7 @@ async function bindEvents() {
       theme: appState.theme,
       previewTheme: appState.previewTheme,
       previewFontFamily: appState.previewFontFamily,
+      pdfPaperSize: appState.pdfPaperSize,
       distractionFree: appState.distractionFree,
       previewStylesheetPath: appState.previewStylesheetPath
     });
@@ -1527,7 +1567,8 @@ function registerBootSequence() {
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
       previewTheme: normalizePreviewThemeValue(state?.previewTheme),
-      previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily)
+      previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
+      pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize)
     });
     applyEditorTheme(appState.theme);
     updateDocumentChrome();

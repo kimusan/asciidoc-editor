@@ -9,6 +9,7 @@ const defaultState = {
   theme: "nocturne",
   previewTheme: "paper",
   previewFontFamily: "serif",
+  pdfPaperSize: "A4",
   distractionFree: false,
   previewStylesheetPath: null
 };
