@@ -11,6 +11,7 @@ const defaultState = {
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
   distractionFree: false,
+  workspaceCollapsed: false,
   previewStylesheetPath: null
 };
 

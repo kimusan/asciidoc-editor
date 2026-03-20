@@ -294,7 +294,9 @@ const ICONS = {
   focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   expand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4H20v5.5M20 4l-7 7M9.5 20H4v-5.5M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-  preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`
+  preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  collapseSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M13.5 9 10 12l3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  expandSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M10.5 9 14 12l-3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 };
 
 const MARKUP_REFERENCE = [
@@ -387,6 +389,7 @@ const appState = {
   pdfPaperSize: "A4",
   theme: "nocturne",
   distractionFree: false,
+  workspaceCollapsed: false,
   currentContent: "= Untitled\n\nStart writing...",
   currentFileName: "Untitled.adoc",
   isDirty: false,
@@ -436,10 +439,16 @@ function createLayout() {
               <p class="eyebrow">Current Space</p>
               <div id="workspace-label" class="workspace-label">No folder selected</div>
             </div>
+            <button id="collapse-workspace" class="toolbar-button ghost-button workspace-toggle" aria-label="Collapse file manager">
+              <span class="button-icon">${ICONS.collapseSidebar}</span>
+            </button>
           </div>
           <div class="workspace-note">Open a folder to browse source files and jump between chapters, includes, and references.</div>
           <div id="file-tree" class="file-tree"></div>
         </aside>
+        <button id="expand-workspace" class="workspace-rail" aria-label="Expand file manager" title="Show file manager">
+          <span class="button-icon">${ICONS.expandSidebar}</span>
+        </button>
         <section class="editor-stage panel">
           <div class="editor-stage-header">
             <div class="editor-title-stack">
@@ -716,6 +725,8 @@ function createLayout() {
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
   elements.exportPdfDescription = document.querySelector("#export-pdf-description");
   elements.fileTree = document.querySelector("#file-tree");
+  elements.collapseWorkspace = document.querySelector("#collapse-workspace");
+  elements.expandWorkspace = document.querySelector("#expand-workspace");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.documentName = document.querySelector("#document-name");
   elements.documentStatus = document.querySelector("#document-status");
@@ -836,6 +847,10 @@ function updateDocumentChrome() {
   elements.lineCount.textContent = String(lineCount);
   elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
   elements.shell.classList.toggle("focus-mode", appState.distractionFree);
+  elements.shell.classList.toggle("workspace-collapsed", appState.workspaceCollapsed);
+  elements.expandWorkspace.hidden = !appState.workspaceCollapsed;
+  elements.expandWorkspace.setAttribute("aria-hidden", String(!appState.workspaceCollapsed));
+  elements.collapseWorkspace.setAttribute("aria-label", appState.workspaceCollapsed ? "Expand file manager" : "Collapse file manager");
   elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
   applyShellTheme(appState.theme);
   elements.settingsAppTheme.value = appState.theme;
@@ -858,6 +873,12 @@ function updateDocumentChrome() {
 function setSplitRatio(nextRatio) {
   appState.splitRatio = Math.min(0.75, Math.max(0.25, nextRatio));
   elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
+}
+
+async function setWorkspaceCollapsed(nextValue) {
+  appState.workspaceCollapsed = nextValue;
+  updateDocumentChrome();
+  await window.desktop.updateState({ workspaceCollapsed: appState.workspaceCollapsed });
 }
 
 function openReferenceOverlay() {
@@ -1386,6 +1407,14 @@ async function bindEvents() {
     void saveAsCurrentDocument();
   });
 
+  elements.collapseWorkspace.addEventListener("click", () => {
+    void setWorkspaceCollapsed(true);
+  });
+
+  elements.expandWorkspace.addEventListener("click", () => {
+    void setWorkspaceCollapsed(false);
+  });
+
   document.querySelector("#toggle-focus").addEventListener("click", async () => {
     appState.distractionFree = !appState.distractionFree;
     updateDocumentChrome();
@@ -1554,6 +1583,7 @@ async function bindEvents() {
       previewFontFamily: appState.previewFontFamily,
       pdfPaperSize: appState.pdfPaperSize,
       distractionFree: appState.distractionFree,
+      workspaceCollapsed: appState.workspaceCollapsed,
       previewStylesheetPath: appState.previewStylesheetPath
     });
   });
@@ -1612,7 +1642,8 @@ function registerBootSequence() {
       theme: normalizeThemeValue(state?.theme),
       previewTheme: normalizePreviewThemeValue(state?.previewTheme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
-      pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize)
+      pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
+      workspaceCollapsed: Boolean(state?.workspaceCollapsed)
     });
     applyEditorTheme(appState.theme);
     updateDocumentChrome();
