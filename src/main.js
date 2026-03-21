@@ -1623,6 +1623,45 @@ function findNearestSectionIndex(lineNumber) {
   return sectionIndex;
 }
 
+function getLineRatio(lineNumber, startLine, endLine) {
+  if (endLine <= startLine) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, (lineNumber - startLine) / (endLine - startLine)));
+}
+
+function getEditorSectionSyncPosition() {
+  const lineNumber = getEditorSyncLineNumber();
+  const sections = getSourceSections();
+  const totalLines = editorView.state.doc.lines;
+
+  if (sections.length === 0) {
+    return {
+      sectionIndex: -1,
+      ratio: getLineRatio(lineNumber, 1, totalLines)
+    };
+  }
+
+  const sectionIndex = findNearestSectionIndex(lineNumber);
+  if (sectionIndex < 0) {
+    return {
+      sectionIndex,
+      ratio: getLineRatio(lineNumber, 1, Math.max(1, sections[0].lineNumber - 1))
+    };
+  }
+
+  const startLine = sections[sectionIndex].lineNumber;
+  const endLine = sectionIndex + 1 < sections.length
+    ? Math.max(startLine, sections[sectionIndex + 1].lineNumber - 1)
+    : totalLines;
+
+  return {
+    sectionIndex,
+    ratio: getLineRatio(lineNumber, startLine, endLine)
+  };
+}
+
 function getEditorSyncLineNumber() {
   const selectionLine = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
   const viewportStartLine = editorView.state.doc.lineAt(editorView.viewport.from).number;
@@ -1635,21 +1674,37 @@ function getEditorSyncLineNumber() {
   return viewportStartLine;
 }
 
-function scrollPreviewToSectionIndex(sectionIndex, frame = elements.previewFrame, behavior = "auto") {
-  if (sectionIndex < 0) {
-    scrollPreviewToTop(frame);
+function scrollPreviewToSyncPosition(syncPosition, frame = elements.previewFrame, behavior = "auto") {
+  const frameWindow = frame.contentWindow;
+  const frameDocument = frame.contentDocument;
+  if (!frameWindow || !frameDocument) {
     return;
   }
 
   const headings = getPreviewSectionHeadings(frame);
-  const target = headings[sectionIndex];
-  if (!target) {
-    return;
+  const maxScrollTop = Math.max(0, frameDocument.documentElement.scrollHeight - frameWindow.innerHeight);
+  let startTop = 0;
+  let endTop = maxScrollTop;
+
+  if (headings.length > 0) {
+    if (syncPosition.sectionIndex < 0) {
+      endTop = headings[0].offsetTop;
+    } else {
+      const currentHeading = headings[syncPosition.sectionIndex];
+      if (!currentHeading) {
+        return;
+      }
+
+      startTop = currentHeading.offsetTop;
+      endTop = headings[syncPosition.sectionIndex + 1]?.offsetTop ?? maxScrollTop;
+    }
   }
 
-  target.scrollIntoView({
-    behavior,
-    block: "start"
+  const targetTop = Math.max(0, Math.min(maxScrollTop, startTop + ((endTop - startTop) * syncPosition.ratio)));
+
+  frameWindow.scrollTo({
+    top: targetTop,
+    behavior
   });
 }
 
@@ -1658,11 +1713,9 @@ function syncPreviewToEditorPosition() {
     return;
   }
 
-  const syncLine = getEditorSyncLineNumber();
-  const sectionIndex = findNearestSectionIndex(syncLine);
-
-  scrollPreviewToSectionIndex(sectionIndex, elements.previewFrame, "auto");
-  scrollPreviewToSectionIndex(sectionIndex, elements.previewFrameExpanded, "auto");
+  const syncPosition = getEditorSectionSyncPosition();
+  scrollPreviewToSyncPosition(syncPosition, elements.previewFrame, "auto");
+  scrollPreviewToSyncPosition(syncPosition, elements.previewFrameExpanded, "auto");
 }
 
 function schedulePreviewSync() {
