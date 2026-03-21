@@ -291,6 +291,15 @@ input:focus-visible,
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-header > :first-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .workspace-controls {

@@ -991,6 +991,7 @@ function createLayout() {
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
   elements.exportPdfDescription = document.querySelector("#export-pdf-description");
   elements.fileTree = document.querySelector("#file-tree");
+  elements.openFolder = document.querySelector("#open-folder");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
   elements.workspaceSearch = document.querySelector("#workspace-search");
@@ -1287,7 +1288,12 @@ function updateDocumentChrome() {
   } else {
     elements.documentStatus.textContent = appState.previewInSync ? "Preview synced" : "Rendering preview";
   }
-  elements.workspaceLabel.textContent = appState.workspacePath ?? "No folder selected";
+  const workspacePath = appState.workspacePath ?? "No folder selected";
+  elements.workspaceLabel.textContent = workspacePath;
+  elements.workspaceLabel.title = appState.workspacePath ?? "";
+  elements.openFolder.title = appState.workspacePath
+    ? `Current workspace: ${appState.workspacePath}`
+    : "Choose a workspace folder to browse, search, and open files.";
   elements.stylesheetChip.textContent = appState.previewStylesheetPath
     ? `Preview CSS: ${appState.previewStylesheetPath.split(/[\\/]/).pop()}`
     : "No custom preview CSS";
