@@ -13,6 +13,7 @@ This implementation uses Electron for the desktop shell and `asciidoctor.js` for
 - Full document rendering through `asciidoctor.js`
 - Live preview while editing
 - Support for AsciiDoc includes, conditionals, passthrough blocks, and substitutions
+- Message sequence chart rendering for `[msc]` / `[mscgen]` blocks
 - Built-in file browser for navigating document folders
 - Syntax-highlighted editor
 - Multiple app and editor themes, including Nocturne, Porcelain, Nord, Darcula, and Solarized
@@ -73,7 +74,7 @@ npm run package:win
 - Full AsciiDoc language coverage is delegated to `asciidoctor.js`. That is the correct path for standards coverage, but support is limited to what that engine and its bundled converters provide.
 - PDF export is implemented by rendering the HTML preview and printing it through Chromium. This gives portable PDF export, but it is not the same feature set as `asciidoctor-pdf`.
 - Additional export targets beyond HTML, PDF, and DocBook 5 are not bundled yet. They would require extra converters or extra runtime dependencies.
-- Message sequence chart support via `mscgen.js` / Asciidoctor Diagram is not bundled at the moment. The current project license is MIT, while `mscgen.js` is GPL-3.0 licensed, so adding that support would likely require a future licensing decision for the distributed app.
+- Message sequence chart support is implemented using `mscgen.js`. The current project license remains MIT for now, but this dependency may require a future licensing review for the distributed app.
 - Windows packaging from Linux needs `wine`, or the build should run on a Windows CI/runner. The codebase is prepared for Windows, but that package was not fully produced in this environment.
 
 ## Credits

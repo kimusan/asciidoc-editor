@@ -1,8 +1,11 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Asciidoctor from "@asciidoctor/core";
 import hljs from "highlight.js/lib/common";
+import { JSDOM } from "jsdom";
+import mscgenjs from "mscgenjs";
 
 const asciidoctor = Asciidoctor();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +33,25 @@ const PREVIEW_FONT_STACKS = {
 const HIGHLIGHT_THEME_PATH = path.join(__dirname, "..", "node_modules", "highlight.js", "styles", "github.css");
 
 const SHARED_DOCUMENT_STYLES = `
+  .mscgen-block {
+    margin: 1.5em 0;
+  }
+
+  .mscgen-block > .content {
+    overflow-x: auto;
+  }
+
+  .mscgen-block svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .mscgen-error pre {
+    margin: 0.75rem 0 0;
+  }
+
   .listingblock > .content {
     position: relative;
   }
@@ -138,6 +160,8 @@ const SHARED_DOCUMENT_STYLES = `
 `;
 
 let cachedHighlightThemeCss;
+const mscSvgCache = new Map();
+let mscExtensionsRegistered = false;
 
 const BASE_PREVIEW_STYLES = `
   :root {
@@ -382,7 +406,118 @@ function buildAttributes(stylesheetPath) {
   return attributes;
 }
 
+function getMscCacheKey(source, options = {}) {
+  return crypto.createHash("sha256")
+    .update(JSON.stringify({
+      source,
+      inputType: options.inputType ?? "mscgen"
+    }))
+    .digest("hex");
+}
+
+function renderMscSvg(source, options = {}) {
+  const cacheKey = getMscCacheKey(source, options);
+  if (mscSvgCache.has(cacheKey)) {
+    return mscSvgCache.get(cacheKey);
+  }
+
+  const dom = new JSDOM("<div id=\"mscgen-root\"></div>");
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+
+  try {
+    let renderedSvg;
+    let renderError;
+
+    mscgenjs.renderMsc(
+      source,
+      {
+        elementId: "mscgen-root",
+        inputType: options.inputType ?? "mscgen",
+        includeSource: false
+      },
+      (error, svg) => {
+        renderError = error;
+        renderedSvg = typeof svg === "string"
+          ? svg
+          : dom.window.document.getElementById("mscgen-root")?.innerHTML ?? "";
+      }
+    );
+
+    if (renderError) {
+      throw renderError instanceof Error ? renderError : new Error(String(renderError));
+    }
+
+    if (!renderedSvg) {
+      throw new Error("mscgen.js did not produce SVG output");
+    }
+
+    mscSvgCache.set(cacheKey, renderedSvg);
+    return renderedSvg;
+  } finally {
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+
+    if (previousDocument === undefined) {
+      delete globalThis.document;
+    } else {
+      globalThis.document = previousDocument;
+    }
+
+    dom.window.close();
+  }
+}
+
+function buildMscHtml(source, options = {}) {
+  const svg = renderMscSvg(source, options);
+  return `<div class="imageblock mscgen-block" data-msc-input="${escapeHtml(options.inputType ?? "mscgen")}"><div class="content">${svg}</div></div>`;
+}
+
+function ensureMscExtensionsRegistered() {
+  if (mscExtensionsRegistered) {
+    return;
+  }
+
+  const registerMscBlock = (registry, name, inputType) => {
+    registry.block(function () {
+      const self = this;
+      self.named(name);
+      self.onContext("listing");
+      self.process(function (parent, reader) {
+        const source = reader.getLines().join("\n").trim();
+        if (!source) {
+          return self.createBlock(parent, "pass", "");
+        }
+
+        try {
+          return self.createBlock(parent, "pass", buildMscHtml(source, { inputType }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return self.createBlock(
+            parent,
+            "pass",
+            `<div class="admonitionblock warning mscgen-error"><table><tbody><tr><td class="icon"><div class="title">!</div></td><td class="content"><div class="title">MSC render failed</div><pre>${escapeHtml(message)}</pre></td></tr></tbody></table></div>`
+          );
+        }
+      });
+    });
+  };
+
+  asciidoctor.Extensions.register(function () {
+    registerMscBlock(this, "msc", "mscgen");
+    registerMscBlock(this, "mscgen", "mscgen");
+  });
+  mscExtensionsRegistered = true;
+}
+
 function buildLoadOptions(filePath, options = {}) {
+  ensureMscExtensionsRegistered();
   return {
     safe: "unsafe",
     base_dir: resolveBaseDir(filePath),
@@ -520,10 +655,11 @@ function extractSyncPoints(document) {
 }
 
 function renderDocument(source, filePath, options = {}) {
-  const document = loadDocument(source, filePath, options);
+  const loadOptions = buildLoadOptions(filePath, options);
+  const document = asciidoctor.load(source, loadOptions);
   return {
     title: resolveDocumentTitle(document, filePath),
-    content: document.convert(),
+    content: asciidoctor.convert(source, loadOptions),
     syncPoints: extractSyncPoints(document)
   };
 }

@@ -51,6 +51,14 @@ test("renderPreview applies syntax highlighting when a supported source language
   assert.match(html, /\.hljs/);
 });
 
+test("renderPreview renders msc blocks to inline svg", async () => {
+  const html = await renderPreview("= Demo\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----");
+
+  assert.match(html, /mscgen-block/);
+  assert.match(html, /<svg\b/);
+  assert.match(html, /hello/);
+});
+
 test("renderPreview can render a print-friendly document without preview chrome", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
     documentMode: "print",
