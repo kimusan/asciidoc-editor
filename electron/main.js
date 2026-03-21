@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
@@ -216,11 +217,49 @@ async function createWindow() {
     window.setAutoHideMenuBar(true);
   }
 
+  const closeRequestResolvers = new Map();
+  let allowWindowClose = false;
+
   await window.loadFile(path.join(DIST_DIR, "index.html"));
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  ipcMain.handle("app:close-response", async (_, payload) => {
+    const resolver = closeRequestResolvers.get(payload?.requestId);
+    if (!resolver) {
+      return false;
+    }
+
+    closeRequestResolvers.delete(payload.requestId);
+    resolver(Boolean(payload?.allowClose));
+    return true;
+  });
+
+  window.on("close", async (event) => {
+    if (allowWindowClose) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const requestId = randomUUID();
+    const allowClose = await new Promise((resolve) => {
+      closeRequestResolvers.set(requestId, resolve);
+      window.webContents.send("app:close-requested", { requestId });
+    });
+
+    if (allowClose) {
+      allowWindowClose = true;
+      window.close();
+    }
+  });
+
+  window.on("closed", () => {
+    closeRequestResolvers.clear();
+    ipcMain.removeHandler("app:close-response");
   });
 }
 
@@ -287,6 +326,39 @@ app.whenReady().then(async () => {
     }
 
     return filePaths[0];
+  });
+
+  ipcMain.handle("dialog:confirm-unsaved", async (event, payload = {}) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const itemName = payload.itemName ?? "document";
+
+    if (payload.scope === "app") {
+      const { response } = await dialog.showMessageBox(window, {
+        type: "warning",
+        buttons: ["Save All", "Discard Changes", "Cancel"],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+        title: "Unsaved changes",
+        message: `You have ${payload.count ?? 0} unsaved document${payload.count === 1 ? "" : "s"}.`,
+        detail: "Closing now will lose changes unless you save them first."
+      });
+
+      return ["save", "discard", "cancel"][response] ?? "cancel";
+    }
+
+    const { response } = await dialog.showMessageBox(window, {
+      type: "warning",
+      buttons: ["Save", "Discard", "Cancel"],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+      title: "Unsaved changes",
+      message: `${itemName} has unsaved changes.`,
+      detail: "Do you want to save before closing it?"
+    });
+
+    return ["save", "discard", "cancel"][response] ?? "cancel";
   });
 
   ipcMain.handle("fs:list-directory", async (_, rootPath) => listDirectory(rootPath));

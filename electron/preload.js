@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld("desktop", {
   followPreviewLink: (payload) => ipcRenderer.invoke("preview:follow-link", payload),
   exportDocument: (payload) => ipcRenderer.invoke("export:document", payload),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
+  confirmUnsaved: (payload) => ipcRenderer.invoke("dialog:confirm-unsaved", payload),
+  onAppCloseRequested: (callback) => {
+    ipcRenderer.removeAllListeners("app:close-requested");
+    ipcRenderer.on("app:close-requested", (_, payload) => callback(payload));
+  },
+  respondToAppCloseRequest: (payload) => ipcRenderer.invoke("app:close-response", payload),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
   loadState: () => ipcRenderer.invoke("state:load")
 });

@@ -317,6 +317,8 @@ const APP_THEME_OPTIONS = [
   { value: "material", label: "Material Design" }
 ];
 
+const DEFAULT_DOCUMENT_CONTENT = "= Untitled\n\nStart writing...";
+
 const ICONS = {
   brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
@@ -525,7 +527,63 @@ function getFileTypeMeta(name) {
   return { icon: ICONS.fileText, kind: "text" };
 }
 
+function nextUntitledName() {
+  const sequence = appState.untitledSequence++;
+  return sequence === 1 ? "Untitled.adoc" : `Untitled ${sequence}.adoc`;
+}
+
+function createDocumentSession(document = {}) {
+  return {
+    id: `doc-${appState.nextDocumentId++}`,
+    path: document.path ?? null,
+    workspacePath: document.workspacePath ?? appState.workspacePath ?? null,
+    name: document.name ?? nextUntitledName(),
+    content: document.content ?? DEFAULT_DOCUMENT_CONTENT,
+    lastModifiedMs: document.lastModifiedMs ?? null,
+    isDirty: Boolean(document.isDirty),
+    previewInSync: document.previewInSync ?? !document.isDirty
+  };
+}
+
+function getDocumentSession(documentId = appState.activeDocumentId) {
+  return appState.openDocuments.find((document) => document.id === documentId) ?? null;
+}
+
+function getDocumentSessionByPath(filePath) {
+  if (!filePath) {
+    return null;
+  }
+
+  return appState.openDocuments.find((document) => document.path === filePath) ?? null;
+}
+
+function syncMirrorStateFromDocument(document) {
+  if (!document) {
+    appState.activeDocumentId = null;
+    appState.openFilePath = null;
+    appState.currentFileName = "Untitled.adoc";
+    appState.currentContent = DEFAULT_DOCUMENT_CONTENT;
+    appState.isDirty = false;
+    appState.previewInSync = true;
+    return;
+  }
+
+  appState.activeDocumentId = document.id;
+  appState.openFilePath = document.path;
+  appState.currentFileName = document.name;
+  appState.currentContent = document.content;
+  appState.isDirty = document.isDirty;
+  appState.previewInSync = document.previewInSync;
+  if (document.workspacePath) {
+    appState.workspacePath = document.workspacePath;
+  }
+}
+
 const appState = {
+  openDocuments: [],
+  activeDocumentId: null,
+  nextDocumentId: 1,
+  untitledSequence: 1,
   workspacePath: null,
   openFilePath: null,
   recentFiles: [],
@@ -559,6 +617,7 @@ const appState = {
   aboutOpen: false,
   splitRatio: 0.5,
   previewRenderVersion: 0,
+  isHandlingCloseRequest: false,
   renderTimer: null,
   syncTimer: null,
   directoryCache: new Map()
@@ -682,6 +741,7 @@ function createLayout() {
                 </div>
               </div>
             </div>
+            <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
           </div>
           <div class="editor-surface">
             <div id="split-layout" class="split-layout">
@@ -994,6 +1054,7 @@ function createLayout() {
   elements.openFolder = document.querySelector("#open-folder");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
+  elements.documentTabs = document.querySelector("#document-tabs");
   elements.workspaceSearch = document.querySelector("#workspace-search");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.exitFocusMode = document.querySelector("#exit-focus-mode");
@@ -1251,7 +1312,14 @@ function createEditor() {
 
         appState.isDirty = true;
         appState.previewInSync = false;
+        const activeDocument = getDocumentSession();
+        if (activeDocument) {
+          activeDocument.content = appState.currentContent;
+          activeDocument.isDirty = true;
+          activeDocument.previewInSync = false;
+        }
         updateDocumentChrome();
+        renderDocumentTabs();
         schedulePreviewRender();
       }
 
@@ -1338,6 +1406,7 @@ function updateDocumentChrome() {
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
   elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
+  renderDocumentTabs();
 }
 
 function setSplitRatio(nextRatio) {
@@ -1477,7 +1546,24 @@ function applyShellTheme(theme) {
   document.documentElement.style.colorScheme = theme === "porcelain" || theme === "solarized" || theme === "material" ? "light" : "dark";
 }
 
-function setEditorContent(content) {
+function renderDocumentTabs() {
+  elements.documentTabs.innerHTML = appState.openDocuments.map((document) => `
+    <button
+      class="document-tab ${document.id === appState.activeDocumentId ? "is-active" : ""}"
+      type="button"
+      role="tab"
+      aria-selected="${document.id === appState.activeDocumentId}"
+      data-document-id="${document.id}"
+      title="${escapeHtml(document.path ?? document.name)}"
+    >
+      <span class="document-tab-label">${escapeHtml(document.name)}</span>
+      ${document.isDirty ? `<span class="document-tab-dirty" aria-label="Unsaved changes"></span>` : ""}
+      <span class="document-tab-close" data-close-document="${document.id}" aria-label="Close ${escapeHtml(document.name)}">${ICONS.close}</span>
+    </button>
+  `).join("");
+}
+
+function setEditorContent(content, options = {}) {
   appState.isApplyingDocument = true;
   editorView.dispatch({
     changes: {
@@ -1488,18 +1574,44 @@ function setEditorContent(content) {
   });
   appState.isApplyingDocument = false;
   appState.currentContent = content;
-  appState.isDirty = false;
-  appState.previewInSync = false;
+  appState.isDirty = Boolean(options.isDirty);
+  appState.previewInSync = options.previewInSync ?? false;
   updateDocumentChrome();
 }
 
-async function openDocument(document) {
-  appState.openFilePath = document.path;
-  appState.workspacePath = document.workspacePath;
-  appState.currentFileName = document.name;
-  setEditorContent(document.content);
+async function activateDocument(documentId, options = {}) {
+  const document = getDocumentSession(documentId);
+  if (!document) {
+    return false;
+  }
+
+  syncMirrorStateFromDocument(document);
+  setEditorContent(document.content, {
+    isDirty: document.isDirty,
+    previewInSync: document.previewInSync
+  });
+  renderDocumentTabs();
   await renderPreviewNow();
-  await refreshFileTree();
+  if (options.refreshTree !== false) {
+    await refreshFileTree();
+  }
+  return true;
+}
+
+async function openDocument(document) {
+  const existingDocument = getDocumentSessionByPath(document.path);
+  if (existingDocument) {
+    await activateDocument(existingDocument.id);
+    return existingDocument;
+  }
+
+  const session = createDocumentSession(document);
+  appState.openDocuments.push(session);
+  if (session.workspacePath) {
+    appState.workspacePath = session.workspacePath;
+  }
+  await activateDocument(session.id);
+  return session;
 }
 
 function scrollPreviewToTop(frame = elements.previewFrame) {
@@ -1700,6 +1812,10 @@ async function renderPreviewNow() {
     installPreviewInteractions(elements.previewFrame);
     installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = true;
+    const activeDocument = getDocumentSession();
+    if (activeDocument) {
+      activeDocument.previewInSync = true;
+    }
   } catch (error) {
     if (renderVersion !== appState.previewRenderVersion) {
       return;
@@ -1737,6 +1853,10 @@ async function renderPreviewNow() {
     installPreviewInteractions(elements.previewFrame);
     installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = false;
+    const activeDocument = getDocumentSession();
+    if (activeDocument) {
+      activeDocument.previewInSync = false;
+    }
   }
 
   updateDocumentChrome();
@@ -2176,51 +2296,159 @@ async function refreshFileTree() {
   await Promise.all(rootDetails.map((node) => fillDetailsNode(node, 0)));
 }
 
-async function saveCurrentDocument() {
-  let filePath = appState.openFilePath;
-  if (!filePath) {
-    filePath = await window.desktop.saveDialog({
-      defaultPath: pathWithExtension(appState.currentFileName || "Untitled.adoc"),
-      kind: "document"
-    });
-  }
-
-  if (!filePath) {
-    return;
-  }
-
-  const savedDocument = await window.desktop.saveDocument({
-    filePath,
-    content: appState.currentContent
-  });
-  if (savedDocument) {
-    appState.isDirty = false;
-    await openDocument(savedDocument);
-  }
-}
-
 function pathWithExtension(name) {
   return /\.(adoc|asciidoc|asc)$/i.test(name) ? name : `${name}.adoc`;
 }
 
-async function saveAsCurrentDocument() {
-  const targetPath = await window.desktop.saveDialog({
-    defaultPath: appState.openFilePath ?? pathWithExtension(appState.currentFileName || "Untitled.adoc"),
-    kind: "document"
-  });
+async function saveDocumentSession(document, options = {}) {
+  if (!document) {
+    return false;
+  }
+
+  let targetPath = options.saveAs ? null : document.path;
+  if (!targetPath) {
+    targetPath = await window.desktop.saveDialog({
+      defaultPath: pathWithExtension(document.name || "Untitled.adoc"),
+      kind: "document"
+    });
+  }
 
   if (!targetPath) {
-    return;
+    return false;
   }
 
+  const content = document.id === appState.activeDocumentId ? appState.currentContent : document.content;
   const savedDocument = await window.desktop.saveDocument({
     filePath: targetPath,
-    content: appState.currentContent
+    content
   });
-  if (savedDocument) {
-    appState.isDirty = false;
-    await openDocument(savedDocument);
+
+  if (!savedDocument) {
+    return false;
   }
+
+  document.path = savedDocument.path;
+  document.name = savedDocument.name;
+  document.workspacePath = savedDocument.workspacePath;
+  document.content = savedDocument.content;
+  document.lastModifiedMs = savedDocument.lastModifiedMs;
+  document.isDirty = false;
+  if (document.id === appState.activeDocumentId) {
+    syncMirrorStateFromDocument(document);
+  }
+
+  await refreshFileTree();
+  updateDocumentChrome();
+  return true;
+}
+
+async function saveCurrentDocument() {
+  return saveDocumentSession(getDocumentSession());
+}
+
+async function saveAsCurrentDocument() {
+  return saveDocumentSession(getDocumentSession(), { saveAs: true });
+}
+
+async function confirmCloseDocument(document) {
+  if (!document?.isDirty) {
+    return true;
+  }
+
+  const decision = await window.desktop.confirmUnsaved({
+    scope: "document",
+    itemName: document.name
+  });
+
+  if (decision === "discard") {
+    return true;
+  }
+
+  if (decision === "save") {
+    return saveDocumentSession(document);
+  }
+
+  return false;
+}
+
+async function closeDocument(documentId) {
+  const document = getDocumentSession(documentId);
+  if (!document) {
+    return false;
+  }
+
+  const canClose = await confirmCloseDocument(document);
+  if (!canClose) {
+    return false;
+  }
+
+  const closingIndex = appState.openDocuments.findIndex((item) => item.id === documentId);
+  if (closingIndex < 0) {
+    return false;
+  }
+
+  const wasActive = documentId === appState.activeDocumentId;
+  appState.openDocuments.splice(closingIndex, 1);
+
+  if (appState.openDocuments.length === 0) {
+    const untitled = createDocumentSession();
+    appState.openDocuments.push(untitled);
+    await activateDocument(untitled.id);
+    return true;
+  }
+
+  if (wasActive) {
+    const nextDocument = appState.openDocuments[Math.max(0, closingIndex - 1)] ?? appState.openDocuments[0];
+    await activateDocument(nextDocument.id);
+  } else {
+    updateDocumentChrome();
+    await refreshFileTree();
+  }
+
+  return true;
+}
+
+async function confirmApplicationClose() {
+  const unsavedDocuments = appState.openDocuments.filter((document) => document.isDirty);
+  if (unsavedDocuments.length === 0) {
+    return true;
+  }
+
+  const decision = await window.desktop.confirmUnsaved({
+    scope: "app",
+    count: unsavedDocuments.length
+  });
+
+  if (decision === "discard") {
+    return true;
+  }
+
+  if (decision === "save") {
+    for (const document of unsavedDocuments) {
+      const saved = await saveDocumentSession(document);
+      if (!saved) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+async function persistWindowState() {
+  await window.desktop.updateState({
+    workspacePath: appState.workspacePath,
+    openFilePath: appState.openFilePath,
+    theme: appState.theme,
+    previewFontFamily: appState.previewFontFamily,
+    pdfPaperSize: appState.pdfPaperSize,
+    distractionFree: appState.distractionFree,
+    workspaceCollapsed: appState.workspaceCollapsed,
+    previewStylesheetPath: appState.previewStylesheetPath,
+    pdfStylesheetPath: appState.pdfStylesheetPath
+  });
 }
 
 async function exportCurrentDocument(format) {
@@ -2540,6 +2768,23 @@ async function bindEvents() {
     }
   });
 
+  elements.documentTabs.addEventListener("click", async (event) => {
+    const closeButton = event.target.closest("[data-close-document]");
+    if (closeButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      await closeDocument(closeButton.dataset.closeDocument);
+      return;
+    }
+
+    const tab = event.target.closest("[data-document-id]");
+    if (!tab || tab.dataset.documentId === appState.activeDocumentId) {
+      return;
+    }
+
+    await activateDocument(tab.dataset.documentId);
+  });
+
   elements.fileTree.addEventListener("toggle", async (event) => {
     const detailsNode = event.target;
     if (!(detailsNode instanceof HTMLDetailsElement) || !detailsNode.dataset.path) {
@@ -2561,18 +2806,23 @@ async function bindEvents() {
     void refreshFileTree();
   });
 
-  window.addEventListener("beforeunload", async () => {
-    await window.desktop.updateState({
-      workspacePath: appState.workspacePath,
-      openFilePath: appState.openFilePath,
-      theme: appState.theme,
-      previewFontFamily: appState.previewFontFamily,
-      pdfPaperSize: appState.pdfPaperSize,
-      distractionFree: appState.distractionFree,
-      workspaceCollapsed: appState.workspaceCollapsed,
-      previewStylesheetPath: appState.previewStylesheetPath,
-      pdfStylesheetPath: appState.pdfStylesheetPath
-    });
+  window.addEventListener("beforeunload", () => {
+    void persistWindowState();
+  });
+
+  window.desktop.onAppCloseRequested(async ({ requestId }) => {
+    if (appState.isHandlingCloseRequest) {
+      await window.desktop.respondToAppCloseRequest({ requestId, allowClose: false });
+      return;
+    }
+
+    appState.isHandlingCloseRequest = true;
+    const allowClose = await confirmApplicationClose();
+    if (allowClose) {
+      await persistWindowState();
+    }
+    appState.isHandlingCloseRequest = false;
+    await window.desktop.respondToAppCloseRequest({ requestId, allowClose });
   });
 
   window.addEventListener("keydown", (event) => {
@@ -2655,13 +2905,13 @@ function registerBootSequence() {
       workspaceCollapsed: Boolean(state?.workspaceCollapsed)
     });
     applyEditorTheme(appState.theme);
-    updateDocumentChrome();
 
     if (initialDocument) {
       await openDocument(initialDocument);
     } else {
-      await renderPreviewNow();
-      await refreshFileTree();
+      const untitled = createDocumentSession();
+      appState.openDocuments.push(untitled);
+      await activateDocument(untitled.id);
     }
   })();
 }
@@ -2672,4 +2922,3 @@ bindEvents();
 registerBootSequence();
 renderReferenceGuide();
 updateDocumentChrome();
-void renderPreviewNow();

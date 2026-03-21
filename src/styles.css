@@ -280,6 +280,68 @@ input:focus-visible,
   border-bottom: 1px solid var(--panel-border);
 }
 
+.document-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.document-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 240px;
+  padding: 0.45rem 0.7rem 0.45rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--control-border);
+  background: color-mix(in srgb, var(--control-bg) 92%, transparent);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.document-tab:hover {
+  box-shadow: none;
+}
+
+.document-tab.is-active {
+  color: var(--text-primary);
+  border-color: var(--control-border-hover);
+  background: linear-gradient(135deg, rgba(124, 242, 216, 0.14), rgba(31, 121, 255, 0.1));
+}
+
+.document-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-tab-dirty {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--accent-strong);
+}
+
+.document-tab-close {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+}
+
+.document-tab-close svg {
+  width: 100%;
+  height: 100%;
+}
+
 .editor-stage-bar {
   display: flex;
   align-items: center;
