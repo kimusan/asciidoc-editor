@@ -1777,6 +1777,42 @@ function getEditorSyncLineNumber() {
   return viewportStartLine;
 }
 
+function getPreviewViewportHeight(frame) {
+  return frame.clientHeight
+    || frame.getBoundingClientRect().height
+    || frame.contentWindow?.innerHeight
+    || 0;
+}
+
+function getPreviewScrollMetrics(frame, frameDocument) {
+  const scrollingElement = frameDocument.scrollingElement
+    || frameDocument.documentElement
+    || frameDocument.body;
+  const viewportHeight = getPreviewViewportHeight(frame)
+    || scrollingElement?.clientHeight
+    || 0;
+  const documentHeight = Math.max(
+    scrollingElement?.scrollHeight ?? 0,
+    frameDocument.documentElement?.scrollHeight ?? 0,
+    frameDocument.body?.scrollHeight ?? 0
+  );
+
+  return {
+    scrollingElement,
+    viewportHeight,
+    maxScrollTop: Math.max(0, documentHeight - viewportHeight)
+  };
+}
+
+function getElementDocumentTop(element, scrollingElement) {
+  if (!element || !scrollingElement) {
+    return 0;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+  return elementRect.top + scrollingElement.scrollTop;
+}
+
 function scrollPreviewToSyncPosition(syncPosition, frame = elements.previewFrame, behavior = "auto") {
   const frameWindow = frame.contentWindow;
   const frameDocument = frame.contentDocument;
@@ -1785,25 +1821,29 @@ function scrollPreviewToSyncPosition(syncPosition, frame = elements.previewFrame
   }
 
   const headings = getPreviewSectionHeadings(frame);
-  const maxScrollTop = Math.max(0, frameDocument.documentElement.scrollHeight - frameWindow.innerHeight);
+  const { scrollingElement, viewportHeight, maxScrollTop } = getPreviewScrollMetrics(frame, frameDocument);
   let startTop = 0;
   let endTop = maxScrollTop;
 
   if (headings.length > 0) {
     if (syncPosition.sectionIndex < 0) {
-      endTop = headings[0].offsetTop;
+      endTop = getElementDocumentTop(headings[0], scrollingElement);
     } else {
       const currentHeading = headings[syncPosition.sectionIndex];
       if (!currentHeading) {
         return;
       }
 
-      startTop = currentHeading.offsetTop;
-      endTop = headings[syncPosition.sectionIndex + 1]?.offsetTop ?? maxScrollTop;
+      startTop = getElementDocumentTop(currentHeading, scrollingElement);
+      endTop = headings[syncPosition.sectionIndex + 1]
+        ? getElementDocumentTop(headings[syncPosition.sectionIndex + 1], scrollingElement)
+        : maxScrollTop;
     }
   }
 
-  const targetTop = Math.max(0, Math.min(maxScrollTop, startTop + ((endTop - startTop) * syncPosition.ratio)));
+  const targetOffset = startTop + ((endTop - startTop) * syncPosition.ratio);
+  const centeredTargetTop = targetOffset - (viewportHeight * 0.5);
+  const targetTop = Math.max(0, Math.min(maxScrollTop, centeredTargetTop));
 
   frameWindow.scrollTo({
     top: targetTop,
@@ -1825,7 +1865,7 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
     return;
   }
 
-  const maxScrollTop = Math.max(0, frameDocument.documentElement.scrollHeight - frameWindow.innerHeight);
+  const { scrollingElement, viewportHeight, maxScrollTop } = getPreviewScrollMetrics(frame, frameDocument);
   const totalLines = editorView.state.doc.lines;
   let previousAnchor = null;
   let nextAnchor = null;
@@ -1842,11 +1882,15 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
 
   const startLine = previousAnchor?.lineNumber ?? 1;
   const endLine = nextAnchor?.lineNumber ?? totalLines;
-  const startTop = previousAnchor?.element.offsetTop ?? 0;
-  const endTop = nextAnchor?.element.offsetTop ?? maxScrollTop;
+  const startTop = previousAnchor?.element
+    ? getElementDocumentTop(previousAnchor.element, scrollingElement)
+    : 0;
+  const endTop = nextAnchor?.element
+    ? getElementDocumentTop(nextAnchor.element, scrollingElement)
+    : maxScrollTop;
   const ratio = getLineRatio(lineNumber, startLine, endLine);
   const targetOffset = startTop + ((endTop - startTop) * ratio);
-  const centeredTargetTop = targetOffset - (frameWindow.innerHeight * 0.5);
+  const centeredTargetTop = targetOffset - (viewportHeight * 0.5);
   const targetTop = Math.max(0, Math.min(maxScrollTop, centeredTargetTop));
 
   frameWindow.scrollTo({
