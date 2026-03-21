@@ -4,23 +4,41 @@
   <img src="build/icon.svg" alt="AsciiDoc Editor logo" width="156" />
 </p>
 
-The AsciiDoc Editor is a stand-alone desktop editor for AsciiDoc with live preview, file browsing, export support, editor and preview theming, and a distraction-free writing mode.
+The AsciiDoc Editor is a stand-alone desktop writing and editing environment for the AsciiDoc markup language. It combines a code-oriented editor, a live formatted preview, workspace browsing, export tools, and built-in reference material in a single desktop app.
+
+It is designed for people who want to write real AsciiDoc documents without juggling multiple tools or browser tabs. The app lets you edit source text, follow structure and references, preview the rendered result, search your workspace, inspect markup examples, and export deliverables from the same interface.
 
 This implementation uses Electron for the desktop shell and `asciidoctor.js` for document rendering. That choice keeps the app portable, gives a modern UI surface for Windows and Linux, and avoids reimplementing the AsciiDoc language.
+
+## Overview
+
+The app is intended as a general-purpose AsciiDoc desktop editor for notes, technical documentation, books, articles, and structured publishing workflows. It focuses on three things:
+
+- Writing comfortably in raw AsciiDoc source
+- Seeing a close live rendering of the formatted document while you work
+- Keeping common authoring tools like search, export, reference material, and workspace navigation close at hand
 
 ## Features
 
 - Full document rendering through `asciidoctor.js`
-- Live preview while editing
-- Support for AsciiDoc includes, conditionals, passthrough blocks, and substitutions
-- Message sequence chart rendering for `[msc]` / `[mscgen]` blocks
-- Built-in file browser for navigating document folders
-- Syntax-highlighted editor
-- Multiple app and editor themes, including Nocturne, Porcelain, Nord, Darcula, and Solarized
-- Multiple built-in preview themes, configurable preview font styles, and custom preview CSS support
-- Dedicated settings overlay for shell and preview configuration
+- Live preview with editor-to-preview scroll synchronization
+- Support for AsciiDoc includes, conditionals, passthrough blocks, substitutions, tables, attributes, cross references, footnotes, and document structure
+- Message sequence chart rendering for inline `[msc]` / `[mscgen]` blocks
+- Syntax-highlighted editor with AsciiDoc-aware coloring
+- In-document find and replace with match highlighting and navigation
+- Built-in searchable markup reference guide
+- Keyboard shortcuts help overlay
+- Built-in file browser with file-type icons
+- Recursive workspace file search/filtering
+- Collapsible workspace sidebar to reclaim editor space
+- Resizable split view between the source editor and preview
+- Expanded preview overlay for reading larger documents
+- Dedicated export overlay for HTML, PDF, and DocBook 5
+- Dedicated settings overlay for app theme, preview font, preview CSS, PDF paper size, and PDF CSS
+- Multiple app and editor themes, including Nocturne, Porcelain, Nord, Darcula, Solarized, and Material Design
+- Custom preview CSS support
 - Distraction-free writing mode
-- Export to HTML, PDF, and DocBook 5
+- About dialog and application metadata
 - Packaged Linux AppImage output
 - Windows portable packaging configuration
 
