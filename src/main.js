@@ -493,6 +493,14 @@ function normalizePdfPaperSize(value) {
   return allowed.has(value) ? value : "A4";
 }
 
+function isAsciiDocFileName(name = "") {
+  return /\.(adoc|asciidoc|asc)$/i.test(name);
+}
+
+function canPreviewFileName(name = "") {
+  return isAsciiDocFileName(name);
+}
+
 function getFileTypeMeta(name) {
   if (/\.(adoc|asciidoc|asc)$/i.test(name)) {
     return { icon: ICONS.fileAsciiDoc, kind: "asciidoc" };
@@ -1266,13 +1274,15 @@ function createEditor() {
 }
 
 function updateDocumentChrome() {
-  const fileName = appState.openFilePath?.split(/[\\/]/).pop() ?? appState.currentFileName;
+  const fileName = getCurrentDocumentName();
   const trimmedContent = appState.currentContent.trim();
   const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
   const lineCount = appState.currentContent.split("\n").length;
 
   elements.documentName.textContent = appState.isDirty ? `${fileName} *` : fileName;
-  if (appState.isDirty) {
+  if (!currentDocumentHasPreview()) {
+    elements.documentStatus.textContent = "No preview available";
+  } else if (appState.isDirty) {
     elements.documentStatus.textContent = appState.previewInSync ? "Unsaved changes" : "Preview updating";
   } else {
     elements.documentStatus.textContent = appState.previewInSync ? "Preview synced" : "Rendering preview";
@@ -1493,6 +1503,14 @@ function scrollPreviewToTop(frame = elements.previewFrame) {
   });
 }
 
+function getCurrentDocumentName() {
+  return appState.openFilePath?.split(/[\\/]/).pop() ?? appState.currentFileName;
+}
+
+function currentDocumentHasPreview() {
+  return canPreviewFileName(getCurrentDocumentName());
+}
+
 function buildPreviewPayload() {
   return {
     content: appState.currentContent,
@@ -1527,6 +1545,62 @@ function applyPreviewDocument(frame, previewDocument) {
   styleHost.textContent = previewDocument.styles ?? "";
   root.innerHTML = previewDocument.body ?? "";
   return true;
+}
+
+function buildUnavailablePreviewDocument() {
+  const fileName = getCurrentDocumentName();
+  const extension = fileName.includes(".")
+    ? fileName.split(".").pop()?.toUpperCase()
+    : "this";
+  const label = extension ? `${extension} files` : "this file type";
+
+  return {
+    title: "Preview unavailable",
+    styles: `
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #ffffff;
+        color: #18212b;
+        font-family: "Aptos", "Segoe UI Variable Text", "Noto Sans", sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+      }
+
+      .preview-unavailable {
+        width: min(560px, 100%);
+        text-align: center;
+      }
+
+      .preview-unavailable h2 {
+        margin: 0 0 0.65rem;
+        font-size: 1.35rem;
+        letter-spacing: -0.03em;
+      }
+
+      .preview-unavailable p {
+        margin: 0;
+        color: #5f6975;
+        line-height: 1.65;
+      }
+    `,
+    body: `
+      <div class="preview-unavailable">
+        <h2>No preview available</h2>
+        <p>${escapeHtml(label)} can be edited here, but only AsciiDoc documents render in the preview pane.</p>
+      </div>
+    `,
+    syncPoints: []
+  };
 }
 
 function elementMatchesSyncPoint(element, syncPoint) {
@@ -1606,7 +1680,9 @@ async function renderPreviewNow() {
       waitForPreviewFrameReady(elements.previewFrameExpanded)
     ]);
 
-    const previewDocument = await window.desktop.renderPreview(buildPreviewPayload());
+    const previewDocument = currentDocumentHasPreview()
+      ? await window.desktop.renderPreview(buildPreviewPayload())
+      : buildUnavailablePreviewDocument();
     if (renderVersion !== appState.previewRenderVersion) {
       return;
     }
@@ -1900,7 +1976,7 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
 }
 
 function syncPreviewToEditorPosition() {
-  if (!editorView || appState.pendingPreviewAnchor) {
+  if (!editorView || appState.pendingPreviewAnchor || !currentDocumentHasPreview()) {
     return;
   }
 
@@ -2083,7 +2159,7 @@ async function refreshFileTree() {
     });
     elements.fileTree.innerHTML = results.length > 0
       ? renderSearchResults(results)
-      : `<p class="empty-state">No files match “${escapeHtml(appState.workspaceQuery)}”.</p>`;
+      : `<p class="empty-state">No AsciiDoc or CSS files match “${escapeHtml(appState.workspaceQuery)}”.</p>`;
     return;
   }
 

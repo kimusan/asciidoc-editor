@@ -219,6 +219,9 @@ input:focus-visible,
   min-width: 0;
   padding: 0.7rem 0.82rem;
   margin-left: auto;
+  display: grid;
+  place-items: center;
+  gap: 0;
 }
 
 .workspace-rail {
@@ -232,6 +235,11 @@ input:focus-visible,
   display: grid;
   place-items: center;
   color: var(--text-secondary);
+}
+
+.workspace-toggle .button-icon,
+.workspace-rail .button-icon {
+  margin: 0;
 }
 
 .workspace-rail[hidden] {

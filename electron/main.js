@@ -8,6 +8,34 @@ import { loadState, saveState } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
+const WORKSPACE_EDITABLE_FILE_PATTERN = /\.(adoc|asciidoc|asc|css)$/i;
+
+function isWorkspaceEditableFile(fileName) {
+  return WORKSPACE_EDITABLE_FILE_PATTERN.test(fileName);
+}
+
+async function directoryContainsEditableFiles(dirPath) {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) {
+      continue;
+    }
+
+    if (entry.isFile() && isWorkspaceEditableFile(entry.name)) {
+      return true;
+    }
+
+    if (entry.isDirectory()) {
+      const hasEditableDescendants = await directoryContainsEditableFiles(path.join(dirPath, entry.name));
+      if (hasEditableDescendants) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 
 function normalizeRecentFiles(recentFiles, filePath) {
   return [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
@@ -100,6 +128,14 @@ async function listDirectory(rootPath) {
     }
 
     const fullPath = path.join(rootPath, entry.name);
+    if (entry.isFile() && !isWorkspaceEditableFile(entry.name)) {
+      continue;
+    }
+
+    if (entry.isDirectory() && !await directoryContainsEditableFiles(fullPath)) {
+      continue;
+    }
+
     children.push({
       name: entry.name,
       path: fullPath,
@@ -131,7 +167,13 @@ async function searchWorkspace(rootPath, query, limit = 200) {
 
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
-        await visitDirectory(fullPath);
+        if (await directoryContainsEditableFiles(fullPath)) {
+          await visitDirectory(fullPath);
+        }
+        continue;
+      }
+
+      if (!isWorkspaceEditableFile(entry.name)) {
         continue;
       }
 
