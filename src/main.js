@@ -1844,7 +1844,9 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
   const startTop = previousAnchor?.element.offsetTop ?? 0;
   const endTop = nextAnchor?.element.offsetTop ?? maxScrollTop;
   const ratio = getLineRatio(lineNumber, startLine, endLine);
-  const targetTop = Math.max(0, Math.min(maxScrollTop, startTop + ((endTop - startTop) * ratio)));
+  const targetOffset = startTop + ((endTop - startTop) * ratio);
+  const centeredTargetTop = targetOffset - (frameWindow.innerHeight * 0.5);
+  const targetTop = Math.max(0, Math.min(maxScrollTop, centeredTargetTop));
 
   frameWindow.scrollTo({
     top: targetTop,
