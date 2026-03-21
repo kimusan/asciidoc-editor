@@ -539,6 +539,7 @@ function createDocumentSession(document = {}) {
     workspacePath: document.workspacePath ?? appState.workspacePath ?? null,
     name: document.name ?? nextUntitledName(),
     content: document.content ?? DEFAULT_DOCUMENT_CONTENT,
+    editorState: document.editorState ?? null,
     lastModifiedMs: document.lastModifiedMs ?? null,
     isDirty: Boolean(document.isDirty),
     previewInSync: document.previewInSync ?? !document.isDirty
@@ -625,6 +626,7 @@ const appState = {
 
 const elements = {};
 let editorView;
+let editorExtensions = [];
 
 const PREVIEW_SHELL_HTML = `<!doctype html>
 <html lang="en">
@@ -1250,8 +1252,15 @@ function runEditorReplaceAll() {
   updateEditorSearchStatus();
 }
 
+function createEditorState(doc) {
+  return EditorState.create({
+    doc,
+    extensions: editorExtensions
+  });
+}
+
 function createEditor() {
-  const baseExtensions = [
+  editorExtensions = [
     lineNumbers(),
     history(),
     drawSelection(),
@@ -1304,6 +1313,11 @@ function createEditor() {
     editorThemeCompartment.of(THEME_STYLES.nocturne.editor),
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
+      const activeDocument = getDocumentSession();
+      if (activeDocument) {
+        activeDocument.editorState = update.state;
+      }
+
       if (update.docChanged) {
         appState.currentContent = update.state.doc.toString();
         if (appState.isApplyingDocument) {
@@ -1312,7 +1326,6 @@ function createEditor() {
 
         appState.isDirty = true;
         appState.previewInSync = false;
-        const activeDocument = getDocumentSession();
         if (activeDocument) {
           activeDocument.content = appState.currentContent;
           activeDocument.isDirty = true;
@@ -1334,10 +1347,7 @@ function createEditor() {
   ];
 
   editorView = new EditorView({
-    state: EditorState.create({
-      doc: appState.currentContent,
-      extensions: baseExtensions
-    }),
+    state: createEditorState(appState.currentContent),
     parent: document.querySelector("#editor-root")
   });
 }
@@ -1563,22 +1573,6 @@ function renderDocumentTabs() {
   `).join("");
 }
 
-function setEditorContent(content, options = {}) {
-  appState.isApplyingDocument = true;
-  editorView.dispatch({
-    changes: {
-      from: 0,
-      to: editorView.state.doc.length,
-      insert: content
-    }
-  });
-  appState.isApplyingDocument = false;
-  appState.currentContent = content;
-  appState.isDirty = Boolean(options.isDirty);
-  appState.previewInSync = options.previewInSync ?? false;
-  updateDocumentChrome();
-}
-
 async function activateDocument(documentId, options = {}) {
   const document = getDocumentSession(documentId);
   if (!document) {
@@ -1586,11 +1580,19 @@ async function activateDocument(documentId, options = {}) {
   }
 
   syncMirrorStateFromDocument(document);
-  setEditorContent(document.content, {
-    isDirty: document.isDirty,
-    previewInSync: document.previewInSync
-  });
+  appState.isApplyingDocument = true;
+  editorView.setState(document.editorState ?? createEditorState(document.content));
+  appState.isApplyingDocument = false;
+  document.editorState = editorView.state;
+  appState.currentContent = editorView.state.doc.toString();
+  appState.isDirty = document.isDirty;
+  appState.previewInSync = document.previewInSync;
+  appState.editorSearchOpen = false;
+  appState.editorReplaceOpen = false;
+  appState.editorSearchQuery = "";
+  appState.editorReplaceQuery = "";
   renderDocumentTabs();
+  updateDocumentChrome();
   await renderPreviewNow();
   if (options.refreshTree !== false) {
     await refreshFileTree();
