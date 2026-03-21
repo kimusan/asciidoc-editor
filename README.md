@@ -80,6 +80,21 @@ Package a Windows portable build:
 npm run package:win
 ```
 
+## GitHub Releases
+
+The repository includes a GitHub Actions workflow at `.github/workflows/release.yml` that builds release packages for:
+
+- Linux AppImage on `ubuntu-latest`
+- Windows portable `.exe` on `windows-latest`
+
+To publish release assets automatically:
+
+1. Create and push a version tag such as `v0.2.0`
+2. Let GitHub Actions build both packages
+3. The workflow attaches the generated files to the GitHub release for that tag
+
+The same workflow can also be started manually with `workflow_dispatch`, which is useful for validating the packaging jobs without publishing a tagged release.
+
 ## Validation Status
 
 - `npm test` passes
@@ -94,6 +109,7 @@ npm run package:win
 - Additional export targets beyond HTML, PDF, and DocBook 5 are not bundled yet. They would require extra converters or extra runtime dependencies.
 - Message sequence chart support is implemented using `mscgen.js`. The current project license remains MIT for now, but this dependency may require a future licensing review for the distributed app.
 - Windows packaging from Linux needs `wine`, or the build should run on a Windows CI/runner. The codebase is prepared for Windows, but that package was not fully produced in this environment.
+- The Linux AppImage can require FUSE 2 at runtime on some distributions. On Ubuntu 24.04, that typically means installing `libfuse2t64`; `libfuse3` alone is not sufficient for older AppImage runtimes.
 
 ## Credits
 
