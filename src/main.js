@@ -549,6 +549,7 @@ const appState = {
   helpOpen: false,
   aboutOpen: false,
   splitRatio: 0.5,
+  previewRenderVersion: 0,
   renderTimer: null,
   syncTimer: null,
   directoryCache: new Map()
@@ -556,6 +557,29 @@ const appState = {
 
 const elements = {};
 let editorView;
+
+const PREVIEW_SHELL_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AsciiDoc Preview</title>
+    <style id="preview-style-host">
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #ffffff;
+      }
+
+      body {
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body data-preview-shell="true">
+    <main id="preview-root"></main>
+  </body>
+</html>`;
 
 function createLayout() {
   const app = document.querySelector("#app");
@@ -968,6 +992,8 @@ function createLayout() {
   elements.closeReference = document.querySelector("#close-reference");
   elements.referenceSearch = document.querySelector("#reference-search");
   elements.referenceResults = document.querySelector("#reference-results");
+  elements.previewFrame.srcdoc = PREVIEW_SHELL_HTML;
+  elements.previewFrameExpanded.srcdoc = PREVIEW_SHELL_HTML;
 }
 
 function renderReferenceGuide() {
@@ -1452,20 +1478,89 @@ function buildPreviewPayload() {
   };
 }
 
+function waitForPreviewFrameReady(frame) {
+  if (frame.contentDocument?.body?.dataset.previewShell === "true") {
+    return Promise.resolve(frame.contentDocument);
+  }
+
+  return new Promise((resolve) => {
+    frame.addEventListener("load", () => {
+      resolve(frame.contentDocument);
+    }, { once: true });
+  });
+}
+
+function applyPreviewDocument(frame, previewDocument) {
+  const frameDocument = frame.contentDocument;
+  const styleHost = frameDocument?.getElementById("preview-style-host");
+  const root = frameDocument?.getElementById("preview-root");
+  if (!styleHost || !root) {
+    return false;
+  }
+
+  frameDocument.title = previewDocument.title ?? "AsciiDoc Preview";
+  styleHost.textContent = previewDocument.styles ?? "";
+  root.innerHTML = previewDocument.body ?? "";
+  return true;
+}
+
 async function renderPreviewNow() {
+  const renderVersion = ++appState.previewRenderVersion;
   appState.previewInSync = false;
   updateDocumentChrome();
 
   try {
-    const html = await window.desktop.renderPreview(buildPreviewPayload());
-    elements.previewFrame.srcdoc = html;
-    elements.previewFrameExpanded.srcdoc = html;
+    await Promise.all([
+      waitForPreviewFrameReady(elements.previewFrame),
+      waitForPreviewFrameReady(elements.previewFrameExpanded)
+    ]);
+
+    const previewDocument = await window.desktop.renderPreview(buildPreviewPayload());
+    if (renderVersion !== appState.previewRenderVersion) {
+      return;
+    }
+
+    applyPreviewDocument(elements.previewFrame, previewDocument);
+    applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
+    installPreviewInteractions(elements.previewFrame);
+    installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = true;
   } catch (error) {
+    if (renderVersion !== appState.previewRenderVersion) {
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
-    const fallbackHtml = `<!doctype html><html><body style="font-family: sans-serif; padding: 24px;"><h2>Preview failed</h2><pre>${message}</pre></body></html>`;
-    elements.previewFrame.srcdoc = fallbackHtml;
-    elements.previewFrameExpanded.srcdoc = fallbackHtml;
+    const fallbackPreviewDocument = {
+      title: "Preview failed",
+      styles: `
+        html, body {
+          margin: 0;
+          min-height: 100%;
+          background: #ffffff;
+          color: #171717;
+          font-family: "Aptos", "Segoe UI", sans-serif;
+        }
+
+        body {
+          min-height: 100vh;
+          padding: 24px 28px;
+        }
+
+        pre {
+          white-space: pre-wrap;
+          background: #f4f4f4;
+          border: 1px solid rgba(23, 23, 23, 0.12);
+          border-radius: 12px;
+          padding: 14px 16px;
+        }
+      `,
+      body: `<h2>Preview failed</h2><pre>${escapeHtml(message)}</pre>`
+    };
+    applyPreviewDocument(elements.previewFrame, fallbackPreviewDocument);
+    applyPreviewDocument(elements.previewFrameExpanded, fallbackPreviewDocument);
+    installPreviewInteractions(elements.previewFrame);
+    installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = false;
   }
 

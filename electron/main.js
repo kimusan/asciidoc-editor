@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { fileURLToPath } from "node:url";
-import { exportDocument, renderPreview } from "./asciidoc.js";
+import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { loadState, saveState } from "./store.js";
 
@@ -278,7 +278,7 @@ app.whenReady().then(async () => {
     return document;
   });
 
-  ipcMain.handle("preview:render", async (_, payload) => renderPreview(
+  ipcMain.handle("preview:render", async (_, payload) => renderPreviewDocument(
     payload.content,
     payload.filePath,
     {

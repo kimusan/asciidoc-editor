@@ -472,11 +472,28 @@ function renderDocument(source, filePath, options = {}) {
   };
 }
 
+function buildPreviewHtml({ title, styles, body }) {
+  return `<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${escapeHtml(title)}</title>
+      <style>${styles}</style>
+    </head>
+    <body>
+      <main>
+        ${body}
+      </main>
+    </body>
+  </html>`;
+}
+
 export function convertDocument(source, filePath, options = {}) {
   return renderDocument(source, filePath, options).content;
 }
 
-export async function renderPreview(source, filePath, options = {}) {
+export async function renderPreviewDocument(source, filePath, options = {}) {
   const { title, content } = renderDocument(source, filePath, {
     standalone: true,
     stylesheetPath: options.stylesheetPath
@@ -499,20 +516,16 @@ export async function renderPreview(source, filePath, options = {}) {
     ? buildPrintStyles(options.pdfPaperSize ?? "A4")
     : BASE_PREVIEW_STYLES;
 
-  return `<!doctype html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>${escapeHtml(title)}</title>
-      <style>:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}</style>
-    </head>
-    <body>
-      <main>
-        ${rendered}
-      </main>
-    </body>
-  </html>`;
+  return {
+    title,
+    styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}`,
+    body: rendered
+  };
+}
+
+export async function renderPreview(source, filePath, options = {}) {
+  const previewDocument = await renderPreviewDocument(source, filePath, options);
+  return buildPreviewHtml(previewDocument);
 }
 
 export async function exportDocument({
