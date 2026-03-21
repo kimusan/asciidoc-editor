@@ -581,6 +581,30 @@ const PREVIEW_SHELL_HTML = `<!doctype html>
   </body>
 </html>`;
 
+const PREVIEW_SYNC_SELECTOR = [
+  "#content h1",
+  "#content h2",
+  "#content h3",
+  "#content h4",
+  "#content h5",
+  "#content h6",
+  "#content .paragraph",
+  "#content .listingblock",
+  "#content .literalblock",
+  "#content .ulist",
+  "#content .olist",
+  "#content .dlist",
+  "#content .imageblock",
+  "#content .tableblock",
+  "#content .admonitionblock",
+  "#content .quoteblock",
+  "#content .verseblock",
+  "#content .sidebarblock",
+  "#content .exampleblock",
+  "#content .openblock",
+  "#content .stemblock"
+].join(", ");
+
 function createLayout() {
   const app = document.querySelector("#app");
   app.innerHTML = `
@@ -1504,6 +1528,72 @@ function applyPreviewDocument(frame, previewDocument) {
   return true;
 }
 
+function elementMatchesSyncPoint(element, syncPoint) {
+  const tagName = element.tagName;
+
+  switch (syncPoint.context) {
+    case "document":
+      return tagName === "H1";
+    case "section":
+      return /^H[1-6]$/.test(tagName);
+    case "paragraph":
+      return element.classList.contains("paragraph");
+    case "listing":
+      return element.classList.contains("listingblock");
+    case "literal":
+      return element.classList.contains("literalblock");
+    case "ulist":
+      return element.classList.contains("ulist");
+    case "olist":
+      return element.classList.contains("olist");
+    case "dlist":
+      return element.classList.contains("dlist");
+    case "image":
+      return element.classList.contains("imageblock");
+    case "table":
+      return element.classList.contains("tableblock");
+    case "admonition":
+      return element.classList.contains("admonitionblock");
+    case "quote":
+      return element.classList.contains("quoteblock");
+    case "verse":
+      return element.classList.contains("verseblock");
+    case "sidebar":
+      return element.classList.contains("sidebarblock");
+    case "example":
+      return element.classList.contains("exampleblock");
+    case "open":
+      return element.classList.contains("openblock");
+    case "stem":
+      return element.classList.contains("stemblock");
+    default:
+      return false;
+  }
+}
+
+function applyPreviewSyncPoints(frame, syncPoints = []) {
+  const frameDocument = frame.contentDocument;
+  if (!frameDocument) {
+    return;
+  }
+
+  const candidates = Array.from(frameDocument.querySelectorAll(PREVIEW_SYNC_SELECTOR));
+  let candidateIndex = 0;
+
+  for (const syncPoint of syncPoints) {
+    for (; candidateIndex < candidates.length; candidateIndex += 1) {
+      const candidate = candidates[candidateIndex];
+      if (!elementMatchesSyncPoint(candidate, syncPoint)) {
+        continue;
+      }
+
+      candidate.dataset.sourceLine = String(syncPoint.lineNumber);
+      candidateIndex += 1;
+      break;
+    }
+  }
+}
+
 async function renderPreviewNow() {
   const renderVersion = ++appState.previewRenderVersion;
   appState.previewInSync = false;
@@ -1522,6 +1612,8 @@ async function renderPreviewNow() {
 
     applyPreviewDocument(elements.previewFrame, previewDocument);
     applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
+    applyPreviewSyncPoints(elements.previewFrame, previewDocument.syncPoints);
+    applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
     installPreviewInteractions(elements.previewFrame);
     installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = true;
@@ -1606,6 +1698,16 @@ function getPreviewSectionHeadings(frame = elements.previewFrame) {
   return Array.from(
     frame.contentDocument?.querySelectorAll("#content h2, #content h3, #content h4, #content h5, #content h6") ?? []
   );
+}
+
+function getPreviewSyncAnchors(frame = elements.previewFrame) {
+  return Array.from(frame.contentDocument?.querySelectorAll("[data-source-line]") ?? [])
+    .map((element) => ({
+      element,
+      lineNumber: Number.parseInt(element.dataset.sourceLine ?? "", 10)
+    }))
+    .filter((anchor) => Number.isFinite(anchor.lineNumber))
+    .sort((left, right) => left.lineNumber - right.lineNumber);
 }
 
 function findNearestSectionIndex(lineNumber) {
@@ -1708,14 +1810,56 @@ function scrollPreviewToSyncPosition(syncPosition, frame = elements.previewFrame
   });
 }
 
+function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, behavior = "auto") {
+  const frameWindow = frame.contentWindow;
+  const frameDocument = frame.contentDocument;
+  if (!frameWindow || !frameDocument) {
+    return;
+  }
+
+  const anchors = getPreviewSyncAnchors(frame);
+  if (anchors.length === 0) {
+    const fallbackSyncPosition = getEditorSectionSyncPosition();
+    scrollPreviewToSyncPosition(fallbackSyncPosition, frame, behavior);
+    return;
+  }
+
+  const maxScrollTop = Math.max(0, frameDocument.documentElement.scrollHeight - frameWindow.innerHeight);
+  const totalLines = editorView.state.doc.lines;
+  let previousAnchor = null;
+  let nextAnchor = null;
+
+  for (const anchor of anchors) {
+    if (anchor.lineNumber <= lineNumber) {
+      previousAnchor = anchor;
+      continue;
+    }
+
+    nextAnchor = anchor;
+    break;
+  }
+
+  const startLine = previousAnchor?.lineNumber ?? 1;
+  const endLine = nextAnchor?.lineNumber ?? totalLines;
+  const startTop = previousAnchor?.element.offsetTop ?? 0;
+  const endTop = nextAnchor?.element.offsetTop ?? maxScrollTop;
+  const ratio = getLineRatio(lineNumber, startLine, endLine);
+  const targetTop = Math.max(0, Math.min(maxScrollTop, startTop + ((endTop - startTop) * ratio)));
+
+  frameWindow.scrollTo({
+    top: targetTop,
+    behavior
+  });
+}
+
 function syncPreviewToEditorPosition() {
   if (!editorView || appState.pendingPreviewAnchor) {
     return;
   }
 
-  const syncPosition = getEditorSectionSyncPosition();
-  scrollPreviewToSyncPosition(syncPosition, elements.previewFrame, "auto");
-  scrollPreviewToSyncPosition(syncPosition, elements.previewFrameExpanded, "auto");
+  const syncLine = getEditorSyncLineNumber();
+  scrollPreviewToLineNumber(syncLine, elements.previewFrame, "auto");
+  scrollPreviewToLineNumber(syncLine, elements.previewFrameExpanded, "auto");
 }
 
 function schedulePreviewSync() {

@@ -464,11 +464,67 @@ function resolveDocumentTitle(document, filePath) {
   return "AsciiDoc Document";
 }
 
+function getNodeLineNumber(node) {
+  const sourceLocation = node.getSourceLocation?.();
+  if (!sourceLocation) {
+    return null;
+  }
+
+  if (typeof sourceLocation.getLineNumber === "function") {
+    return sourceLocation.getLineNumber();
+  }
+
+  return sourceLocation.lineno ?? null;
+}
+
+function extractSyncPoints(document) {
+  const supportedContexts = new Set([
+    "document",
+    "section",
+    "paragraph",
+    "listing",
+    "literal",
+    "ulist",
+    "olist",
+    "dlist",
+    "image",
+    "table",
+    "admonition",
+    "quote",
+    "verse",
+    "sidebar",
+    "example",
+    "open",
+    "stem"
+  ]);
+
+  const nodes = [
+    document,
+    ...(document.findBy?.(() => true) ?? [])
+  ];
+
+  return nodes
+    .map((node) => {
+      const context = node === document ? "document" : node.getContext?.();
+      const lineNumber = getNodeLineNumber(node);
+      if (!context || !lineNumber || !supportedContexts.has(context)) {
+        return null;
+      }
+
+      return {
+        context,
+        lineNumber
+      };
+    })
+    .filter(Boolean);
+}
+
 function renderDocument(source, filePath, options = {}) {
   const document = loadDocument(source, filePath, options);
   return {
     title: resolveDocumentTitle(document, filePath),
-    content: document.convert()
+    content: document.convert(),
+    syncPoints: extractSyncPoints(document)
   };
 }
 
@@ -494,7 +550,7 @@ export function convertDocument(source, filePath, options = {}) {
 }
 
 export async function renderPreviewDocument(source, filePath, options = {}) {
-  const { title, content } = renderDocument(source, filePath, {
+  const { title, content, syncPoints } = renderDocument(source, filePath, {
     standalone: true,
     stylesheetPath: options.stylesheetPath
   });
@@ -519,7 +575,8 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
   return {
     title,
     styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}`,
-    body: rendered
+    body: rendered,
+    syncPoints
   };
 }
 
