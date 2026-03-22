@@ -608,6 +608,11 @@ input:focus-visible,
   height: 0.9rem;
 }
 
+.panel-chip-icon-button {
+  padding: 0.32rem;
+  min-width: 0;
+}
+
 .split-layout {
   min-height: 0;
   height: 100%;
@@ -774,8 +779,8 @@ input:focus-visible,
 
 .editor-searchbar {
   display: grid;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 6px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--panel-border);
   background: color-mix(in srgb, var(--panel-bg-strong) 72%, transparent);
 }
@@ -787,7 +792,15 @@ input:focus-visible,
 .editor-search-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+.editor-search-row-primary {
+  align-items: flex-start;
+}
+
+.editor-search-row-status {
+  min-height: 0;
 }
 
 .editor-search-row-note,
@@ -801,9 +814,9 @@ input:focus-visible,
   gap: 0.72rem;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0 0.88rem;
+  padding: 0 0.72rem;
   border: 1px solid var(--control-border);
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -811,14 +824,10 @@ input:focus-visible,
   flex: 1 1 auto;
 }
 
-.editor-search-label {
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
 .editor-search-shell .button-icon {
   color: var(--text-tertiary);
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .editor-search-input {
@@ -826,7 +835,8 @@ input:focus-visible,
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 0.7rem 0;
+  padding: 0.5rem 0;
+  font-size: 0.92rem;
 }
 
 .editor-search-input::placeholder {
@@ -839,29 +849,38 @@ input:focus-visible,
 
 .editor-search-status {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   white-space: nowrap;
+  padding-left: 0.2rem;
 }
 
 .editor-search-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.editor-search-actions .toolbar-button {
+  padding: 0.44rem 0.68rem;
+  min-height: 0;
+  font-size: 0.76rem;
+  gap: 0.38rem;
 }
 
 .scope-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.42rem 0.7rem;
   border: 1px solid var(--control-border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
+  font-size: 0.76rem;
 }
 
 .scope-toggle input {
@@ -873,7 +892,7 @@ input:focus-visible,
 
 .editor-search-note {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .search-toggle.is-active {

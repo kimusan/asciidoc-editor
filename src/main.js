@@ -920,9 +920,8 @@ function createLayout() {
                     <div class="panel-title">Editor</div>
                   </div>
                   <div class="editor-panel-meta">
-                    <button id="toggle-editor-search" class="toolbar-button ghost-button panel-chip panel-chip-compact panel-chip-button" type="button" aria-label="Toggle document search">
+                    <button id="toggle-editor-search" class="toolbar-button ghost-button panel-chip panel-chip-compact panel-chip-button panel-chip-icon-button" type="button" aria-label="Toggle document search">
                       <span class="button-icon">${ICONS.search}</span>
-                      <span>Search</span>
                     </button>
                     <span id="stylesheet-chip" class="panel-chip panel-chip-compact">No custom preview CSS</span>
                     <div class="document-metrics document-metrics-compact">
@@ -938,12 +937,11 @@ function createLayout() {
                   </div>
                 </div>
                 <div id="editor-searchbar" class="editor-searchbar" hidden>
-                  <div class="editor-search-row">
+                  <div class="editor-search-row editor-search-row-primary">
                     <label class="editor-search-shell">
                       <span class="button-icon">${ICONS.search}</span>
                       <input id="editor-search-input" class="editor-search-input" type="search" placeholder="Find in document..." />
                     </label>
-                    <div id="editor-search-status" class="editor-search-status">0 matches</div>
                     <div class="editor-search-actions">
                       <button id="editor-search-show-replace" class="toolbar-button ghost-button search-toggle" type="button">Replace</button>
                       <button id="editor-search-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
@@ -951,22 +949,25 @@ function createLayout() {
                       <button id="editor-search-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
                       <button id="editor-search-prev" class="toolbar-button ghost-button" type="button">Prev</button>
                       <button id="editor-search-next" class="toolbar-button ghost-button" type="button">Next</button>
-                      <button id="editor-search-close" class="toolbar-button ghost-button" type="button">Close</button>
                     </div>
+                  </div>
+                  <div class="editor-search-row editor-search-row-status">
+                    <div id="editor-search-status" class="editor-search-status">0 matches</div>
                   </div>
                   <div id="editor-replace-row" class="editor-search-row editor-replace-row" hidden>
                     <label class="editor-search-shell editor-replace-shell">
-                      <span class="editor-search-label">Replace</span>
                       <input id="editor-replace-input" class="editor-search-input" type="text" placeholder="Replace with..." />
-                    </label>
-                    <label class="scope-toggle" title="Replace across all open tabs instead of only the current file.">
-                      <input id="editor-replace-scope-open-files" type="checkbox" />
-                      <span>All open files</span>
                     </label>
                     <div class="editor-search-actions">
                       <button id="editor-replace-next" class="toolbar-button ghost-button" type="button">Replace</button>
                       <button id="editor-replace-all" class="toolbar-button ghost-button" type="button">Replace All</button>
                     </div>
+                  </div>
+                  <div class="editor-search-row editor-search-row-scope" hidden id="editor-replace-scope-row">
+                    <label class="scope-toggle" title="Replace across all open tabs instead of only the current file.">
+                      <input id="editor-replace-scope-open-files" type="checkbox" />
+                      <span>All open files</span>
+                    </label>
                   </div>
                   <div class="editor-search-row editor-search-row-note" hidden id="editor-replace-note-row">
                     <div class="editor-search-note">Replace All is limited to the open tabs you already have loaded.</div>
@@ -1305,6 +1306,7 @@ function createLayout() {
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorSearchShowReplace = document.querySelector("#editor-search-show-replace");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
+  elements.editorReplaceScopeRow = document.querySelector("#editor-replace-scope-row");
   elements.editorReplaceNoteRow = document.querySelector("#editor-replace-note-row");
   elements.editorReplaceInput = document.querySelector("#editor-replace-input");
   elements.editorReplaceScopeOpenFiles = document.querySelector("#editor-replace-scope-open-files");
@@ -1316,7 +1318,6 @@ function createLayout() {
   elements.editorSearchRegex = document.querySelector("#editor-search-regex");
   elements.editorSearchPrev = document.querySelector("#editor-search-prev");
   elements.editorSearchNext = document.querySelector("#editor-search-next");
-  elements.editorSearchClose = document.querySelector("#editor-search-close");
   elements.splitLayout = document.querySelector("#split-layout");
   elements.splitter = document.querySelector("#splitter");
   elements.wordCount = document.querySelector("#word-count");
@@ -2180,6 +2181,7 @@ function updateDocumentChrome() {
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
+  elements.editorReplaceScopeRow.hidden = !appState.editorReplaceOpen;
   elements.editorReplaceNoteRow.hidden = !(appState.editorReplaceOpen && appState.editorReplaceAllOpenFiles);
   elements.editorSearchInput.value = appState.editorSearchQuery;
   elements.editorReplaceInput.value = appState.editorReplaceQuery;
@@ -3650,10 +3652,6 @@ async function bindEvents() {
 
   elements.editorSearchNext.addEventListener("click", () => {
     runEditorSearchNavigation("next");
-  });
-
-  elements.editorSearchClose.addEventListener("click", () => {
-    closeEditorSearch();
   });
 
   elements.editorReplaceNext.addEventListener("click", () => {
