@@ -778,6 +778,11 @@ input:focus-visible,
   gap: 10px;
 }
 
+.editor-search-row-note,
+.workspace-search-summary-row {
+  justify-content: space-between;
+}
+
 .editor-search-shell {
   display: flex;
   align-items: center;
@@ -832,6 +837,31 @@ input:focus-visible,
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.scope-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scope-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.editor-search-note {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
 }
 
 .search-toggle.is-active {

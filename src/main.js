@@ -423,8 +423,8 @@ const SHORTCUT_SECTIONS = [
         shortcuts: [["Ctrl", "Shift", "F"], ["Cmd", "Shift", "F"]]
       },
       {
-        title: "Replace in workspace",
-        detail: "Open workspace search with replace controls.",
+        title: "Replace in all open files",
+        detail: "Open replace and target every open tab instead of the current file only.",
         shortcuts: [["Ctrl", "Shift", "H"], ["Cmd", "Shift", "H"]]
       }
     ]
@@ -741,7 +741,6 @@ const appState = {
   workspaceQuery: "",
   workspaceContentSearchOpen: false,
   workspaceContentQuery: "",
-  workspaceContentReplaceQuery: "",
   workspaceContentCaseSensitive: false,
   workspaceContentWholeWord: false,
   workspaceContentRegex: false,
@@ -753,6 +752,7 @@ const appState = {
   editorSearchQuery: "",
   editorReplaceOpen: false,
   editorReplaceQuery: "",
+  editorReplaceAllOpenFiles: false,
   editorSearchCaseSensitive: false,
   editorSearchWholeWord: false,
   editorSearchRegex: false,
@@ -873,8 +873,8 @@ function createLayout() {
             <button id="open-folder" class="toolbar-button ghost-button workspace-button" title="Choose a workspace folder to browse, search, and open files.">
               <span class="button-icon">${ICONS.folder}</span><span>Workspace</span>
             </button>
-            <button id="open-workspace-search" class="toolbar-button ghost-button workspace-button" title="Search and replace across the current workspace.">
-              <span class="button-icon">${ICONS.search}</span><span>Find & Replace</span>
+            <button id="open-workspace-search" class="toolbar-button ghost-button workspace-button" title="Search across saved files in the current workspace.">
+              <span class="button-icon">${ICONS.search}</span><span>Search Workspace</span>
             </button>
             <label class="workspace-search-shell">
               <span class="button-icon">${ICONS.search}</span>
@@ -955,10 +955,17 @@ function createLayout() {
                       <span class="editor-search-label">Replace</span>
                       <input id="editor-replace-input" class="editor-search-input" type="text" placeholder="Replace with..." />
                     </label>
+                    <label class="scope-toggle" title="Replace across all open tabs instead of only the current file.">
+                      <input id="editor-replace-scope-open-files" type="checkbox" />
+                      <span>All open files</span>
+                    </label>
                     <div class="editor-search-actions">
                       <button id="editor-replace-next" class="toolbar-button ghost-button" type="button">Replace</button>
                       <button id="editor-replace-all" class="toolbar-button ghost-button" type="button">Replace All</button>
                     </div>
+                  </div>
+                  <div class="editor-search-row editor-search-row-note" hidden id="editor-replace-note-row">
+                    <div class="editor-search-note">Replace All is limited to the open tabs you already have loaded.</div>
                   </div>
                 </div>
                 <div id="editor-root" class="editor-root"></div>
@@ -1142,7 +1149,7 @@ function createLayout() {
               <span class="panel-icon">${ICONS.search}</span>
               <div>
                 <div id="workspace-content-title" class="panel-title">Workspace Search</div>
-                <div class="panel-subtitle">Search and replace across saved files in the current workspace.</div>
+                <div class="panel-subtitle">Search across saved files in the current workspace.</div>
               </div>
             </div>
             <button id="close-workspace-search" class="toolbar-button ghost-button"><span>Close</span></button>
@@ -1154,20 +1161,15 @@ function createLayout() {
                 <input id="workspace-content-query" class="reference-search" type="search" placeholder="Search all workspace files..." />
               </label>
               <button id="workspace-content-run-search" class="toolbar-button" type="button">Search</button>
-            </div>
-            <div class="workspace-search-row workspace-search-row-secondary">
-              <label class="reference-search-shell">
-                <span class="editor-search-label">Replace</span>
-                <input id="workspace-content-replace" class="reference-search" type="text" placeholder="Replace with..." />
-              </label>
               <div class="editor-search-actions">
                 <button id="workspace-content-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
                 <button id="workspace-content-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
                 <button id="workspace-content-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
-                <button id="workspace-content-replace-all" class="toolbar-button ghost-button" type="button">Replace All</button>
               </div>
             </div>
-            <div id="workspace-content-summary" class="workspace-search-summary">Search across the current workspace.</div>
+            <div class="workspace-search-summary-row">
+              <div id="workspace-content-summary" class="workspace-search-summary">Search across the current workspace.</div>
+            </div>
           </div>
           <div id="workspace-content-results" class="workspace-content-results"></div>
         </section>
@@ -1298,7 +1300,9 @@ function createLayout() {
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorSearchShowReplace = document.querySelector("#editor-search-show-replace");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
+  elements.editorReplaceNoteRow = document.querySelector("#editor-replace-note-row");
   elements.editorReplaceInput = document.querySelector("#editor-replace-input");
+  elements.editorReplaceScopeOpenFiles = document.querySelector("#editor-replace-scope-open-files");
   elements.editorReplaceNext = document.querySelector("#editor-replace-next");
   elements.editorReplaceAll = document.querySelector("#editor-replace-all");
   elements.editorSearchStatus = document.querySelector("#editor-search-status");
@@ -1323,12 +1327,10 @@ function createLayout() {
   elements.workspaceContentBackdrop = document.querySelector("#workspace-content-backdrop");
   elements.closeWorkspaceSearch = document.querySelector("#close-workspace-search");
   elements.workspaceContentQuery = document.querySelector("#workspace-content-query");
-  elements.workspaceContentReplace = document.querySelector("#workspace-content-replace");
   elements.workspaceContentRunSearch = document.querySelector("#workspace-content-run-search");
   elements.workspaceContentCase = document.querySelector("#workspace-content-case");
   elements.workspaceContentWord = document.querySelector("#workspace-content-word");
   elements.workspaceContentRegex = document.querySelector("#workspace-content-regex");
-  elements.workspaceContentReplaceAll = document.querySelector("#workspace-content-replace-all");
   elements.workspaceContentSummary = document.querySelector("#workspace-content-summary");
   elements.workspaceContentResults = document.querySelector("#workspace-content-results");
   elements.previewFrame.srcdoc = PREVIEW_SHELL_HTML;
@@ -1536,22 +1538,6 @@ function insertReferenceSnippet(referenceIndex) {
   insertTextAtSelection(entry.syntax, { closeReference: true });
 }
 
-function hasDirtyWorkspaceDocuments() {
-  if (!appState.workspacePath) {
-    return false;
-  }
-
-  const workspacePrefixes = [`${appState.workspacePath}/`, `${appState.workspacePath}\\`];
-  return appState.openDocuments.some((document) => {
-    if (!document.isDirty || !document.path) {
-      return false;
-    }
-
-    return document.path === appState.workspacePath
-      || workspacePrefixes.some((prefix) => document.path.startsWith(prefix));
-  });
-}
-
 function renderWorkspaceContentResults() {
   const results = appState.workspaceContentResults ?? [];
   elements.workspaceContentResults.innerHTML = results.length > 0
@@ -1584,11 +1570,8 @@ function renderWorkspaceContentResults() {
     : `<div class="reference-empty">No workspace matches yet. Run a search to inspect occurrences across saved files.</div>`;
 }
 
-function openWorkspaceSearchOverlay({ showReplace = false } = {}) {
+function openWorkspaceSearchOverlay() {
   appState.workspaceContentSearchOpen = true;
-  if (showReplace && !appState.workspaceContentReplaceQuery) {
-    appState.workspaceContentReplaceQuery = "";
-  }
   updateDocumentChrome();
   renderWorkspaceContentResults();
   requestAnimationFrame(() => {
@@ -1686,55 +1669,6 @@ async function runWorkspaceContentSearch() {
     appState.workspaceContentBusy = false;
     updateDocumentChrome();
     renderWorkspaceContentResults();
-  }
-}
-
-async function runWorkspaceReplaceAll() {
-  if (!appState.workspacePath) {
-    appState.workspaceContentSummary = "Choose a workspace folder before replacing across files.";
-    updateDocumentChrome();
-    return;
-  }
-
-  if (!appState.workspaceContentQuery.trim()) {
-    appState.workspaceContentSummary = "Enter a search query before replacing.";
-    updateDocumentChrome();
-    return;
-  }
-
-  if (hasDirtyWorkspaceDocuments()) {
-    appState.workspaceContentSummary = "Save or close dirty workspace tabs before running Replace All.";
-    updateDocumentChrome();
-    return;
-  }
-
-  appState.workspaceContentBusy = true;
-  appState.workspaceContentSummary = "Replacing matches across workspace files...";
-  updateDocumentChrome();
-
-  try {
-    const result = await window.desktop.replaceWorkspaceContent({
-      rootPath: appState.workspacePath,
-      query: appState.workspaceContentQuery,
-      replaceText: appState.workspaceContentReplaceQuery,
-      options: buildWorkspaceContentOptions()
-    });
-
-    for (const changedPath of result.changedPaths ?? []) {
-      const openDocumentSession = getDocumentSessionByPath(changedPath);
-      if (openDocumentSession) {
-        await reloadDocumentSessionFromDisk(openDocumentSession);
-      }
-    }
-
-    appState.workspaceContentSummary = result.replacementCount > 0
-      ? `Replaced ${result.replacementCount} match${result.replacementCount === 1 ? "" : "es"} in ${result.fileCount} file${result.fileCount === 1 ? "" : "s"}.`
-      : "No replacements were made.";
-    await runWorkspaceContentSearch();
-  } catch (error) {
-    appState.workspaceContentSummary = `Workspace replace failed: ${error.message}`;
-    appState.workspaceContentBusy = false;
-    updateDocumentChrome();
   }
 }
 
@@ -1932,6 +1866,7 @@ function closeEditorSearch() {
   appState.editorReplaceOpen = false;
   appState.editorSearchQuery = "";
   appState.editorReplaceQuery = "";
+  appState.editorReplaceAllOpenFiles = false;
   updateDocumentChrome();
   syncEditorSearchQuery();
   editorView.focus();
@@ -1966,6 +1901,90 @@ function runEditorReplaceNext() {
   updateEditorSearchStatus();
 }
 
+function replaceTextWithQuery(source, query) {
+  if (!query.search || !query.valid) {
+    return { content: source, matchCount: 0 };
+  }
+
+  const cursor = query.getCursor(source);
+  let matchCount = 0;
+  let previousOffset = 0;
+  const parts = [];
+
+  for (let next = cursor.next(); !next.done; next = cursor.next()) {
+    const { from, to } = next.value;
+    parts.push(source.slice(previousOffset, from), query.replace);
+    previousOffset = to;
+    matchCount += 1;
+  }
+
+  if (matchCount === 0) {
+    return { content: source, matchCount: 0 };
+  }
+
+  parts.push(source.slice(previousOffset));
+  return {
+    content: parts.join(""),
+    matchCount
+  };
+}
+
+async function runEditorReplaceAllOpenDocuments() {
+  const query = buildEditorSearchQuery();
+  if (!query.search.trim() || !query.valid) {
+    updateEditorSearchStatus();
+    return;
+  }
+
+  const activeDocument = getDocumentSession();
+  let totalMatches = 0;
+  let changedDocumentCount = 0;
+  let activeReplacement = null;
+
+  for (const document of appState.openDocuments) {
+    const currentContent = document.id === appState.activeDocumentId ? appState.currentContent : document.content;
+    const replacement = replaceTextWithQuery(currentContent, query);
+    if (replacement.matchCount === 0) {
+      continue;
+    }
+
+    totalMatches += replacement.matchCount;
+    changedDocumentCount += 1;
+
+    if (document.id === appState.activeDocumentId) {
+      activeReplacement = replacement;
+      continue;
+    }
+
+    document.content = replacement.content;
+    document.editorState = createEditorState(replacement.content);
+    document.isDirty = true;
+    document.previewInSync = false;
+  }
+
+  if (activeReplacement) {
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: editorView.state.doc.length,
+        insert: activeReplacement.content
+      }
+    });
+  } else if (activeDocument) {
+    activeDocument.previewInSync = false;
+  }
+
+  renderDocumentTabs();
+  scheduleSessionPersistence();
+  if (!activeReplacement) {
+    updateDocumentChrome();
+  }
+
+  elements.editorSearchStatus.textContent = totalMatches === 0
+    ? "0 matches"
+    : `Replaced ${totalMatches} in ${changedDocumentCount} file${changedDocumentCount === 1 ? "" : "s"}`;
+}
+
 function runEditorReplaceAll() {
   if (!appState.editorSearchOpen) {
     openEditorSearch({ prefillSelection: true, showReplace: true });
@@ -1973,6 +1992,11 @@ function runEditorReplaceAll() {
 
   syncEditorSearchQuery();
   if (!appState.editorSearchQuery.trim()) {
+    return;
+  }
+
+  if (appState.editorReplaceAllOpenFiles) {
+    void runEditorReplaceAllOpenDocuments();
     return;
   }
 
@@ -2142,8 +2166,10 @@ function updateDocumentChrome() {
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
+  elements.editorReplaceNoteRow.hidden = !(appState.editorReplaceOpen && appState.editorReplaceAllOpenFiles);
   elements.editorSearchInput.value = appState.editorSearchQuery;
   elements.editorReplaceInput.value = appState.editorReplaceQuery;
+  elements.editorReplaceScopeOpenFiles.checked = appState.editorReplaceAllOpenFiles;
   elements.editorSearchShowReplace.classList.toggle("is-active", appState.editorReplaceOpen);
   elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
@@ -2165,13 +2191,11 @@ function updateDocumentChrome() {
   elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
   elements.workspaceContentQuery.value = appState.workspaceContentQuery;
-  elements.workspaceContentReplace.value = appState.workspaceContentReplaceQuery;
   elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);
   elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
   elements.workspaceContentRegex.classList.toggle("is-active", appState.workspaceContentRegex);
   elements.workspaceContentSummary.textContent = appState.workspaceContentSummary;
   elements.workspaceContentRunSearch.disabled = appState.workspaceContentBusy;
-  elements.workspaceContentReplaceAll.disabled = appState.workspaceContentBusy || hasDirtyWorkspaceDocuments();
   renderDocumentTabs();
 }
 
@@ -3620,6 +3644,11 @@ async function bindEvents() {
     runEditorReplaceAll();
   });
 
+  elements.editorReplaceScopeOpenFiles.addEventListener("change", () => {
+    appState.editorReplaceAllOpenFiles = elements.editorReplaceScopeOpenFiles.checked;
+    updateDocumentChrome();
+  });
+
   elements.openReference.addEventListener("click", () => {
     openReferenceOverlay();
   });
@@ -3664,18 +3693,6 @@ async function bindEvents() {
     }
   });
 
-  elements.workspaceContentReplace.addEventListener("input", () => {
-    appState.workspaceContentReplaceQuery = elements.workspaceContentReplace.value;
-    updateDocumentChrome();
-  });
-
-  elements.workspaceContentReplace.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void runWorkspaceReplaceAll();
-    }
-  });
-
   elements.workspaceContentRunSearch.addEventListener("click", () => {
     void runWorkspaceContentSearch();
   });
@@ -3693,10 +3710,6 @@ async function bindEvents() {
   elements.workspaceContentRegex.addEventListener("click", () => {
     appState.workspaceContentRegex = !appState.workspaceContentRegex;
     updateDocumentChrome();
-  });
-
-  elements.workspaceContentReplaceAll.addEventListener("click", () => {
-    void runWorkspaceReplaceAll();
   });
 
   elements.workspaceContentResults.addEventListener("click", (event) => {
@@ -3989,10 +4002,8 @@ async function bindEvents() {
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "h") {
       event.preventDefault();
-      openWorkspaceSearchOverlay();
-      requestAnimationFrame(() => {
-        elements.workspaceContentReplace.focus();
-      });
+      appState.editorReplaceAllOpenFiles = true;
+      openEditorSearch({ prefillSelection: true, showReplace: true });
     }
 
     if ((event.metaKey || event.ctrlKey) && event.key === ",") {
