@@ -39,6 +39,8 @@ The app is intended as a general-purpose AsciiDoc desktop editor for notes, tech
 - Dedicated settings overlay for app theme, preview font, preview CSS, PDF paper size, and PDF CSS
 - Multiple app and editor themes, including Nocturne, Porcelain, Nord, Darcula, Solarized, and Material Design
 - Custom preview CSS support
+- Portable `.adp` project files for restoring project-level workspace and stylesheet configuration
+- Local per-project session recovery for open tabs and draft state
 - Distraction-free writing mode
 - About dialog and application metadata
 - Packaged Linux AppImage output
@@ -111,6 +113,7 @@ The same workflow can also be started manually with `workflow_dispatch`, which i
 - Additional export targets beyond HTML, PDF, and DocBook 5 are not bundled yet. They would require extra converters or extra runtime dependencies.
 - The current outline panel is built from the open editor buffer only. It does not yet expand headings that come from resolved `include::` content in the rendered document.
 - Message sequence chart support is implemented using `mscgen.js`. The current project license remains MIT for now, but this dependency may require a future licensing review for the distributed app.
+- `.adp` project files can be opened directly by the app, but automatic OS-level file association depends on the packaging target. The current Windows portable build and Linux AppImage do not provide installer-based file association registration.
 - Windows packaging from Linux needs `wine`, or the build should run on a Windows CI/runner. The codebase is prepared for Windows, but that package was not fully produced in this environment.
 - The Linux AppImage can require FUSE 2 at runtime on some distributions. On Ubuntu 24.04, that typically means installing `libfuse2t64`; `libfuse3` alone is not sufficient for older AppImage runtimes.
 

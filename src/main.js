@@ -546,6 +546,53 @@ function nextUntitledName() {
   return sequence === 1 ? "Untitled.adoc" : `Untitled ${sequence}.adoc`;
 }
 
+function getBaseName(filePath = "") {
+  return filePath.split(/[\\/]/).pop() ?? "";
+}
+
+function stripExtension(fileName = "") {
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
+function getParentPath(filePath = "") {
+  if (!filePath) {
+    return "";
+  }
+
+  const normalized = filePath.replace(/[\\/]+$/, "");
+  const lastSeparatorIndex = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
+  return lastSeparatorIndex >= 0 ? normalized.slice(0, lastSeparatorIndex) : "";
+}
+
+function joinPath(parentPath, childName) {
+  if (!parentPath) {
+    return childName;
+  }
+
+  const separator = parentPath.includes("\\") ? "\\" : "/";
+  return `${parentPath}${separator}${childName}`;
+}
+
+function suggestProjectName() {
+  const suggestedName = [
+    appState.currentProjectName,
+    stripExtension(getBaseName(appState.currentProjectPath || "")),
+    stripExtension(getCurrentDocumentName())
+  ].find((value) => typeof value === "string" && value.trim());
+
+  return suggestedName || "AsciiDoc Project";
+}
+
+function suggestProjectPath() {
+  if (appState.currentProjectPath) {
+    return appState.currentProjectPath;
+  }
+
+  const preferredDirectory = appState.workspacePath || getParentPath(appState.openFilePath || "");
+  const suggestedFileName = `${suggestProjectName()}.adp`;
+  return joinPath(preferredDirectory, suggestedFileName);
+}
+
 function createDocumentSession(document = {}) {
   const documentId = document.id ?? `doc-${appState.nextDocumentId++}`;
   const numericId = Number.parseInt(String(documentId).replace(/^doc-/, ""), 10);
@@ -618,6 +665,43 @@ function serializeOpenDocuments() {
   }));
 }
 
+function buildSessionSnapshot() {
+  return {
+    workspacePath: appState.workspacePath,
+    openFilePath: appState.openFilePath,
+    openDocuments: serializeOpenDocuments(),
+    activeDocumentId: appState.activeDocumentId,
+    nextDocumentId: appState.nextDocumentId,
+    untitledSequence: appState.untitledSequence
+  };
+}
+
+function normalizeDocumentPayload(documentPayload) {
+  if (!documentPayload) {
+    return documentPayload;
+  }
+
+  return {
+    ...documentPayload,
+    workspacePath: appState.currentProjectPath
+      ? (appState.workspacePath ?? documentPayload.workspacePath)
+      : documentPayload.workspacePath
+  };
+}
+
+function buildProjectPayload() {
+  return {
+    projectPath: appState.currentProjectPath,
+    defaultPath: suggestProjectPath(),
+    name: suggestProjectName(),
+    workspacePath: appState.workspacePath,
+    previewStylesheetPath: appState.previewStylesheetPath,
+    pdfStylesheetPath: appState.pdfStylesheetPath,
+    previewFontFamily: appState.previewFontFamily,
+    pdfPaperSize: appState.pdfPaperSize
+  };
+}
+
 function getWatchedDocumentPaths() {
   return appState.openDocuments
     .map((document) => document.path)
@@ -633,9 +717,13 @@ const appState = {
   activeDocumentId: null,
   nextDocumentId: 1,
   untitledSequence: 1,
+  currentProjectPath: null,
+  currentProjectName: null,
   workspacePath: null,
   openFilePath: null,
   recentFiles: [],
+  recentProjects: [],
+  projectSessions: {},
   previewStylesheetPath: null,
   pdfStylesheetPath: null,
   previewFontFamily: "serif",
@@ -752,8 +840,10 @@ function createLayout() {
           <button id="open-help" class="toolbar-button ghost-button" aria-label="Keyboard shortcuts"><span class="button-icon">${ICONS.shortcuts}</span><span>Help</span></button>
           <button id="open-about" class="toolbar-button ghost-button info-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span></button>
           <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
+          <button id="open-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Open Project</span></button>
           <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
           <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
+          <button id="save-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.save}</span><span>Save Project</span></button>
         </div>
       </header>
       <main class="layout-grid">
@@ -1155,6 +1245,8 @@ function createLayout() {
   elements.helpBackdrop = document.querySelector("#help-backdrop");
   elements.closeHelp = document.querySelector("#close-help");
   elements.openAbout = document.querySelector("#open-about");
+  elements.openProject = document.querySelector("#open-project");
+  elements.saveProject = document.querySelector("#save-project");
   elements.aboutOverlay = document.querySelector("#about-overlay");
   elements.aboutBackdrop = document.querySelector("#about-backdrop");
   elements.closeAbout = document.querySelector("#close-about");
@@ -1262,6 +1354,112 @@ function renderReferenceGuide() {
       </article>
     `).join("")
     : `<div class="reference-empty">No reference entries match that search. Try “xref”, “table”, “ifdef”, or “attributes”.</div>`;
+}
+
+function applyProjectSettings(project) {
+  if (!project) {
+    appState.currentProjectPath = null;
+    appState.currentProjectName = null;
+    return;
+  }
+
+  appState.currentProjectPath = project.projectPath;
+  appState.currentProjectName = project.name;
+  appState.workspacePath = project.workspacePath ?? appState.workspacePath;
+  appState.previewStylesheetPath = project.previewStylesheetPath ?? null;
+  appState.pdfStylesheetPath = project.pdfStylesheetPath ?? null;
+  appState.previewFontFamily = normalizePreviewFontValue(project.previewFontFamily);
+  appState.pdfPaperSize = normalizePdfPaperSize(project.pdfPaperSize);
+  appState.workspaceQuery = "";
+  appState.directoryCache.clear();
+  if (elements.workspaceSearch) {
+    elements.workspaceSearch.value = "";
+  }
+}
+
+async function loadProject(project, projectSession = null) {
+  applyProjectSettings(project);
+
+  const sessionState = projectSession ?? appState.projectSessions?.[project.projectPath] ?? null;
+  const rawDocuments = Array.isArray(sessionState?.openDocuments) ? sessionState.openDocuments : [];
+  appState.nextDocumentId = sessionState?.nextDocumentId ?? 1;
+  appState.untitledSequence = sessionState?.untitledSequence ?? 1;
+  appState.openDocuments = rawDocuments.map((document) => createDocumentSession({
+    ...document,
+    workspacePath: project.workspacePath
+  }));
+
+  if (appState.openDocuments.length === 0) {
+    appState.openDocuments.push(createDocumentSession({
+      workspacePath: project.workspacePath
+    }));
+  }
+
+  syncWatchedPaths();
+  await refreshFileTree();
+  const activeDocument = getDocumentSession(sessionState?.activeDocumentId) ?? appState.openDocuments[0];
+  await activateDocument(activeDocument.id);
+}
+
+async function openProjectFromBundle(bundle) {
+  if (!bundle?.project) {
+    return false;
+  }
+
+  await loadProject(bundle.project, bundle.projectSession);
+  appState.recentProjects = [bundle.project.projectPath, ...(appState.recentProjects ?? []).filter((item) => item !== bundle.project.projectPath)].slice(0, 10);
+  await persistWindowState();
+  return true;
+}
+
+async function openProjectDialog() {
+  const canCloseCurrent = await confirmApplicationClose();
+  if (!canCloseCurrent) {
+    return false;
+  }
+
+  const bundle = await window.desktop.openProjectDialog();
+  if (!bundle) {
+    return false;
+  }
+
+  return openProjectFromBundle(bundle);
+}
+
+async function saveCurrentProject() {
+  const savedProject = await window.desktop.saveProjectFile(buildProjectPayload());
+  if (!savedProject) {
+    return false;
+  }
+
+  applyProjectSettings(savedProject);
+  appState.recentProjects = [savedProject.projectPath, ...(appState.recentProjects ?? []).filter((item) => item !== savedProject.projectPath)].slice(0, 10);
+  updateDocumentChrome();
+  await persistWindowState();
+  elements.documentStatus.textContent = `Saved project ${savedProject.name}`;
+  return true;
+}
+
+async function handleIncomingPath(filePath) {
+  if (!filePath) {
+    return;
+  }
+
+  if (/\.adp$/i.test(filePath)) {
+    const canCloseCurrent = await confirmApplicationClose();
+    if (!canCloseCurrent) {
+      return;
+    }
+
+    const bundle = await window.desktop.openProjectFile(filePath);
+    await openProjectFromBundle(bundle);
+    return;
+  }
+
+  const documentPayload = await window.desktop.readDocument(filePath);
+  if (documentPayload) {
+    await openDocument(normalizeDocumentPayload(documentPayload));
+  }
 }
 
 function buildSnippetInsertion(snippet) {
@@ -1897,6 +2095,12 @@ function updateDocumentChrome() {
   elements.openFolder.title = appState.workspacePath
     ? `Current workspace: ${appState.workspacePath}`
     : "Choose a workspace folder to browse, search, and open files.";
+  elements.openProject.title = appState.currentProjectPath
+    ? `Current project: ${appState.currentProjectName ?? getBaseName(appState.currentProjectPath)}`
+    : "Open an AsciiDoc project file (.adp).";
+  elements.saveProject.title = appState.currentProjectPath
+    ? `Save project ${appState.currentProjectName ?? getBaseName(appState.currentProjectPath)}`
+    : "Save the current workspace settings as a project file.";
   elements.stylesheetChip.textContent = appState.previewStylesheetPath
     ? `Preview CSS: ${appState.previewStylesheetPath.split(/[\\/]/).pop()}`
     : "No custom preview CSS";
@@ -2155,13 +2359,14 @@ async function activateDocument(documentId, options = {}) {
 }
 
 async function openDocument(document) {
-  const existingDocument = getDocumentSessionByPath(document.path);
+  const normalizedDocument = normalizeDocumentPayload(document);
+  const existingDocument = getDocumentSessionByPath(normalizedDocument.path);
   if (existingDocument) {
     await activateDocument(existingDocument.id);
     return existingDocument;
   }
 
-  const session = createDocumentSession(document);
+  const session = createDocumentSession(normalizedDocument);
   appState.openDocuments.push(session);
   if (session.workspacePath) {
     appState.workspacePath = session.workspacePath;
@@ -3066,13 +3271,18 @@ async function promptForExternalChange(document) {
 }
 
 async function persistWindowState() {
-  await window.desktop.updateState({
-    workspacePath: appState.workspacePath,
-    openFilePath: appState.openFilePath,
-    openDocuments: serializeOpenDocuments(),
-    activeDocumentId: appState.activeDocumentId,
-    nextDocumentId: appState.nextDocumentId,
-    untitledSequence: appState.untitledSequence,
+  const sessionSnapshot = buildSessionSnapshot();
+  if (appState.currentProjectPath) {
+    appState.projectSessions = {
+      ...(appState.projectSessions ?? {}),
+      [appState.currentProjectPath]: sessionSnapshot
+    };
+  }
+
+  const persistedState = {
+    currentProjectPath: appState.currentProjectPath,
+    recentProjects: appState.recentProjects,
+    projectSessions: appState.projectSessions,
     theme: appState.theme,
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize,
@@ -3081,7 +3291,20 @@ async function persistWindowState() {
     outlineCollapsed: appState.outlineCollapsed,
     previewStylesheetPath: appState.previewStylesheetPath,
     pdfStylesheetPath: appState.pdfStylesheetPath
-  });
+  };
+
+  if (!appState.currentProjectPath) {
+    Object.assign(persistedState, {
+      workspacePath: appState.workspacePath,
+      openFilePath: appState.openFilePath,
+      openDocuments: sessionSnapshot.openDocuments,
+      activeDocumentId: sessionSnapshot.activeDocumentId,
+      nextDocumentId: sessionSnapshot.nextDocumentId,
+      untitledSequence: sessionSnapshot.untitledSequence
+    });
+  }
+
+  await window.desktop.updateState(persistedState);
 }
 
 function scheduleSessionPersistence() {
@@ -3124,8 +3347,12 @@ async function bindEvents() {
   document.querySelector("#open-file").addEventListener("click", async () => {
     const documentPayload = await window.desktop.openFile();
     if (documentPayload) {
-      await openDocument(documentPayload);
+      await openDocument(normalizeDocumentPayload(documentPayload));
     }
+  });
+
+  elements.openProject.addEventListener("click", () => {
+    void openProjectDialog();
   });
 
   document.querySelector("#open-folder").addEventListener("click", async () => {
@@ -3150,6 +3377,10 @@ async function bindEvents() {
 
   document.querySelector("#save-file-as").addEventListener("click", () => {
     void saveAsCurrentDocument();
+  });
+
+  elements.saveProject.addEventListener("click", () => {
+    void saveCurrentProject();
   });
 
   elements.collapseWorkspace.addEventListener("click", () => {
@@ -3500,7 +3731,7 @@ async function bindEvents() {
 
     const documentPayload = await window.desktop.readDocument(target.dataset.path);
     if (documentPayload) {
-      await openDocument(documentPayload);
+      await openDocument(normalizeDocumentPayload(documentPayload));
     }
   });
 
@@ -3631,6 +3862,10 @@ async function bindEvents() {
 
   window.addEventListener("beforeunload", () => {
     void persistWindowState();
+  });
+
+  window.desktop.onOpenPath(({ path }) => {
+    void handleIncomingPath(path);
   });
 
   window.desktop.onAppCloseRequested(async ({ requestId }) => {
@@ -3765,23 +4000,38 @@ async function bindEvents() {
 
 function registerBootSequence() {
   void (async () => {
-    const { state, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
+    const { state, project, projectSession, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
-      outlineCollapsed: Boolean(state?.outlineCollapsed)
+      outlineCollapsed: Boolean(state?.outlineCollapsed),
+      currentProjectPath: project?.projectPath ?? null,
+      currentProjectName: project?.name ?? null,
+      recentProjects: Array.isArray(state?.recentProjects) ? state.recentProjects : [],
+      projectSessions: state?.projectSessions ?? {}
     });
     applyEditorTheme(appState.theme);
 
+    if (project) {
+      applyProjectSettings(project);
+    }
+
     if (Array.isArray(restoredDocuments) && restoredDocuments.length > 0) {
-      appState.openDocuments = restoredDocuments.map((document) => createDocumentSession(document));
+      const sessionWorkspace = project?.workspacePath ?? appState.workspacePath;
+      const sessionState = projectSession ?? state;
+      appState.nextDocumentId = sessionState?.nextDocumentId ?? appState.nextDocumentId;
+      appState.untitledSequence = sessionState?.untitledSequence ?? appState.untitledSequence;
+      appState.openDocuments = restoredDocuments.map((document) => createDocumentSession({
+        ...document,
+        workspacePath: sessionWorkspace ?? document.workspacePath
+      }));
       syncWatchedPaths();
-      const restoredActiveDocument = getDocumentSession(state?.activeDocumentId) ?? appState.openDocuments[0];
+      const restoredActiveDocument = getDocumentSession(sessionState?.activeDocumentId) ?? appState.openDocuments[0];
       await activateDocument(restoredActiveDocument.id);
     } else if (initialDocument) {
-      await openDocument(initialDocument);
+      await openDocument(normalizeDocumentPayload(initialDocument));
     } else {
       const untitled = createDocumentSession();
       appState.openDocuments.push(untitled);

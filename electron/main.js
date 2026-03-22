@@ -10,14 +10,39 @@ import { loadState, saveState } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
+const PROJECT_FILE_EXTENSION = ".adp";
 const WORKSPACE_EDITABLE_FILE_PATTERN = /\.(adoc|asciidoc|asc|css)$/i;
 const IMAGE_ASSET_FILE_PATTERN = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i;
 const WORKSPACE_ASSET_FILE_PATTERN = /\.(png|jpe?g|gif|svg|webp|bmp|ico|pdf|txt|csv|json|xml|yml|yaml|zip|tar|gz|mp3|wav|ogg|mp4|webm)$/i;
 const watchedPathsByWebContents = new Map();
 const fileWatchRegistrations = new Map();
+let mainWindow = null;
+let pendingOpenPath = null;
 
 function isWorkspaceEditableFile(fileName) {
   return WORKSPACE_EDITABLE_FILE_PATTERN.test(fileName);
+}
+
+function isProjectFilePath(filePath = "") {
+  return filePath.toLowerCase().endsWith(PROJECT_FILE_EXTENSION);
+}
+
+function isOpenableLaunchPath(filePath = "") {
+  return isProjectFilePath(filePath) || WORKSPACE_EDITABLE_FILE_PATTERN.test(filePath);
+}
+
+function extractLaunchPath(argv = []) {
+  for (const value of [...argv].reverse()) {
+    if (!value || value.startsWith("-")) {
+      continue;
+    }
+
+    if (isOpenableLaunchPath(value)) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function isWorkspaceBrowsableFile(fileName) {
@@ -49,6 +74,10 @@ async function directoryContainsBrowsableFiles(dirPath) {
 
 function normalizeRecentFiles(recentFiles, filePath) {
   return [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
+}
+
+function normalizeRecentProjects(recentProjects, projectPath) {
+  return [projectPath, ...(recentProjects ?? []).filter((item) => item !== projectPath)].slice(0, 10);
 }
 
 function escapeRegExp(value) {
@@ -92,6 +121,10 @@ function toPortablePath(filePath) {
   return filePath.split(path.sep).join("/");
 }
 
+function fromPortablePath(filePath) {
+  return filePath.split("/").join(path.sep);
+}
+
 function isPathInside(parentPath, childPath) {
   if (!parentPath || !childPath) {
     return false;
@@ -104,6 +137,23 @@ function isPathInside(parentPath, childPath) {
 
 function getAssetImportBaseDir(documentPath, workspacePath) {
   return documentPath ? path.dirname(documentPath) : (workspacePath ?? null);
+}
+
+function resolveProjectPath(projectDir, relativePath, fallback = null) {
+  if (typeof relativePath !== "string" || !relativePath.trim()) {
+    return fallback;
+  }
+
+  return path.resolve(projectDir, fromPortablePath(relativePath));
+}
+
+function toProjectRelativePath(projectDir, targetPath, fallback = null) {
+  if (!targetPath) {
+    return fallback;
+  }
+
+  const relativePath = path.relative(projectDir, targetPath) || ".";
+  return toPortablePath(relativePath);
 }
 
 function buildAssetLabel(filePath) {
@@ -271,6 +321,17 @@ function buildSaveDialogConfig(payload) {
     };
   }
 
+  if (kind === "project") {
+    return {
+      ...baseOptions,
+      title: "Save AsciiDoc project",
+      filters: [
+        { name: "AsciiDoc Project", extensions: ["adp"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    };
+  }
+
   if (kind === "html") {
     return {
       ...baseOptions,
@@ -319,8 +380,51 @@ async function loadDocument(filePath) {
   };
 }
 
-async function hydrateStoredDocuments(state) {
-  const storedDocuments = Array.isArray(state.openDocuments) ? state.openDocuments : [];
+async function loadProjectFile(projectPath) {
+  const content = await fs.readFile(projectPath, "utf8");
+  const rawProject = JSON.parse(content);
+  const projectDir = path.dirname(projectPath);
+
+  return {
+    projectPath,
+    name: typeof rawProject.name === "string" && rawProject.name.trim()
+      ? rawProject.name.trim()
+      : path.basename(projectPath, PROJECT_FILE_EXTENSION),
+    workspacePath: resolveProjectPath(projectDir, rawProject.workspace ?? ".", projectDir),
+    previewStylesheetPath: resolveProjectPath(projectDir, rawProject.previewStylesheet, null),
+    pdfStylesheetPath: resolveProjectPath(projectDir, rawProject.pdfStylesheet, null),
+    previewFontFamily: rawProject.previewFontFamily ?? "serif",
+    pdfPaperSize: rawProject.pdfPaperSize ?? "A4"
+  };
+}
+
+async function saveProjectFile(projectPath, projectPayload = {}) {
+  const projectDir = path.dirname(projectPath);
+  const serialized = {
+    version: 1,
+    name: projectPayload.name ?? path.basename(projectPath, PROJECT_FILE_EXTENSION),
+    workspace: toProjectRelativePath(projectDir, projectPayload.workspacePath, "."),
+    previewStylesheet: toProjectRelativePath(projectDir, projectPayload.previewStylesheetPath, null),
+    pdfStylesheet: toProjectRelativePath(projectDir, projectPayload.pdfStylesheetPath, null),
+    previewFontFamily: projectPayload.previewFontFamily ?? "serif",
+    pdfPaperSize: projectPayload.pdfPaperSize ?? "A4"
+  };
+
+  await fs.mkdir(projectDir, { recursive: true });
+  await fs.writeFile(projectPath, JSON.stringify(serialized, null, 2), "utf8");
+  return loadProjectFile(projectPath);
+}
+
+function getSessionSource(state, projectPath = null) {
+  if (projectPath) {
+    return state.projectSessions?.[projectPath] ?? {};
+  }
+
+  return state;
+}
+
+async function hydrateStoredDocuments(sessionState, workspacePath = null) {
+  const storedDocuments = Array.isArray(sessionState.openDocuments) ? sessionState.openDocuments : [];
   const restoredDocuments = [];
 
   for (const storedDocument of storedDocuments) {
@@ -343,7 +447,7 @@ async function hydrateStoredDocuments(state) {
     restoredDocuments.push({
       id: storedDocument?.id ?? randomUUID(),
       path: storedDocument?.path ?? null,
-      workspacePath: storedDocument?.workspacePath ?? state.workspacePath ?? null,
+      workspacePath: storedDocument?.workspacePath ?? workspacePath ?? null,
       name: storedDocument?.name ?? path.basename(storedDocument?.path ?? "Untitled.adoc"),
       content: storedDocument?.content ?? "",
       lastModifiedMs: storedDocument?.lastModifiedMs ?? null,
@@ -591,6 +695,7 @@ async function createWindow() {
       sandbox: false
     }
   });
+  mainWindow = window;
 
   if (process.platform !== "darwin") {
     window.setMenuBarVisibility(false);
@@ -644,6 +749,43 @@ async function createWindow() {
   window.on("closed", () => {
     closeRequestResolvers.clear();
     ipcMain.removeHandler("app:close-response");
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
+}
+
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) {
+  app.quit();
+} else {
+  pendingOpenPath = extractLaunchPath(process.argv.slice(1));
+
+  app.on("second-instance", (_event, argv) => {
+    const launchPath = extractLaunchPath(argv);
+    if (launchPath) {
+      pendingOpenPath = launchPath;
+      mainWindow?.webContents.send("app:open-path", { path: launchPath });
+    }
+
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+  });
+
+  app.on("open-file", (event, filePath) => {
+    event.preventDefault();
+    pendingOpenPath = filePath;
+    mainWindow?.webContents.send("app:open-path", { path: filePath });
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
   });
 }
 
@@ -676,6 +818,33 @@ app.whenReady().then(async () => {
     return document;
   });
 
+  ipcMain.handle("dialog:open-project", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: "Open AsciiDoc project",
+      properties: ["openFile"],
+      filters: [
+        { name: "AsciiDoc Project", extensions: ["adp"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    });
+
+    if (canceled || filePaths.length === 0) {
+      return null;
+    }
+
+    const state = await loadState();
+    const project = await loadProjectFile(filePaths[0]);
+    await saveState({
+      currentProjectPath: project.projectPath,
+      recentProjects: normalizeRecentProjects(state.recentProjects, project.projectPath)
+    });
+
+    return {
+      project,
+      projectSession: state.projectSessions?.[project.projectPath] ?? null
+    };
+  });
+
   ipcMain.handle("dialog:open-folder", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Choose workspace folder",
@@ -693,6 +862,47 @@ app.whenReady().then(async () => {
   ipcMain.handle("dialog:save-file", async (_, payload) => {
     const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig(payload));
     return canceled ? null : filePath;
+  });
+
+  ipcMain.handle("project:open-file", async (_, projectPath) => {
+    const state = await loadState();
+    const project = await loadProjectFile(projectPath);
+    await saveState({
+      currentProjectPath: project.projectPath,
+      recentProjects: normalizeRecentProjects(state.recentProjects, project.projectPath)
+    });
+
+    return {
+      project,
+      projectSession: state.projectSessions?.[project.projectPath] ?? null
+    };
+  });
+
+  ipcMain.handle("project:save-file", async (_, payload = {}) => {
+    let projectPath = payload.projectPath ?? null;
+    if (!projectPath) {
+      const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig({
+        kind: "project",
+        defaultPath: payload.defaultPath
+      }));
+      if (canceled || !filePath) {
+        return null;
+      }
+      projectPath = filePath;
+    }
+
+    if (!isProjectFilePath(projectPath)) {
+      projectPath = `${projectPath}${PROJECT_FILE_EXTENSION}`;
+    }
+
+    const savedProject = await saveProjectFile(projectPath, payload);
+    const state = await loadState();
+    await saveState({
+      currentProjectPath: savedProject.projectPath,
+      recentProjects: normalizeRecentProjects(state.recentProjects, savedProject.projectPath)
+    });
+
+    return savedProject;
   });
 
   ipcMain.handle("dialog:choose-stylesheet", async (_, kind = "preview") => {
@@ -911,10 +1121,38 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("app:get-boot-payload", async () => {
     const state = await loadState();
-    const restoredDocuments = await hydrateStoredDocuments(state);
+    const launchPath = pendingOpenPath;
+    pendingOpenPath = null;
+    const launchProjectPath = isProjectFilePath(launchPath ?? "") ? launchPath : null;
+    const launchDocumentPath = launchPath && !launchProjectPath ? launchPath : null;
+    const activeProjectPath = launchProjectPath ?? state.currentProjectPath ?? null;
+    let project = null;
+    let projectSession = null;
+    let restoredDocuments = [];
     let initialDocument = null;
 
-    if (restoredDocuments.length === 0 && state.openFilePath) {
+    if (activeProjectPath) {
+      try {
+        project = await loadProjectFile(activeProjectPath);
+        projectSession = state.projectSessions?.[project.projectPath] ?? null;
+        restoredDocuments = await hydrateStoredDocuments(getSessionSource(state, project.projectPath), project.workspacePath);
+      } catch {
+        project = null;
+        projectSession = null;
+      }
+    }
+
+    if (launchDocumentPath) {
+      try {
+        initialDocument = await loadDocument(launchDocumentPath);
+      } catch {
+        initialDocument = null;
+      }
+    } else if (!project) {
+      restoredDocuments = await hydrateStoredDocuments(state, state.workspacePath ?? null);
+    }
+
+    if (!project && restoredDocuments.length === 0 && state.openFilePath && !initialDocument) {
       try {
         initialDocument = await loadDocument(state.openFilePath);
       } catch {
@@ -924,6 +1162,8 @@ app.whenReady().then(async () => {
 
     return {
       state,
+      project,
+      projectSession,
       restoredDocuments,
       initialDocument
     };

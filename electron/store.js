@@ -3,6 +3,7 @@ import path from "node:path";
 import { app } from "electron";
 
 const defaultState = {
+  currentProjectPath: null,
   workspacePath: null,
   openFilePath: null,
   openDocuments: [],
@@ -10,6 +11,8 @@ const defaultState = {
   nextDocumentId: 1,
   untitledSequence: 1,
   recentFiles: [],
+  recentProjects: [],
+  projectSessions: {},
   theme: "nord",
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
