@@ -1188,6 +1188,8 @@ input:focus-visible,
   border: 1px solid var(--control-border);
   border-radius: 20px;
   padding: 16px;
+  display: grid;
+  gap: 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
 }
 
@@ -1219,6 +1221,26 @@ input:focus-visible,
   color: var(--text-secondary);
   line-height: 1.55;
   font-size: 0.92rem;
+}
+
+.reference-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reference-action {
+  padding: 0.55rem 0.82rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.reference-action-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
 }
 
 .reference-tags {

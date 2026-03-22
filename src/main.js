@@ -345,21 +345,21 @@ const ICONS = {
 };
 
 const MARKUP_REFERENCE = [
-  { title: "Document Title", syntax: "= Project Notes", detail: "Top-level document title. Use this once at the top of the file.", tags: ["header", "title", "document"] },
-  { title: "Section Heading", syntax: "== Implementation Notes", detail: "Create sections with repeated equals signs. More equals means deeper nesting.", tags: ["heading", "sections", "outline"] },
-  { title: "Attribute", syntax: ":toc: left", detail: "Define document attributes for features such as tables of contents, icons, or custom values.", tags: ["attributes", "toc", "settings"] },
-  { title: "Bold and Italic", syntax: "*bold* and _italic_", detail: "Inline emphasis for strong or subtle emphasis.", tags: ["inline", "formatting", "emphasis"] },
-  { title: "Code Block", syntax: "[source,js]\n----\nconsole.log('hello')\n----", detail: "Add fenced source blocks with an optional language for syntax highlighting.", tags: ["code", "listing", "source"] },
-  { title: "Admonition", syntax: "NOTE: Remember to save before export.", detail: "Create note, tip, warning, caution, and important callouts.", tags: ["note", "warning", "admonition"] },
-  { title: "Link", syntax: "https://docs.asciidoctor.org[Docs]", detail: "External links open in the default browser from preview.", tags: ["link", "url", "external"] },
-  { title: "Cross Reference", syntax: "xref:chapter-two.adoc#tables[Tables chapter]", detail: "Link to sections in the same document or another AsciiDoc file.", tags: ["xref", "reference", "anchors"] },
-  { title: "Image", syntax: "image::diagrams/flow.png[Flow, width=640]", detail: "Embed local or remote images with alt text and attributes.", tags: ["image", "media", "figures"] },
-  { title: "MSC Diagram", syntax: "[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", detail: "Render message sequence charts inline from MscGen syntax using the built-in MSC renderer.", tags: ["msc", "mscgen", "diagram", "sequence"] },
-  { title: "Table", syntax: "|===\n|Name |Role\n|Kim |Editor\n|===", detail: "Pipe-delimited tables support formatting, widths, and nested content.", tags: ["table", "grid", "columns"] },
-  { title: "Include", syntax: "include::partials/header.adoc[]", detail: "Reuse content from other files. The editor preview resolves includes relative to the current document.", tags: ["include", "imports", "reuse"] },
-  { title: "Conditional", syntax: "ifdef::backend-html5[]\nOnly for HTML\nendif::[]", detail: "Conditionally render blocks based on attributes or backend.", tags: ["ifdef", "ifndef", "conditions"] },
-  { title: "Passthrough", syntax: "++++\n<div class=\"custom\">HTML</div>\n++++", detail: "Pass raw HTML or other markup through unchanged.", tags: ["passthrough", "raw", "html"] },
-  { title: "Footnote", syntax: "Footnote examplefootnote:[This note appears at the bottom.]", detail: "Add inline footnotes that render automatically in preview and export.", tags: ["footnote", "notes", "references"] }
+  { title: "Document Title", syntax: "= Project Notes", detail: "Top-level document title. Use this once at the top of the file.", tags: ["header", "title", "document"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/document/title/" },
+  { title: "Section Heading", syntax: "== Implementation Notes", detail: "Create sections with repeated equals signs. More equals means deeper nesting.", tags: ["heading", "sections", "outline"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/sections/titles-and-levels/" },
+  { title: "Attribute", syntax: ":toc: left", detail: "Define document attributes for features such as tables of contents, icons, or custom values.", tags: ["attributes", "toc", "settings"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/toc/" },
+  { title: "Bold and Italic", syntax: "*bold* and _italic_", detail: "Inline emphasis for strong or subtle emphasis.", tags: ["inline", "formatting", "emphasis"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/text/" },
+  { title: "Code Block", syntax: "[source,js]\n----\nconsole.log('hello')\n----", detail: "Add fenced source blocks with an optional language for syntax highlighting.", tags: ["code", "listing", "source"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/verbatim/source-blocks/" },
+  { title: "Admonition", syntax: "NOTE: Remember to save before export.", detail: "Create note, tip, warning, caution, and important callouts.", tags: ["note", "warning", "admonition"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/blocks/admonitions/" },
+  { title: "Link", syntax: "https://docs.asciidoctor.org[Docs]", detail: "External links open in the default browser from preview.", tags: ["link", "url", "external"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/macros/links/" },
+  { title: "Cross Reference", syntax: "xref:chapter-two.adoc#tables[Tables chapter]", detail: "Link to sections in the same document or another AsciiDoc file.", tags: ["xref", "reference", "anchors"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/macros/xref/" },
+  { title: "Image", syntax: "image::diagrams/flow.png[Flow, width=640]", detail: "Embed local or remote images with alt text and attributes.", tags: ["image", "media", "figures"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/macros/images/" },
+  { title: "MSC Diagram", syntax: "[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", detail: "Render message sequence charts inline from MscGen syntax using the built-in MSC renderer.", tags: ["msc", "mscgen", "diagram", "sequence"], docsUrl: "https://docs.asciidoctor.org/diagram-extension/latest/diagram_types/msc/" },
+  { title: "Table", syntax: "|===\n|Name |Role\n|Kim |Editor\n|===", detail: "Pipe-delimited tables support formatting, widths, and nested content.", tags: ["table", "grid", "columns"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/tables/build-a-basic-table/" },
+  { title: "Include", syntax: "include::partials/header.adoc[]", detail: "Reuse content from other files. The editor preview resolves includes relative to the current document.", tags: ["include", "imports", "reuse"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/directives/include/" },
+  { title: "Conditional", syntax: "ifdef::backend-html5[]\nOnly for HTML\nendif::[]", detail: "Conditionally render blocks based on attributes or backend.", tags: ["ifdef", "ifndef", "conditions"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/directives/ifdef-ifndef/" },
+  { title: "Passthrough", syntax: "++++\n<div class=\"custom\">HTML</div>\n++++", detail: "Pass raw HTML or other markup through unchanged.", tags: ["passthrough", "raw", "html"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/pass/pass-block/" },
+  { title: "Footnote", syntax: "Footnote examplefootnote:[This note appears at the bottom.]", detail: "Add inline footnotes that render automatically in preview and export.", tags: ["footnote", "notes", "references"], docsUrl: "https://docs.asciidoctor.org/asciidoc/latest/macros/footnote/" }
 ];
 
 const SHORTCUT_SECTIONS = [
@@ -994,7 +994,7 @@ function createLayout() {
               <span class="panel-icon">${ICONS.reference}</span>
               <div>
                 <div id="reference-title" class="panel-title">Markup Reference</div>
-                <div class="panel-subtitle">Search snippets, patterns, and common AsciiDoc structures.</div>
+                <div class="panel-subtitle">Search snippets, insert them into the editor, or open the official AsciiDoc docs.</div>
               </div>
             </div>
             <button id="close-reference" class="toolbar-button ghost-button"><span>Close</span></button>
@@ -1154,7 +1154,10 @@ function createLayout() {
 
 function renderReferenceGuide() {
   const query = appState.referenceQuery.trim().toLowerCase();
-  const visibleEntries = MARKUP_REFERENCE.filter((entry) => {
+  const visibleEntries = MARKUP_REFERENCE.map((entry, index) => ({
+    ...entry,
+    referenceIndex: index
+  })).filter((entry) => {
     if (!query) {
       return true;
     }
@@ -1174,9 +1177,63 @@ function renderReferenceGuide() {
         </div>
         <pre>${escapeHtml(entry.syntax)}</pre>
         <p>${escapeHtml(entry.detail)}</p>
+        <div class="reference-actions">
+          <button class="toolbar-button ghost-button reference-action" type="button" data-insert-reference="${entry.referenceIndex}">Insert Snippet</button>
+          <a class="reference-action reference-action-link" href="${escapeHtml(entry.docsUrl)}" data-external-link target="_blank" rel="noreferrer noopener">Official Docs</a>
+        </div>
       </article>
     `).join("")
     : `<div class="reference-empty">No reference entries match that search. Try “xref”, “table”, “ifdef”, or “attributes”.</div>`;
+}
+
+function buildSnippetInsertion(snippet) {
+  const selection = editorView.state.selection.main;
+  let insert = snippet;
+
+  if (snippet.includes("\n")) {
+    const beforeCharacter = selection.from > 0 ? editorView.state.sliceDoc(selection.from - 1, selection.from) : "";
+    const afterCharacter = selection.to < editorView.state.doc.length
+      ? editorView.state.sliceDoc(selection.to, selection.to + 1)
+      : "";
+
+    if (beforeCharacter && beforeCharacter !== "\n") {
+      insert = `\n${insert}`;
+    }
+
+    if (afterCharacter && afterCharacter !== "\n") {
+      insert = `${insert}\n`;
+    }
+  }
+
+  return {
+    selection,
+    insert
+  };
+}
+
+function insertReferenceSnippet(referenceIndex) {
+  const entry = MARKUP_REFERENCE[referenceIndex];
+  if (!entry || !editorView) {
+    return;
+  }
+
+  const { selection, insert } = buildSnippetInsertion(entry.syntax);
+  const anchor = selection.from + insert.length;
+
+  editorView.dispatch({
+    changes: {
+      from: selection.from,
+      to: selection.to,
+      insert
+    },
+    selection: { anchor },
+    scrollIntoView: true
+  });
+
+  closeReferenceOverlay();
+  requestAnimationFrame(() => {
+    editorView.focus();
+  });
 }
 
 function getOutlineEntries(content = appState.currentContent) {
@@ -3008,6 +3065,16 @@ async function bindEvents() {
   elements.referenceSearch.addEventListener("input", (event) => {
     appState.referenceQuery = event.target.value;
     renderReferenceGuide();
+  });
+
+  elements.referenceResults.addEventListener("click", (event) => {
+    const insertButton = event.target instanceof Element ? event.target.closest("[data-insert-reference]") : null;
+    if (!insertButton) {
+      return;
+    }
+
+    event.preventDefault();
+    insertReferenceSnippet(Number.parseInt(insertButton.dataset.insertReference, 10));
   });
 
   elements.previewFrame.addEventListener("load", () => {
