@@ -35,6 +35,19 @@ test("renderPreview includes the document header title", async () => {
   assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });
 
+test("renderPreview resolves relative image paths from an explicit base directory for unsaved project documents", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-images-"));
+  const imagePath = path.join(tempRoot, "images", "cover.png");
+  await fs.mkdir(path.dirname(imagePath), { recursive: true });
+  await fs.writeFile(imagePath, "png-placeholder", "utf8");
+
+  const html = await renderPreview("= Demo\n\nimage::images/cover.png[Cover]", null, {
+    baseDir: tempRoot
+  });
+
+  assert.match(html, /src="images\/cover\.png"/);
+});
+
 test("renderPreview supports configurable font families", async () => {
   const html = await renderPreview("= Demo\n\nA paragraph.", null, {
     previewFontFamily: "sans"

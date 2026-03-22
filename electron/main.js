@@ -1081,6 +1081,7 @@ app.whenReady().then(async () => {
     payload.content,
     payload.filePath,
     {
+      baseDir: payload.baseDir,
       stylesheetPath: payload.stylesheetPath,
       previewFontFamily: payload.previewFontFamily
     }

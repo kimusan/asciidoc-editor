@@ -2392,9 +2392,11 @@ function currentDocumentHasPreview() {
 }
 
 function buildPreviewPayload() {
+  const activeDocument = getDocumentSession();
   return {
     content: appState.currentContent,
     filePath: appState.openFilePath,
+    baseDir: activeDocument?.workspacePath ?? appState.workspacePath ?? null,
     stylesheetPath: appState.previewStylesheetPath,
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
@@ -3333,6 +3335,7 @@ async function exportCurrentDocument(format) {
   await window.desktop.exportDocument({
     source: appState.currentContent,
     filePath: appState.openFilePath,
+    baseDir: getDocumentSession()?.workspacePath ?? appState.workspacePath ?? null,
     destinationPath,
     format,
     stylesheetPath: format === "pdf" ? appState.pdfStylesheetPath : appState.previewStylesheetPath,

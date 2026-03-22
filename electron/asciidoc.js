@@ -384,7 +384,11 @@ function buildPrintStyles(pageSize = "A4") {
   `;
 }
 
-function resolveBaseDir(filePath) {
+function resolveBaseDir(filePath, baseDir = null) {
+  if (baseDir) {
+    return baseDir;
+  }
+
   if (!filePath) {
     return process.cwd();
   }
@@ -520,7 +524,7 @@ function buildLoadOptions(filePath, options = {}) {
   ensureMscExtensionsRegistered();
   return {
     safe: "unsafe",
-    base_dir: resolveBaseDir(filePath),
+    base_dir: resolveBaseDir(filePath, options.baseDir),
     standalone: options.standalone ?? true,
     backend: options.backend ?? "html5",
     attributes: buildAttributes(options.stylesheetPath)
@@ -724,6 +728,7 @@ export async function renderPreview(source, filePath, options = {}) {
 export async function exportDocument({
   source,
   filePath,
+  baseDir,
   destinationPath,
   format,
   stylesheetPath,
@@ -732,6 +737,7 @@ export async function exportDocument({
 }) {
   if (format === "html") {
     const html = await renderPreview(source, filePath, {
+      baseDir,
       stylesheetPath,
       previewFontFamily
     });
@@ -741,6 +747,7 @@ export async function exportDocument({
 
   if (format === "docbook") {
     const docbook = convertDocument(source, filePath, {
+      baseDir,
       backend: "docbook5",
       standalone: true
     });
@@ -751,6 +758,7 @@ export async function exportDocument({
   if (format === "pdf") {
     const { BrowserWindow } = await import("electron");
     const html = await renderPreview(source, filePath, {
+      baseDir,
       stylesheetPath,
       previewFontFamily,
       pdfPaperSize,
