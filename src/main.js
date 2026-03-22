@@ -533,8 +533,14 @@ function nextUntitledName() {
 }
 
 function createDocumentSession(document = {}) {
+  const documentId = document.id ?? `doc-${appState.nextDocumentId++}`;
+  const numericId = Number.parseInt(String(documentId).replace(/^doc-/, ""), 10);
+  if (Number.isFinite(numericId)) {
+    appState.nextDocumentId = Math.max(appState.nextDocumentId, numericId + 1);
+  }
+
   return {
-    id: `doc-${appState.nextDocumentId++}`,
+    id: documentId,
     path: document.path ?? null,
     workspacePath: document.workspacePath ?? appState.workspacePath ?? null,
     name: document.name ?? nextUntitledName(),
@@ -580,6 +586,19 @@ function syncMirrorStateFromDocument(document) {
   }
 }
 
+function serializeOpenDocuments() {
+  return appState.openDocuments.map((document) => ({
+    id: document.id,
+    path: document.path,
+    workspacePath: document.workspacePath,
+    name: document.name,
+    content: document.id === appState.activeDocumentId ? appState.currentContent : document.content,
+    lastModifiedMs: document.lastModifiedMs ?? null,
+    isDirty: Boolean(document.isDirty),
+    previewInSync: document.previewInSync ?? !document.isDirty
+  }));
+}
+
 const appState = {
   openDocuments: [],
   activeDocumentId: null,
@@ -619,6 +638,7 @@ const appState = {
   splitRatio: 0.5,
   previewRenderVersion: 0,
   isHandlingCloseRequest: false,
+  autoSaveTimer: null,
   renderTimer: null,
   syncTimer: null,
   directoryCache: new Map()
@@ -1333,6 +1353,7 @@ function createEditor() {
         }
         updateDocumentChrome();
         renderDocumentTabs();
+        scheduleSessionPersistence();
         schedulePreviewRender();
       }
 
@@ -1593,6 +1614,7 @@ async function activateDocument(documentId, options = {}) {
   appState.editorReplaceQuery = "";
   renderDocumentTabs();
   updateDocumentChrome();
+  scheduleSessionPersistence();
   await renderPreviewNow();
   if (options.refreshTree !== false) {
     await refreshFileTree();
@@ -2341,6 +2363,7 @@ async function saveDocumentSession(document, options = {}) {
 
   await refreshFileTree();
   updateDocumentChrome();
+  scheduleSessionPersistence();
   return true;
 }
 
@@ -2405,6 +2428,7 @@ async function closeDocument(documentId) {
   } else {
     updateDocumentChrome();
     await refreshFileTree();
+    scheduleSessionPersistence();
   }
 
   return true;
@@ -2443,6 +2467,10 @@ async function persistWindowState() {
   await window.desktop.updateState({
     workspacePath: appState.workspacePath,
     openFilePath: appState.openFilePath,
+    openDocuments: serializeOpenDocuments(),
+    activeDocumentId: appState.activeDocumentId,
+    nextDocumentId: appState.nextDocumentId,
+    untitledSequence: appState.untitledSequence,
     theme: appState.theme,
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize,
@@ -2451,6 +2479,13 @@ async function persistWindowState() {
     previewStylesheetPath: appState.previewStylesheetPath,
     pdfStylesheetPath: appState.pdfStylesheetPath
   });
+}
+
+function scheduleSessionPersistence() {
+  clearTimeout(appState.autoSaveTimer);
+  appState.autoSaveTimer = setTimeout(() => {
+    void persistWindowState();
+  }, 800);
 }
 
 async function exportCurrentDocument(format) {
@@ -2899,7 +2934,7 @@ async function bindEvents() {
 
 function registerBootSequence() {
   void (async () => {
-    const { state, initialDocument } = await window.desktop.getBootPayload();
+    const { state, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
@@ -2908,7 +2943,11 @@ function registerBootSequence() {
     });
     applyEditorTheme(appState.theme);
 
-    if (initialDocument) {
+    if (Array.isArray(restoredDocuments) && restoredDocuments.length > 0) {
+      appState.openDocuments = restoredDocuments.map((document) => createDocumentSession(document));
+      const restoredActiveDocument = getDocumentSession(state?.activeDocumentId) ?? appState.openDocuments[0];
+      await activateDocument(restoredActiveDocument.id);
+    } else if (initialDocument) {
       await openDocument(initialDocument);
     } else {
       const untitled = createDocumentSession();

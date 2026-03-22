@@ -111,6 +111,42 @@ async function loadDocument(filePath) {
   };
 }
 
+async function hydrateStoredDocuments(state) {
+  const storedDocuments = Array.isArray(state.openDocuments) ? state.openDocuments : [];
+  const restoredDocuments = [];
+
+  for (const storedDocument of storedDocuments) {
+    if (storedDocument?.path && !storedDocument.isDirty) {
+      try {
+        const loadedDocument = await loadDocument(storedDocument.path);
+        restoredDocuments.push({
+          ...storedDocument,
+          ...loadedDocument,
+          id: storedDocument.id ?? loadedDocument.path,
+          isDirty: false,
+          previewInSync: true
+        });
+        continue;
+      } catch {
+        // Fall back to the serialized snapshot below.
+      }
+    }
+
+    restoredDocuments.push({
+      id: storedDocument?.id ?? randomUUID(),
+      path: storedDocument?.path ?? null,
+      workspacePath: storedDocument?.workspacePath ?? state.workspacePath ?? null,
+      name: storedDocument?.name ?? path.basename(storedDocument?.path ?? "Untitled.adoc"),
+      content: storedDocument?.content ?? "",
+      lastModifiedMs: storedDocument?.lastModifiedMs ?? null,
+      isDirty: Boolean(storedDocument?.isDirty),
+      previewInSync: storedDocument?.previewInSync ?? !storedDocument?.isDirty
+    });
+  }
+
+  return restoredDocuments;
+}
+
 async function listDirectory(rootPath) {
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
   const children = [];
@@ -436,9 +472,10 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("app:get-boot-payload", async () => {
     const state = await loadState();
+    const restoredDocuments = await hydrateStoredDocuments(state);
     let initialDocument = null;
 
-    if (state.openFilePath) {
+    if (restoredDocuments.length === 0 && state.openFilePath) {
       try {
         initialDocument = await loadDocument(state.openFilePath);
       } catch {
@@ -448,6 +485,7 @@ app.whenReady().then(async () => {
 
     return {
       state,
+      restoredDocuments,
       initialDocument
     };
   });

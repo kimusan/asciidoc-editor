@@ -5,6 +5,10 @@ import { app } from "electron";
 const defaultState = {
   workspacePath: null,
   openFilePath: null,
+  openDocuments: [],
+  activeDocumentId: null,
+  nextDocumentId: 1,
+  untitledSequence: 1,
   recentFiles: [],
   theme: "nord",
   previewFontFamily: "serif",
