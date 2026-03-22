@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("desktop", {
   chooseStylesheet: (kind) => ipcRenderer.invoke("dialog:choose-stylesheet", kind),
   listDirectory: (rootPath) => ipcRenderer.invoke("fs:list-directory", rootPath),
   searchWorkspace: (payload) => ipcRenderer.invoke("fs:search-workspace", payload),
+  searchWorkspaceContent: (payload) => ipcRenderer.invoke("fs:search-workspace-content", payload),
+  replaceWorkspaceContent: (payload) => ipcRenderer.invoke("fs:replace-workspace-content", payload),
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),
   importAssets: (payload) => ipcRenderer.invoke("fs:import-assets", payload),

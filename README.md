@@ -26,6 +26,7 @@ The app is intended as a general-purpose AsciiDoc desktop editor for notes, tech
 - Message sequence chart rendering for inline `[msc]` / `[mscgen]` blocks
 - Syntax-highlighted editor with AsciiDoc-aware coloring
 - In-document find and replace with match highlighting and navigation
+- Workspace-wide search and replace across saved project files
 - Built-in searchable markup reference guide with snippet insertion and links to the official Asciidoctor documentation
 - Drag-and-drop image and asset insertion with automatic `image::` / `link:` markup generation
 - Keyboard shortcuts help overlay

@@ -1056,6 +1056,101 @@ input:focus-visible,
   gap: 12px;
 }
 
+.workspace-search-dialog {
+  width: min(980px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 56px));
+}
+
+.workspace-search-panel {
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.workspace-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.workspace-search-row-secondary {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workspace-search-summary {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.workspace-content-results {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-result-card {
+  border: 1px solid var(--control-border);
+  border-radius: 20px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.workspace-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-result-path {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.workspace-result-matches {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-result-match {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  border-radius: 16px;
+  padding: 0.75rem 0.85rem;
+  box-shadow: none;
+}
+
+.workspace-result-match:hover {
+  box-shadow: none;
+}
+
+.workspace-result-line {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.workspace-result-preview {
+  font-family: "IBM Plex Mono", "Cascadia Code", monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .about-content {
   min-height: 0;
   overflow: auto;
@@ -1553,6 +1648,17 @@ details[open] > summary.tree-entry-directory::before {
   }
 
   .editor-search-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace-search-row,
+  .workspace-search-row-secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-search-row .editor-search-actions,
+  .workspace-search-row-secondary .editor-search-actions {
     width: 100%;
     justify-content: flex-start;
   }
