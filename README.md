@@ -6,7 +6,7 @@
 
 The AsciiDoc Editor is a stand-alone desktop writing and editing environment for the AsciiDoc markup language. It combines a code-oriented editor, a live formatted preview, workspace browsing, export tools, and built-in reference material in a single desktop app.
 
-It is designed for people who want to write real AsciiDoc documents without juggling multiple tools or browser tabs. The app lets you edit source text, follow structure and references, preview the rendered result, search open documents, filter workspace files, inspect markup examples, and export deliverables from the same interface.
+It is designed for people who want to write real AsciiDoc documents without juggling multiple tools or browser tabs. The app lets you edit source text, follow structure and references, preview the rendered result, search your workspace, inspect markup examples, and export deliverables from the same interface.
 
 This implementation uses Electron for the desktop shell and `asciidoctor.js` for document rendering. That choice keeps the app portable, gives a modern UI surface for Windows and Linux, and avoids reimplementing the AsciiDoc language.
 
@@ -26,7 +26,7 @@ The app is intended as a general-purpose AsciiDoc desktop editor for notes, tech
 - Message sequence chart rendering for inline `[msc]` / `[mscgen]` blocks
 - Syntax-highlighted editor with AsciiDoc-aware coloring
 - In-document find and replace with match highlighting and navigation
-- In-document search plus optional replace across all open tabs
+- Workspace-wide search and replace across saved project files
 - Built-in searchable markup reference guide with snippet insertion and links to the official Asciidoctor documentation
 - Drag-and-drop image and asset insertion with automatic `image::` / `link:` markup generation
 - Keyboard shortcuts help overlay
