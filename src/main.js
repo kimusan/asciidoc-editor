@@ -321,6 +321,7 @@ const DEFAULT_DOCUMENT_CONTENT = "= Untitled\n\nStart writing...";
 
 const ICONS = {
   brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  newDocument: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v6M9 12h6M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
   fileAsciiDoc: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="currentColor" opacity=".14"/><path d="M8.5 9.25h7M8.5 12h7M8.5 14.75h4.5M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   fileCode: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-3.5 4 3.5 4M15 8l3.5 4-3.5 4M13 6l-2 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -366,6 +367,11 @@ const SHORTCUT_SECTIONS = [
   {
     title: "Document",
     items: [
+      {
+        title: "New document",
+        detail: "Open a fresh unsaved draft in a new tab.",
+        shortcuts: [["Ctrl", "N"], ["Cmd", "N"]]
+      },
       {
         title: "Save current document",
         detail: "Write changes to the open file or prompt for a destination when needed.",
@@ -835,15 +841,21 @@ function createLayout() {
             <h1>AsciiDoc Editor</h1>
           </div>
         </div>
-        <div class="topbar-actions">
-          <button id="open-settings" class="toolbar-button ghost-button" aria-label="Settings"><span class="button-icon">${ICONS.settings}</span><span>Settings</span></button>
-          <button id="open-help" class="toolbar-button ghost-button" aria-label="Keyboard shortcuts"><span class="button-icon">${ICONS.shortcuts}</span><span>Help</span></button>
-          <button id="open-about" class="toolbar-button ghost-button info-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span></button>
-          <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
-          <button id="open-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Open Project</span></button>
-          <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
-          <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
-          <button id="save-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.save}</span><span>Save Project</span></button>
+        <div class="topbar-toolbar">
+          <div class="topbar-actions topbar-actions-primary" aria-label="Document actions">
+            <button id="new-document" class="toolbar-button"><span class="button-icon">${ICONS.newDocument}</span><span>New</span></button>
+            <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
+            <button id="open-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Open Project</span></button>
+            <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
+            <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
+            <button id="save-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.save}</span><span>Save Project</span></button>
+          </div>
+          <span class="topbar-toolbar-divider" aria-hidden="true"></span>
+          <div class="topbar-actions topbar-actions-secondary" aria-label="Application actions">
+            <button id="open-settings" class="toolbar-button ghost-button" aria-label="Settings"><span class="button-icon">${ICONS.settings}</span><span>Settings</span></button>
+            <button id="open-help" class="toolbar-button ghost-button" aria-label="Keyboard shortcuts"><span class="button-icon">${ICONS.shortcuts}</span><span>Help</span></button>
+            <button id="open-about" class="toolbar-button ghost-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span><span>About</span></button>
+          </div>
         </div>
       </header>
       <main class="layout-grid">
@@ -1245,6 +1257,7 @@ function createLayout() {
   elements.helpBackdrop = document.querySelector("#help-backdrop");
   elements.closeHelp = document.querySelector("#close-help");
   elements.openAbout = document.querySelector("#open-about");
+  elements.newDocument = document.querySelector("#new-document");
   elements.openProject = document.querySelector("#open-project");
   elements.saveProject = document.querySelector("#save-project");
   elements.aboutOverlay = document.querySelector("#about-overlay");
@@ -2376,6 +2389,12 @@ async function openDocument(document) {
   return session;
 }
 
+async function createUntitledDocument() {
+  return openDocument({
+    workspacePath: appState.workspacePath ?? null
+  });
+}
+
 function scrollPreviewToTop(frame = elements.previewFrame) {
   frame.contentWindow?.scrollTo({
     top: 0,
@@ -3347,6 +3366,10 @@ async function exportCurrentDocument(format) {
 }
 
 async function bindEvents() {
+  elements.newDocument.addEventListener("click", () => {
+    void createUntitledDocument();
+  });
+
   document.querySelector("#open-file").addEventListener("click", async () => {
     const documentPayload = await window.desktop.openFile();
     if (documentPayload) {
@@ -3952,6 +3975,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
       event.preventDefault();
       openReferenceOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
+      event.preventDefault();
+      void createUntitledDocument();
     }
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {

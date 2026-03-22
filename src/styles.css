@@ -86,11 +86,6 @@ input:focus-visible,
   gap: 0.7rem;
 }
 
-.info-button {
-  min-width: 0;
-  padding: 0.72rem 0.84rem;
-}
-
 .button-icon,
 .panel-icon,
 .brand-mark svg {
@@ -155,7 +150,6 @@ input:focus-visible,
 .workspace-header,
 .panel-header-main,
 .editor-commandbar,
-.topbar-actions,
 .command-group,
 .split-panel-actions {
   display: flex;
@@ -198,9 +192,56 @@ input:focus-visible,
   letter-spacing: -0.03em;
 }
 
-.topbar-actions {
-  flex-wrap: wrap;
+.topbar-toolbar {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.topbar-actions-primary {
+  justify-content: flex-end;
+}
+
+.topbar-actions-secondary {
+  justify-content: flex-end;
+}
+
+.topbar-toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  background: linear-gradient(180deg, transparent 0%, var(--panel-border) 18%, var(--panel-border) 82%, transparent 100%);
+}
+
+.topbar-actions .toolbar-button {
+  min-height: 42px;
+  padding: 0.72rem 0.95rem;
+}
+
+.topbar-actions-secondary .toolbar-button {
+  background: color-mix(in srgb, var(--control-bg) 82%, transparent);
+}
+
+.topbar-actions-primary #new-document,
+.topbar-actions-primary #open-file,
+.topbar-actions-primary #save-file {
+  background: color-mix(in srgb, var(--accent) 14%, var(--control-bg));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--control-border));
+}
+
+.topbar-actions-primary #new-document:hover,
+.topbar-actions-primary #open-file:hover,
+.topbar-actions-primary #save-file:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--control-bg-hover));
 }
 
 .layout-grid {
