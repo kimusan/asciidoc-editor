@@ -89,7 +89,7 @@ The repository includes a GitHub Actions workflow at `.github/workflows/release.
 
 To publish release assets automatically:
 
-1. Create and push a version tag such as `v0.3.0`
+1. Create and push a version tag such as `v0.4.0`
 2. Let GitHub Actions build both packages
 3. The workflow attaches the generated files to the GitHub release for that tag
 
@@ -99,7 +99,7 @@ The same workflow can also be started manually with `workflow_dispatch`, which i
 
 - `npm test` passes
 - `npm run build` passes
-- `npm run package:linux` passes and produces `release/AsciiDoc Editor-0.3.0.AppImage`
+- `npm run package:linux` passes and produces `release/AsciiDoc Editor-0.4.0.AppImage`
 - `npm run package:win` reaches the Windows packaging step but cannot complete from this Linux environment without `wine`
 
 ## Important Limitations
