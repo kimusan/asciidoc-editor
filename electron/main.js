@@ -80,39 +80,6 @@ function normalizeRecentProjects(recentProjects, projectPath) {
   return [projectPath, ...(recentProjects ?? []).filter((item) => item !== projectPath)].slice(0, 10);
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function buildWorkspaceSearchRegExp(query, options = {}) {
-  if (!query) {
-    return null;
-  }
-
-  let source = options.regex ? query : escapeRegExp(query);
-  if (options.wholeWord) {
-    source = `\\b(?:${source})\\b`;
-  }
-
-  return new RegExp(source, options.caseSensitive ? "g" : "gi");
-}
-
-function collectMatches(text, pattern) {
-  const matches = [];
-  const matcher = new RegExp(pattern.source, pattern.flags);
-  let nextMatch = matcher.exec(text);
-
-  while (nextMatch) {
-    matches.push(nextMatch);
-    if (nextMatch[0] === "") {
-      matcher.lastIndex += 1;
-    }
-    nextMatch = matcher.exec(text);
-  }
-
-  return matches;
-}
-
 function isImageAssetFile(filePath) {
   return IMAGE_ASSET_FILE_PATTERN.test(filePath ?? "");
 }
@@ -545,142 +512,6 @@ async function searchWorkspace(rootPath, query, limit = 200) {
   return results;
 }
 
-async function searchWorkspaceContent(rootPath, query, options = {}, limit = 250) {
-  const pattern = buildWorkspaceSearchRegExp(query, options);
-  if (!rootPath || !pattern) {
-    return {
-      results: [],
-      totalMatches: 0,
-      totalFiles: 0
-    };
-  }
-
-  const results = [];
-  let totalMatches = 0;
-
-  async function visitDirectory(currentPath) {
-    if (totalMatches >= limit) {
-      return;
-    }
-
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
-    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-      if (totalMatches >= limit || entry.name.startsWith(".")) {
-        continue;
-      }
-
-      const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        if (await directoryContainsBrowsableFiles(fullPath)) {
-          await visitDirectory(fullPath);
-        }
-        continue;
-      }
-
-      if (!isWorkspaceEditableFile(entry.name)) {
-        continue;
-      }
-
-      const content = await fs.readFile(fullPath, "utf8");
-      const lines = content.split(/\r?\n/);
-      const fileMatches = [];
-
-      for (let lineIndex = 0; lineIndex < lines.length && totalMatches < limit; lineIndex += 1) {
-        const line = lines[lineIndex];
-        const lineMatches = collectMatches(line, pattern);
-
-        for (const match of lineMatches) {
-          fileMatches.push({
-            lineNumber: lineIndex + 1,
-            column: (match.index ?? 0) + 1,
-            length: match[0].length,
-            preview: line.trim() || "(blank line)"
-          });
-          totalMatches += 1;
-          if (totalMatches >= limit) {
-            break;
-          }
-        }
-      }
-
-      if (fileMatches.length > 0) {
-        results.push({
-          path: fullPath,
-          relativePath: path.relative(rootPath, fullPath),
-          name: entry.name,
-          matchCount: fileMatches.length,
-          matches: fileMatches
-        });
-      }
-    }
-  }
-
-  await visitDirectory(rootPath);
-  return {
-    results,
-    totalMatches,
-    totalFiles: results.length
-  };
-}
-
-async function replaceWorkspaceContent(rootPath, query, replaceText, options = {}) {
-  const pattern = buildWorkspaceSearchRegExp(query, options);
-  if (!rootPath || !pattern) {
-    return {
-      changedPaths: [],
-      replacementCount: 0,
-      fileCount: 0
-    };
-  }
-
-  const changedPaths = [];
-  let replacementCount = 0;
-
-  async function visitDirectory(currentPath) {
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
-
-    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-      if (entry.name.startsWith(".")) {
-        continue;
-      }
-
-      const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        if (await directoryContainsBrowsableFiles(fullPath)) {
-          await visitDirectory(fullPath);
-        }
-        continue;
-      }
-
-      if (!isWorkspaceEditableFile(entry.name)) {
-        continue;
-      }
-
-      const content = await fs.readFile(fullPath, "utf8");
-      const matches = collectMatches(content, pattern);
-      if (matches.length === 0) {
-        continue;
-      }
-
-      const replaced = content.replace(new RegExp(pattern.source, pattern.flags), replaceText);
-      if (replaced === content) {
-        continue;
-      }
-
-      await fs.writeFile(fullPath, replaced, "utf8");
-      changedPaths.push(fullPath);
-      replacementCount += matches.length;
-    }
-  }
-
-  await visitDirectory(rootPath);
-  return {
-    changedPaths,
-    replacementCount,
-    fileCount: changedPaths.length
-  };
-}
-
 async function createWindow() {
   const window = new BrowserWindow({
     width: 1560,
@@ -986,18 +817,6 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("fs:list-directory", async (_, rootPath) => listDirectory(rootPath));
   ipcMain.handle("fs:search-workspace", async (_, { rootPath, query, limit }) => searchWorkspace(rootPath, query, limit));
-  ipcMain.handle("fs:search-workspace-content", async (_, payload = {}) => searchWorkspaceContent(
-    payload.rootPath,
-    payload.query,
-    payload.options,
-    payload.limit
-  ));
-  ipcMain.handle("fs:replace-workspace-content", async (_, payload = {}) => replaceWorkspaceContent(
-    payload.rootPath,
-    payload.query,
-    payload.replaceText ?? "",
-    payload.options
-  ));
   ipcMain.handle("fs:set-watched-paths", (event, paths) => {
     updateWatchedPathsForSender(event.sender, paths);
     return true;

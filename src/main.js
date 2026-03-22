@@ -418,11 +418,6 @@ const SHORTCUT_SECTIONS = [
         shortcuts: [["Enter"]]
       },
       {
-        title: "Find in workspace",
-        detail: "Search recursively across files in the current workspace.",
-        shortcuts: [["Ctrl", "Shift", "F"], ["Cmd", "Shift", "F"]]
-      },
-      {
         title: "Replace in all open files",
         detail: "Open replace and target every open tab instead of the current file only.",
         shortcuts: [["Ctrl", "Shift", "H"], ["Cmd", "Shift", "H"]]
@@ -739,14 +734,6 @@ const appState = {
   workspaceCollapsed: false,
   outlineCollapsed: false,
   workspaceQuery: "",
-  workspaceContentSearchOpen: false,
-  workspaceContentQuery: "",
-  workspaceContentCaseSensitive: false,
-  workspaceContentWholeWord: false,
-  workspaceContentRegex: false,
-  workspaceContentResults: [],
-  workspaceContentSummary: "Search across the current workspace.",
-  workspaceContentBusy: false,
   outlineEntries: [],
   editorSearchOpen: false,
   editorSearchQuery: "",
@@ -872,9 +859,6 @@ function createLayout() {
           <div class="workspace-controls">
             <button id="open-folder" class="toolbar-button ghost-button workspace-button" title="Choose a workspace folder to browse, search, and open files.">
               <span class="button-icon">${ICONS.folder}</span><span>Workspace</span>
-            </button>
-            <button id="open-workspace-search" class="toolbar-button ghost-button workspace-button" title="Search across saved files in the current workspace.">
-              <span class="button-icon">${ICONS.search}</span><span>Search Workspace</span>
             </button>
             <label class="workspace-search-shell">
               <span class="button-icon">${ICONS.search}</span>
@@ -1145,39 +1129,6 @@ function createLayout() {
           <div id="reference-results" class="reference-results"></div>
         </section>
       </div>
-      <div id="workspace-content-overlay" class="reference-overlay" hidden>
-        <div id="workspace-content-backdrop" class="reference-backdrop"></div>
-        <section class="reference-dialog workspace-search-dialog panel" role="dialog" aria-modal="true" aria-labelledby="workspace-content-title">
-          <div class="panel-header">
-            <div class="panel-header-main">
-              <span class="panel-icon">${ICONS.search}</span>
-              <div>
-                <div id="workspace-content-title" class="panel-title">Workspace Search</div>
-                <div class="panel-subtitle">Search across saved files in the current workspace.</div>
-              </div>
-            </div>
-            <button id="close-workspace-search" class="toolbar-button ghost-button"><span>Close</span></button>
-          </div>
-          <div class="workspace-search-panel">
-            <div class="workspace-search-row">
-              <label class="reference-search-shell">
-                <span class="button-icon">${ICONS.search}</span>
-                <input id="workspace-content-query" class="reference-search" type="search" placeholder="Search all workspace files..." />
-              </label>
-              <button id="workspace-content-run-search" class="toolbar-button" type="button">Search</button>
-              <div class="editor-search-actions">
-                <button id="workspace-content-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
-                <button id="workspace-content-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
-                <button id="workspace-content-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
-              </div>
-            </div>
-            <div class="workspace-search-summary-row">
-              <div id="workspace-content-summary" class="workspace-search-summary">Search across the current workspace.</div>
-            </div>
-          </div>
-          <div id="workspace-content-results" class="workspace-content-results"></div>
-        </section>
-      </div>
       <div id="help-overlay" class="reference-overlay" hidden>
         <div id="help-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog shortcuts-dialog panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
@@ -1282,7 +1233,6 @@ function createLayout() {
   elements.exportPdfDescription = document.querySelector("#export-pdf-description");
   elements.fileTree = document.querySelector("#file-tree");
   elements.openFolder = document.querySelector("#open-folder");
-  elements.openWorkspaceSearch = document.querySelector("#open-workspace-search");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
   elements.toggleOutline = document.querySelector("#toggle-outline");
@@ -1327,16 +1277,6 @@ function createLayout() {
   elements.closeReference = document.querySelector("#close-reference");
   elements.referenceSearch = document.querySelector("#reference-search");
   elements.referenceResults = document.querySelector("#reference-results");
-  elements.workspaceContentOverlay = document.querySelector("#workspace-content-overlay");
-  elements.workspaceContentBackdrop = document.querySelector("#workspace-content-backdrop");
-  elements.closeWorkspaceSearch = document.querySelector("#close-workspace-search");
-  elements.workspaceContentQuery = document.querySelector("#workspace-content-query");
-  elements.workspaceContentRunSearch = document.querySelector("#workspace-content-run-search");
-  elements.workspaceContentCase = document.querySelector("#workspace-content-case");
-  elements.workspaceContentWord = document.querySelector("#workspace-content-word");
-  elements.workspaceContentRegex = document.querySelector("#workspace-content-regex");
-  elements.workspaceContentSummary = document.querySelector("#workspace-content-summary");
-  elements.workspaceContentResults = document.querySelector("#workspace-content-results");
   elements.previewFrame.srcdoc = PREVIEW_SHELL_HTML;
   elements.previewFrameExpanded.srcdoc = PREVIEW_SHELL_HTML;
 }
@@ -1542,61 +1482,6 @@ function insertReferenceSnippet(referenceIndex) {
   insertTextAtSelection(entry.syntax, { closeReference: true });
 }
 
-function renderWorkspaceContentResults() {
-  const results = appState.workspaceContentResults ?? [];
-  elements.workspaceContentResults.innerHTML = results.length > 0
-    ? results.map((fileResult) => `
-      <article class="workspace-result-card">
-        <div class="workspace-result-header">
-          <div>
-            <strong>${escapeHtml(fileResult.name)}</strong>
-            <div class="workspace-result-path">${escapeHtml(fileResult.relativePath)}</div>
-          </div>
-          <span class="panel-chip panel-chip-compact">${fileResult.matchCount} match${fileResult.matchCount === 1 ? "" : "es"}</span>
-        </div>
-        <div class="workspace-result-matches">
-          ${fileResult.matches.map((match, index) => `
-            <button
-              class="workspace-result-match"
-              type="button"
-              data-workspace-result-path="${escapeHtml(fileResult.path)}"
-              data-workspace-result-line="${match.lineNumber}"
-              data-workspace-result-column="${match.column}"
-              data-workspace-result-length="${match.length}"
-            >
-              <span class="workspace-result-line">Line ${match.lineNumber}:${match.column}</span>
-              <span class="workspace-result-preview">${escapeHtml(match.preview)}</span>
-            </button>
-          `).join("")}
-        </div>
-      </article>
-    `).join("")
-    : `<div class="reference-empty">No workspace matches yet. Run a search to inspect occurrences across saved files.</div>`;
-}
-
-function openWorkspaceSearchOverlay() {
-  appState.workspaceContentSearchOpen = true;
-  updateDocumentChrome();
-  renderWorkspaceContentResults();
-  requestAnimationFrame(() => {
-    elements.workspaceContentQuery.focus();
-    elements.workspaceContentQuery.select();
-  });
-}
-
-function closeWorkspaceSearchOverlay() {
-  appState.workspaceContentSearchOpen = false;
-  updateDocumentChrome();
-}
-
-function buildWorkspaceContentOptions() {
-  return {
-    caseSensitive: appState.workspaceContentCaseSensitive,
-    wholeWord: appState.workspaceContentWholeWord,
-    regex: appState.workspaceContentRegex
-  };
-}
-
 function jumpToEditorLocation(lineNumber, column = 1, matchLength = 0) {
   if (!editorView) {
     return;
@@ -1613,67 +1498,6 @@ function jumpToEditorLocation(lineNumber, column = 1, matchLength = 0) {
     effects: EditorView.scrollIntoView(from, { y: "center" })
   });
   editorView.focus();
-}
-
-async function openWorkspaceResult(resultPath, lineNumber, column, matchLength) {
-  const existingDocument = getDocumentSessionByPath(resultPath);
-  if (existingDocument) {
-    await activateDocument(existingDocument.id);
-  } else {
-    const documentPayload = await window.desktop.readDocument(resultPath);
-    if (!documentPayload) {
-      return;
-    }
-    await openDocument(documentPayload);
-  }
-
-  requestAnimationFrame(() => {
-    jumpToEditorLocation(lineNumber, column, matchLength);
-  });
-}
-
-async function runWorkspaceContentSearch() {
-  if (!appState.workspacePath) {
-    appState.workspaceContentResults = [];
-    appState.workspaceContentSummary = "Choose a workspace folder before searching across files.";
-    updateDocumentChrome();
-    renderWorkspaceContentResults();
-    return;
-  }
-
-  const query = appState.workspaceContentQuery.trim();
-  if (!query) {
-    appState.workspaceContentResults = [];
-    appState.workspaceContentSummary = "Enter a search query to scan the current workspace.";
-    updateDocumentChrome();
-    renderWorkspaceContentResults();
-    return;
-  }
-
-  appState.workspaceContentBusy = true;
-  appState.workspaceContentSummary = "Searching workspace files...";
-  updateDocumentChrome();
-
-  try {
-    const result = await window.desktop.searchWorkspaceContent({
-      rootPath: appState.workspacePath,
-      query,
-      options: buildWorkspaceContentOptions(),
-      limit: 250
-    });
-
-    appState.workspaceContentResults = result.results ?? [];
-    appState.workspaceContentSummary = result.totalMatches > 0
-      ? `${result.totalMatches} match${result.totalMatches === 1 ? "" : "es"} in ${result.totalFiles} file${result.totalFiles === 1 ? "" : "s"}.`
-      : "No matches found in the current workspace.";
-  } catch (error) {
-    appState.workspaceContentResults = [];
-    appState.workspaceContentSummary = `Workspace search failed: ${error.message}`;
-  } finally {
-    appState.workspaceContentBusy = false;
-    updateDocumentChrome();
-    renderWorkspaceContentResults();
-  }
 }
 
 async function importDroppedAssets(files) {
@@ -2199,18 +2023,10 @@ function updateDocumentChrome() {
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
   elements.referenceOverlay.hidden = !appState.referenceOpen;
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
-  elements.workspaceContentOverlay.hidden = !appState.workspaceContentSearchOpen;
-  elements.workspaceContentOverlay.classList.toggle("is-open", appState.workspaceContentSearchOpen);
   elements.helpOverlay.hidden = !appState.helpOpen;
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
   elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
-  elements.workspaceContentQuery.value = appState.workspaceContentQuery;
-  elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);
-  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
-  elements.workspaceContentRegex.classList.toggle("is-active", appState.workspaceContentRegex);
-  elements.workspaceContentSummary.textContent = appState.workspaceContentSummary;
-  elements.workspaceContentRunSearch.disabled = appState.workspaceContentBusy;
   renderDocumentTabs();
 }
 
@@ -3432,10 +3248,6 @@ async function bindEvents() {
     }
   });
 
-  elements.openWorkspaceSearch.addEventListener("click", () => {
-    openWorkspaceSearchOverlay();
-  });
-
   document.querySelector("#save-file").addEventListener("click", () => {
     void saveCurrentDocument();
   });
@@ -3674,59 +3486,6 @@ async function bindEvents() {
 
   elements.referenceBackdrop.addEventListener("click", () => {
     closeReferenceOverlay();
-  });
-
-  elements.closeWorkspaceSearch.addEventListener("click", () => {
-    closeWorkspaceSearchOverlay();
-  });
-
-  elements.workspaceContentBackdrop.addEventListener("click", () => {
-    closeWorkspaceSearchOverlay();
-  });
-
-  elements.workspaceContentQuery.addEventListener("input", () => {
-    appState.workspaceContentQuery = elements.workspaceContentQuery.value;
-    updateDocumentChrome();
-  });
-
-  elements.workspaceContentQuery.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void runWorkspaceContentSearch();
-    }
-  });
-
-  elements.workspaceContentRunSearch.addEventListener("click", () => {
-    void runWorkspaceContentSearch();
-  });
-
-  elements.workspaceContentCase.addEventListener("click", () => {
-    appState.workspaceContentCaseSensitive = !appState.workspaceContentCaseSensitive;
-    updateDocumentChrome();
-  });
-
-  elements.workspaceContentWord.addEventListener("click", () => {
-    appState.workspaceContentWholeWord = !appState.workspaceContentWholeWord;
-    updateDocumentChrome();
-  });
-
-  elements.workspaceContentRegex.addEventListener("click", () => {
-    appState.workspaceContentRegex = !appState.workspaceContentRegex;
-    updateDocumentChrome();
-  });
-
-  elements.workspaceContentResults.addEventListener("click", (event) => {
-    const matchButton = event.target instanceof Element ? event.target.closest("[data-workspace-result-path]") : null;
-    if (!matchButton) {
-      return;
-    }
-
-    void openWorkspaceResult(
-      matchButton.dataset.workspaceResultPath,
-      Number.parseInt(matchButton.dataset.workspaceResultLine, 10),
-      Number.parseInt(matchButton.dataset.workspaceResultColumn, 10),
-      Number.parseInt(matchButton.dataset.workspaceResultLength, 10)
-    );
   });
 
   elements.helpBackdrop.addEventListener("click", () => {
@@ -3979,10 +3738,6 @@ async function bindEvents() {
         closeReferenceOverlay();
       }
 
-      if (appState.workspaceContentSearchOpen) {
-        closeWorkspaceSearchOverlay();
-      }
-
       if (appState.editorSearchOpen) {
         closeEditorSearch();
       }
@@ -3996,11 +3751,6 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
       event.preventDefault();
       void createUntitledDocument();
-    }
-
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
-      event.preventDefault();
-      openWorkspaceSearchOverlay();
     }
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "h") {
