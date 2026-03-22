@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
 const WORKSPACE_EDITABLE_FILE_PATTERN = /\.(adoc|asciidoc|asc|css)$/i;
 const IMAGE_ASSET_FILE_PATTERN = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i;
+const WORKSPACE_ASSET_FILE_PATTERN = /\.(png|jpe?g|gif|svg|webp|bmp|ico|pdf|txt|csv|json|xml|yml|yaml|zip|tar|gz|mp3|wav|ogg|mp4|webm)$/i;
 const watchedPathsByWebContents = new Map();
 const fileWatchRegistrations = new Map();
 
@@ -19,7 +20,11 @@ function isWorkspaceEditableFile(fileName) {
   return WORKSPACE_EDITABLE_FILE_PATTERN.test(fileName);
 }
 
-async function directoryContainsEditableFiles(dirPath) {
+function isWorkspaceBrowsableFile(fileName) {
+  return isWorkspaceEditableFile(fileName) || WORKSPACE_ASSET_FILE_PATTERN.test(fileName);
+}
+
+async function directoryContainsBrowsableFiles(dirPath) {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -27,13 +32,13 @@ async function directoryContainsEditableFiles(dirPath) {
       continue;
     }
 
-    if (entry.isFile() && isWorkspaceEditableFile(entry.name)) {
+    if (entry.isFile() && isWorkspaceBrowsableFile(entry.name)) {
       return true;
     }
 
     if (entry.isDirectory()) {
-      const hasEditableDescendants = await directoryContainsEditableFiles(path.join(dirPath, entry.name));
-      if (hasEditableDescendants) {
+      const hasBrowsableDescendants = await directoryContainsBrowsableFiles(path.join(dirPath, entry.name));
+      if (hasBrowsableDescendants) {
         return true;
       }
     }
@@ -112,6 +117,10 @@ function buildAssetSnippet(assetPath, { documentPath, workspacePath }) {
 
   if (isImageAssetFile(assetPath)) {
     return `image::${portablePath}[${buildAssetLabel(assetPath)}]`;
+  }
+
+  if (WORKSPACE_EDITABLE_FILE_PATTERN.test(assetPath)) {
+    return `xref:${portablePath}[]`;
   }
 
   return `link:${portablePath}[${path.basename(assetPath)}]`;
@@ -331,11 +340,11 @@ async function listDirectory(rootPath) {
     }
 
     const fullPath = path.join(rootPath, entry.name);
-    if (entry.isFile() && !isWorkspaceEditableFile(entry.name)) {
+    if (entry.isFile() && !isWorkspaceBrowsableFile(entry.name)) {
       continue;
     }
 
-    if (entry.isDirectory() && !await directoryContainsEditableFiles(fullPath)) {
+    if (entry.isDirectory() && !await directoryContainsBrowsableFiles(fullPath)) {
       continue;
     }
 
@@ -370,13 +379,13 @@ async function searchWorkspace(rootPath, query, limit = 200) {
 
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
-        if (await directoryContainsEditableFiles(fullPath)) {
+        if (await directoryContainsBrowsableFiles(fullPath)) {
           await visitDirectory(fullPath);
         }
         continue;
       }
 
-      if (!isWorkspaceEditableFile(entry.name)) {
+      if (!isWorkspaceBrowsableFile(entry.name)) {
         continue;
       }
 

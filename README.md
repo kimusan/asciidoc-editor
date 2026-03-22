@@ -29,7 +29,7 @@ The app is intended as a general-purpose AsciiDoc desktop editor for notes, tech
 - Built-in searchable markup reference guide with snippet insertion and links to the official Asciidoctor documentation
 - Drag-and-drop image and asset insertion with automatic `image::` / `link:` markup generation
 - Keyboard shortcuts help overlay
-- Built-in file browser with file-type icons
+- Built-in file browser with file-type icons, image assets, and drag-to-insert references
 - Recursive workspace file search/filtering
 - Collapsible workspace sidebar to reclaim editor space
 - Resizable split view between the source editor and preview

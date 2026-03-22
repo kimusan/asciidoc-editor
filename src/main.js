@@ -503,6 +503,10 @@ function canPreviewFileName(name = "") {
   return isAsciiDocFileName(name);
 }
 
+function canOpenFileInEditor(name = "") {
+  return /\.(adoc|asciidoc|asc|css)$/i.test(name);
+}
+
 function getFileTypeMeta(name) {
   if (/\.(adoc|asciidoc|asc)$/i.test(name)) {
     return { icon: ICONS.fileAsciiDoc, kind: "asciidoc" };
@@ -2486,8 +2490,9 @@ function renderTreeNodes(items, depth = 0) {
 
     const isActive = item.path === appState.openFilePath;
     const fileType = getFileTypeMeta(item.name);
+    const isOpenable = canOpenFileInEditor(item.name);
     return `
-      <button class="tree-entry tree-entry-file is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file">
+      <button class="tree-entry tree-entry-file is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file" data-openable="${isOpenable}" draggable="true" title="${isOpenable ? "Open file or drag to insert a reference" : "Drag to insert a reference"}">
         <span class="tree-entry-content">
           <span class="tree-entry-icon">${fileType.icon}</span>
           <span class="tree-entry-label">${escapeHtml(item.name)}</span>
@@ -2501,8 +2506,9 @@ function renderSearchResults(items) {
   return items.map((item) => {
     const isActive = item.path === appState.openFilePath;
     const fileType = getFileTypeMeta(item.name);
+    const isOpenable = canOpenFileInEditor(item.name);
     return `
-      <button class="tree-entry tree-entry-file tree-entry-search is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file">
+      <button class="tree-entry tree-entry-file tree-entry-search is-${fileType.kind} ${isActive ? "is-active" : ""}" data-path="${escapeHtml(item.path)}" data-type="file" data-openable="${isOpenable}" draggable="true" title="${isOpenable ? "Open file or drag to insert a reference" : "Drag to insert a reference"}">
         <span class="tree-entry-content">
           <span class="tree-entry-icon">${fileType.icon}</span>
           <span class="tree-entry-search-copy">
@@ -2553,7 +2559,7 @@ async function refreshFileTree() {
     });
     elements.fileTree.innerHTML = results.length > 0
       ? renderSearchResults(results)
-      : `<p class="empty-state">No AsciiDoc or CSS files match “${escapeHtml(appState.workspaceQuery)}”.</p>`;
+      : `<p class="empty-state">No documents or assets match “${escapeHtml(appState.workspaceQuery)}”.</p>`;
     return;
   }
 
@@ -3129,6 +3135,11 @@ async function bindEvents() {
       return;
     }
 
+    if (target.dataset.openable !== "true") {
+      elements.documentStatus.textContent = "Drag assets into an AsciiDoc document to insert a reference.";
+      return;
+    }
+
     const documentPayload = await window.desktop.readDocument(target.dataset.path);
     if (documentPayload) {
       await openDocument(documentPayload);
@@ -3196,15 +3207,27 @@ async function bindEvents() {
     elements.editorRoot.classList.toggle("is-drop-target", nextValue);
   };
 
+  const hasDroppablePayload = (dataTransfer) => {
+    if (!dataTransfer) {
+      return false;
+    }
+
+    if ((dataTransfer.files?.length ?? 0) > 0) {
+      return true;
+    }
+
+    return Array.from(dataTransfer.types ?? []).includes("application/x-asciidoc-editor-paths");
+  };
+
   elements.editorRoot.addEventListener("dragenter", (event) => {
-    if (event.dataTransfer?.files?.length) {
+    if (hasDroppablePayload(event.dataTransfer)) {
       event.preventDefault();
       setEditorDropTarget(true);
     }
   });
 
   elements.editorRoot.addEventListener("dragover", (event) => {
-    if (event.dataTransfer?.files?.length) {
+    if (hasDroppablePayload(event.dataTransfer)) {
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
       setEditorDropTarget(true);
@@ -3220,13 +3243,32 @@ async function bindEvents() {
 
   elements.editorRoot.addEventListener("drop", (event) => {
     setEditorDropTarget(false);
+    event.preventDefault();
     const droppedFiles = Array.from(event.dataTransfer?.files ?? []);
-    if (droppedFiles.length === 0) {
+    if (droppedFiles.length > 0) {
+      void importDroppedAssets(droppedFiles);
       return;
     }
 
-    event.preventDefault();
-    void importDroppedAssets(droppedFiles);
+    const internalPaths = JSON.parse(event.dataTransfer?.getData("application/x-asciidoc-editor-paths") || "[]");
+    if (Array.isArray(internalPaths) && internalPaths.length > 0) {
+      void importDroppedAssets(internalPaths.map((filePath) => ({ path: filePath })));
+    }
+  });
+
+  elements.fileTree.addEventListener("dragstart", (event) => {
+    const fileEntry = event.target instanceof Element ? event.target.closest("[data-type='file']") : null;
+    if (!fileEntry || !event.dataTransfer) {
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-asciidoc-editor-paths", JSON.stringify([fileEntry.dataset.path]));
+    event.dataTransfer.setData("text/plain", fileEntry.dataset.path);
+  });
+
+  elements.fileTree.addEventListener("dragend", () => {
+    setEditorDropTarget(false);
   });
 
   window.addEventListener("beforeunload", () => {

@@ -1307,6 +1307,14 @@ input:focus-visible,
   font-size: 0.94rem;
 }
 
+.tree-entry[draggable="true"] {
+  cursor: grab;
+}
+
+.tree-entry[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 .tree-entry-content {
   display: flex;
   align-items: center;
