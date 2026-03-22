@@ -99,6 +99,11 @@ To publish release assets automatically:
 
 The same workflow can also be started manually with `workflow_dispatch`, which is useful for validating the packaging jobs without publishing a tagged release.
 
+Tagged releases also include simple `.adp` file-association helpers:
+
+- `tools/windows/register-adp-file-association.reg`: user-level Windows registry template for associating `.adp` with the portable `.exe`
+- `tools/linux/register-adp-file-association.sh`: user-local MIME and desktop registration helper for associating `.adp` with an AppImage path
+
 ## Validation Status
 
 - `npm test` passes
@@ -114,6 +119,7 @@ The same workflow can also be started manually with `workflow_dispatch`, which i
 - The current outline panel is built from the open editor buffer only. It does not yet expand headings that come from resolved `include::` content in the rendered document.
 - Message sequence chart support is implemented using `mscgen.js`. The current project license remains MIT for now, but this dependency may require a future licensing review for the distributed app.
 - `.adp` project files can be opened directly by the app, but automatic OS-level file association depends on the packaging target. The current Windows portable build and Linux AppImage do not provide installer-based file association registration.
+- Release assets include helper scripts for `.adp` association on Windows and Linux, but those registrations are path-based. If the portable `.exe` or AppImage is moved later, the association helper needs to be run again with the new path.
 - Windows packaging from Linux needs `wine`, or the build should run on a Windows CI/runner. The codebase is prepared for Windows, but that package was not fully produced in this environment.
 - The Linux AppImage can require FUSE 2 at runtime on some distributions. On Ubuntu 24.04, that typically means installing `libfuse2t64`; `libfuse3` alone is not sufficient for older AppImage runtimes.
 

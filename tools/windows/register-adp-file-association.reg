@@ -1,0 +1,25 @@
+Windows Registry Editor Version 5.00
+
+; Replace every instance of C:\\Path\\To\\AsciiDoc Editor.exe
+; with the full path to your packaged AsciiDoc Editor executable.
+; Then double-click this file or import it with regedit.
+
+[HKEY_CURRENT_USER\Software\Classes\.adp]
+@="AsciiDocEditor.Project"
+"Content Type"="application/x-asciidoc-project"
+
+[HKEY_CURRENT_USER\Software\Classes\AsciiDocEditor.Project]
+@="AsciiDoc Editor Project"
+"FriendlyTypeName"="AsciiDoc Editor Project"
+
+[HKEY_CURRENT_USER\Software\Classes\AsciiDocEditor.Project\DefaultIcon]
+@="C:\\Path\\To\\AsciiDoc Editor.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\AsciiDocEditor.Project\shell]
+@="open"
+
+[HKEY_CURRENT_USER\Software\Classes\AsciiDocEditor.Project\shell\open]
+@="Open with AsciiDoc Editor"
+
+[HKEY_CURRENT_USER\Software\Classes\AsciiDocEditor.Project\shell\open\command]
+@="\"C:\\Path\\To\\AsciiDoc Editor.exe\" \"%1\""
