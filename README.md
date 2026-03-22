@@ -107,9 +107,14 @@ The same workflow can also be started manually with `workflow_dispatch`, which i
 - Full AsciiDoc language coverage is delegated to `asciidoctor.js`. That is the correct path for standards coverage, but support is limited to what that engine and its bundled converters provide.
 - PDF export is implemented by rendering the HTML preview and printing it through Chromium. This gives portable PDF export, but it is not the same feature set as `asciidoctor-pdf`.
 - Additional export targets beyond HTML, PDF, and DocBook 5 are not bundled yet. They would require extra converters or extra runtime dependencies.
+- The current outline panel is built from the open editor buffer only. It does not yet expand headings that come from resolved `include::` content in the rendered document.
 - Message sequence chart support is implemented using `mscgen.js`. The current project license remains MIT for now, but this dependency may require a future licensing review for the distributed app.
 - Windows packaging from Linux needs `wine`, or the build should run on a Windows CI/runner. The codebase is prepared for Windows, but that package was not fully produced in this environment.
 - The Linux AppImage can require FUSE 2 at runtime on some distributions. On Ubuntu 24.04, that typically means installing `libfuse2t64`; `libfuse3` alone is not sufficient for older AppImage runtimes.
+
+## Backlog
+
+- Add an optional include-aware outline mode that can show headings coming from resolved `include::` files, while still keeping the current open-file-only outline available for simple editing workflows.
 
 ## Credits
 
