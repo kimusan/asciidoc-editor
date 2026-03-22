@@ -812,6 +812,26 @@ input:focus-visible,
   height: 100%;
 }
 
+.editor-root {
+  position: relative;
+}
+
+.editor-root.is-drop-target::after {
+  content: "Drop image or asset files to insert them";
+  position: absolute;
+  inset: 14px;
+  border-radius: 20px;
+  border: 2px dashed color-mix(in srgb, var(--accent) 62%, white 18%);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .preview-frame {
   border: 0;
   background: #ffffff;

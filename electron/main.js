@@ -11,6 +11,7 @@ import { loadState, saveState } from "./store.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
 const WORKSPACE_EDITABLE_FILE_PATTERN = /\.(adoc|asciidoc|asc|css)$/i;
+const IMAGE_ASSET_FILE_PATTERN = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i;
 const watchedPathsByWebContents = new Map();
 const fileWatchRegistrations = new Map();
 
@@ -43,6 +44,94 @@ async function directoryContainsEditableFiles(dirPath) {
 
 function normalizeRecentFiles(recentFiles, filePath) {
   return [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
+}
+
+function isImageAssetFile(filePath) {
+  return IMAGE_ASSET_FILE_PATTERN.test(filePath ?? "");
+}
+
+function toPortablePath(filePath) {
+  return filePath.split(path.sep).join("/");
+}
+
+function isPathInside(parentPath, childPath) {
+  if (!parentPath || !childPath) {
+    return false;
+  }
+
+  const relativePath = path.relative(parentPath, childPath);
+  return relativePath === ""
+    || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function getAssetImportBaseDir(documentPath, workspacePath) {
+  return documentPath ? path.dirname(documentPath) : (workspacePath ?? null);
+}
+
+function buildAssetLabel(filePath) {
+  const rawLabel = path.basename(filePath, path.extname(filePath));
+  const normalized = rawLabel.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "Asset";
+  }
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+async function resolveUniqueFilePath(targetPath) {
+  const extension = path.extname(targetPath);
+  const baseName = path.basename(targetPath, extension);
+  const directory = path.dirname(targetPath);
+  let candidatePath = targetPath;
+  let counter = 1;
+
+  while (true) {
+    try {
+      await fs.access(candidatePath);
+      counter += 1;
+      candidatePath = path.join(directory, `${baseName}-${counter}${extension}`);
+    } catch {
+      return candidatePath;
+    }
+  }
+}
+
+async function copyAssetIntoProject(sourcePath, baseDir) {
+  const targetFolderName = isImageAssetFile(sourcePath) ? "images" : "assets";
+  const targetDirectory = path.join(baseDir, targetFolderName);
+  await fs.mkdir(targetDirectory, { recursive: true });
+  const targetPath = await resolveUniqueFilePath(path.join(targetDirectory, path.basename(sourcePath)));
+  await fs.copyFile(sourcePath, targetPath);
+  return targetPath;
+}
+
+function buildAssetSnippet(assetPath, { documentPath, workspacePath }) {
+  const baseDir = getAssetImportBaseDir(documentPath, workspacePath);
+  const targetPath = baseDir ? path.relative(baseDir, assetPath) : assetPath;
+  const portablePath = toPortablePath(targetPath);
+
+  if (isImageAssetFile(assetPath)) {
+    return `image::${portablePath}[${buildAssetLabel(assetPath)}]`;
+  }
+
+  return `link:${portablePath}[${path.basename(assetPath)}]`;
+}
+
+async function confirmAssetImport(window, { assetCount, baseDir }) {
+  const { response } = await dialog.showMessageBox(window, {
+    type: "question",
+    buttons: ["Copy into Project", "Use Current Path", "Cancel"],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+    title: "Import dropped asset",
+    message: assetCount === 1
+      ? "How do you want to insert the dropped asset?"
+      : `How do you want to insert these ${assetCount} dropped assets?`,
+    detail: `Copying places them under ${baseDir} so the inserted references stay portable with the document.`
+  });
+
+  return ["copy", "keep", "cancel"][response] ?? "cancel";
 }
 
 function watchPathForSender(webContents, filePath) {
@@ -523,6 +612,52 @@ app.whenReady().then(async () => {
       recentFiles: normalizeRecentFiles(currentState.recentFiles, document.path)
     });
     return document;
+  });
+
+  ipcMain.handle("fs:import-assets", async (event, payload = {}) => {
+    const assetPaths = Array.isArray(payload.assetPaths)
+      ? payload.assetPaths.filter(Boolean)
+      : [];
+
+    if (assetPaths.length === 0) {
+      return null;
+    }
+
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const documentPath = payload.documentPath ?? null;
+    const workspacePath = payload.workspacePath ?? null;
+    const baseDir = getAssetImportBaseDir(documentPath, workspacePath);
+    const needsCopyDecision = Boolean(baseDir) && assetPaths.some((assetPath) => !isPathInside(baseDir, assetPath));
+
+    let importMode = "keep";
+    if (needsCopyDecision) {
+      importMode = await confirmAssetImport(window, {
+        assetCount: assetPaths.length,
+        baseDir
+      });
+    }
+
+    if (importMode === "cancel") {
+      return null;
+    }
+
+    const importedPaths = [];
+    for (const assetPath of assetPaths) {
+      if (importMode === "copy" && baseDir && !isPathInside(baseDir, assetPath)) {
+        importedPaths.push(await copyAssetIntoProject(assetPath, baseDir));
+        continue;
+      }
+
+      importedPaths.push(assetPath);
+    }
+
+    return {
+      importMode,
+      snippets: importedPaths.map((assetPath) => buildAssetSnippet(assetPath, {
+        documentPath,
+        workspacePath
+      }))
+    };
   });
 
   ipcMain.handle("fs:save-document", async (_, { filePath, content }) => {

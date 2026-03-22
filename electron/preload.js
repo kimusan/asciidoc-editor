@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("desktop", {
   searchWorkspace: (payload) => ipcRenderer.invoke("fs:search-workspace", payload),
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),
+  importAssets: (payload) => ipcRenderer.invoke("fs:import-assets", payload),
   setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),
   onExternalFileChanged: (callback) => {
     ipcRenderer.removeAllListeners("fs:file-changed");

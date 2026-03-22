@@ -1118,6 +1118,7 @@ function createLayout() {
   elements.workspaceSearch = document.querySelector("#workspace-search");
   elements.workspaceLabel = document.querySelector("#workspace-label");
   elements.editorSurface = document.querySelector(".editor-surface");
+  elements.editorRoot = document.querySelector("#editor-root");
   elements.exitFocusMode = document.querySelector("#exit-focus-mode");
   elements.documentName = document.querySelector("#document-name");
   elements.documentStatus = document.querySelector("#document-status");
@@ -1211,13 +1212,12 @@ function buildSnippetInsertion(snippet) {
   };
 }
 
-function insertReferenceSnippet(referenceIndex) {
-  const entry = MARKUP_REFERENCE[referenceIndex];
-  if (!entry || !editorView) {
+function insertTextAtSelection(snippet, options = {}) {
+  if (!editorView) {
     return;
   }
 
-  const { selection, insert } = buildSnippetInsertion(entry.syntax);
+  const { selection, insert } = buildSnippetInsertion(snippet);
   const anchor = selection.from + insert.length;
 
   editorView.dispatch({
@@ -1230,10 +1230,48 @@ function insertReferenceSnippet(referenceIndex) {
     scrollIntoView: true
   });
 
-  closeReferenceOverlay();
+  if (options.closeReference) {
+    closeReferenceOverlay();
+  }
+
   requestAnimationFrame(() => {
     editorView.focus();
   });
+}
+
+function insertReferenceSnippet(referenceIndex) {
+  const entry = MARKUP_REFERENCE[referenceIndex];
+  if (!entry || !editorView) {
+    return;
+  }
+
+  insertTextAtSelection(entry.syntax, { closeReference: true });
+}
+
+async function importDroppedAssets(files) {
+  if (!editorView || !currentDocumentHasPreview()) {
+    return;
+  }
+
+  const assetPaths = files
+    .map((file) => file?.path)
+    .filter(Boolean);
+
+  if (assetPaths.length === 0) {
+    return;
+  }
+
+  const result = await window.desktop.importAssets({
+    assetPaths,
+    documentPath: appState.openFilePath,
+    workspacePath: appState.workspacePath
+  });
+
+  if (!result?.snippets?.length) {
+    return;
+  }
+
+  insertTextAtSelection(result.snippets.join("\n"));
 }
 
 function getOutlineEntries(content = appState.currentContent) {
@@ -3152,6 +3190,43 @@ async function bindEvents() {
   elements.workspaceSearch.addEventListener("input", () => {
     appState.workspaceQuery = elements.workspaceSearch.value;
     void refreshFileTree();
+  });
+
+  const setEditorDropTarget = (nextValue) => {
+    elements.editorRoot.classList.toggle("is-drop-target", nextValue);
+  };
+
+  elements.editorRoot.addEventListener("dragenter", (event) => {
+    if (event.dataTransfer?.files?.length) {
+      event.preventDefault();
+      setEditorDropTarget(true);
+    }
+  });
+
+  elements.editorRoot.addEventListener("dragover", (event) => {
+    if (event.dataTransfer?.files?.length) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setEditorDropTarget(true);
+    }
+  });
+
+  elements.editorRoot.addEventListener("dragleave", (event) => {
+    const nextTarget = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!elements.editorRoot.contains(nextTarget)) {
+      setEditorDropTarget(false);
+    }
+  });
+
+  elements.editorRoot.addEventListener("drop", (event) => {
+    setEditorDropTarget(false);
+    const droppedFiles = Array.from(event.dataTransfer?.files ?? []);
+    if (droppedFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    void importDroppedAssets(droppedFiles);
   });
 
   window.addEventListener("beforeunload", () => {
