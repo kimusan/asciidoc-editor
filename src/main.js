@@ -629,7 +629,9 @@ const appState = {
   theme: "nord",
   distractionFree: false,
   workspaceCollapsed: false,
+  outlineCollapsed: false,
   workspaceQuery: "",
+  outlineEntries: [],
   editorSearchOpen: false,
   editorSearchQuery: "",
   editorReplaceOpen: false,
@@ -769,11 +771,12 @@ function createLayout() {
                 </div>
                 <div id="document-name" class="document-name">Untitled.adoc</div>
               </div>
-              <div class="editor-commandbar">
-                <div class="command-group">
-                  <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
-                </div>
-                <div class="command-group">
+                <div class="editor-commandbar">
+                  <div class="command-group">
+                    <button id="toggle-outline" class="toolbar-button ghost-button" type="button"><span class="button-icon">${ICONS.reference}</span><span>Outline</span></button>
+                    <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
+                  </div>
+                  <div class="command-group">
                   <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
                 </div>
               </div>
@@ -847,6 +850,21 @@ function createLayout() {
                 <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
               </section>
             </div>
+            <aside id="outline-panel" class="outline-panel" aria-label="Document outline">
+              <div class="outline-panel-header">
+                <div class="panel-header-main panel-header-compact">
+                  <span class="panel-icon">${ICONS.reference}</span>
+                  <div>
+                    <div class="panel-title">Outline</div>
+                    <div id="outline-summary" class="panel-subtitle">0 sections</div>
+                  </div>
+                </div>
+                <button id="close-outline" class="toolbar-button ghost-button outline-close-button" type="button" aria-label="Hide outline">
+                  <span class="button-icon">${ICONS.close}</span>
+                </button>
+              </div>
+              <div id="outline-list" class="outline-list"></div>
+            </aside>
           </div>
         </section>
       </main>
@@ -1091,9 +1109,15 @@ function createLayout() {
   elements.openFolder = document.querySelector("#open-folder");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
+  elements.toggleOutline = document.querySelector("#toggle-outline");
+  elements.outlinePanel = document.querySelector("#outline-panel");
+  elements.outlineList = document.querySelector("#outline-list");
+  elements.outlineSummary = document.querySelector("#outline-summary");
+  elements.closeOutline = document.querySelector("#close-outline");
   elements.documentTabs = document.querySelector("#document-tabs");
   elements.workspaceSearch = document.querySelector("#workspace-search");
   elements.workspaceLabel = document.querySelector("#workspace-label");
+  elements.editorSurface = document.querySelector(".editor-surface");
   elements.exitFocusMode = document.querySelector("#exit-focus-mode");
   elements.documentName = document.querySelector("#document-name");
   elements.documentStatus = document.querySelector("#document-status");
@@ -1153,6 +1177,90 @@ function renderReferenceGuide() {
       </article>
     `).join("")
     : `<div class="reference-empty">No reference entries match that search. Try “xref”, “table”, “ifdef”, or “attributes”.</div>`;
+}
+
+function getOutlineEntries(content = appState.currentContent) {
+  const lines = content.split("\n");
+  const entries = [];
+
+  lines.forEach((line, index) => {
+    const headingMatch = line.match(/^(={1,6})\s+(.+?)\s*$/);
+    if (!headingMatch) {
+      return;
+    }
+
+    entries.push({
+      id: `outline-${index + 1}`,
+      level: headingMatch[1].length,
+      lineNumber: index + 1,
+      title: headingMatch[2].trim()
+    });
+  });
+
+  return entries;
+}
+
+function getActiveOutlineLineNumber() {
+  if (!editorView || appState.outlineEntries.length === 0) {
+    return null;
+  }
+
+  const currentLine = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+  let activeEntry = appState.outlineEntries[0];
+
+  for (const entry of appState.outlineEntries) {
+    if (entry.lineNumber > currentLine) {
+      break;
+    }
+
+    activeEntry = entry;
+  }
+
+  return activeEntry?.lineNumber ?? null;
+}
+
+function updateActiveOutlineEntry() {
+  if (!elements.outlineList) {
+    return;
+  }
+
+  const activeLineNumber = getActiveOutlineLineNumber();
+  elements.outlineList.querySelectorAll(".outline-entry").forEach((entry) => {
+    const isActive = Number(entry.dataset.line) === activeLineNumber;
+    entry.classList.toggle("is-active", isActive);
+    entry.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+}
+
+function renderOutlinePanel() {
+  const outlineEntries = currentDocumentHasPreview() ? getOutlineEntries(appState.currentContent) : [];
+  appState.outlineEntries = outlineEntries;
+
+  if (!elements.outlineList || !elements.outlineSummary) {
+    return;
+  }
+
+  if (!currentDocumentHasPreview()) {
+    elements.outlineSummary.textContent = "No outline available";
+    elements.outlineList.innerHTML = `<div class="outline-empty">Outline is only available for AsciiDoc documents.</div>`;
+    return;
+  }
+
+  elements.outlineSummary.textContent = `${outlineEntries.length} section${outlineEntries.length === 1 ? "" : "s"}`;
+  elements.outlineList.innerHTML = outlineEntries.length > 0
+    ? outlineEntries.map((entry) => `
+      <button
+        class="outline-entry outline-level-${entry.level}"
+        type="button"
+        data-line="${entry.lineNumber}"
+        title="Jump to line ${entry.lineNumber}"
+      >
+        <span class="outline-entry-label">${escapeHtml(entry.title)}</span>
+      </button>
+    `).join("")
+    : `<div class="outline-empty">No section headings yet. Add <code>= Title</code> or <code>== Section</code> headings to build an outline.</div>`;
+
+  updateActiveOutlineEntry();
 }
 
 function buildEditorSearchQuery() {
@@ -1367,6 +1475,7 @@ function createEditor() {
           activeDocument.previewInSync = false;
         }
         updateDocumentChrome();
+        renderOutlinePanel();
         renderDocumentTabs();
         scheduleSessionPersistence();
         schedulePreviewRender();
@@ -1378,6 +1487,7 @@ function createEditor() {
 
       if (update.docChanged || update.selectionSet) {
         updateEditorSearchStatus();
+        updateActiveOutlineEntry();
       }
     })
   ];
@@ -1430,6 +1540,10 @@ function updateDocumentChrome() {
   elements.expandWorkspace.hidden = !appState.workspaceCollapsed;
   elements.expandWorkspace.setAttribute("aria-hidden", String(!appState.workspaceCollapsed));
   elements.collapseWorkspace.setAttribute("aria-label", appState.workspaceCollapsed ? "Expand file manager" : "Collapse file manager");
+  elements.editorSurface.classList.toggle("outline-collapsed", appState.outlineCollapsed);
+  elements.outlinePanel.hidden = appState.outlineCollapsed;
+  elements.toggleOutline.classList.toggle("is-active", !appState.outlineCollapsed);
+  elements.toggleOutline.setAttribute("aria-pressed", String(!appState.outlineCollapsed));
   elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
   applyShellTheme(appState.theme);
   elements.settingsAppTheme.value = appState.theme;
@@ -1469,6 +1583,15 @@ async function setWorkspaceCollapsed(nextValue) {
   appState.workspaceCollapsed = nextValue;
   updateDocumentChrome();
   await window.desktop.updateState({ workspaceCollapsed: appState.workspaceCollapsed });
+}
+
+async function setOutlineCollapsed(nextValue) {
+  appState.outlineCollapsed = nextValue;
+  updateDocumentChrome();
+  if (!appState.outlineCollapsed) {
+    renderOutlinePanel();
+  }
+  await window.desktop.updateState({ outlineCollapsed: appState.outlineCollapsed });
 }
 
 async function setDistractionFree(nextValue) {
@@ -1635,6 +1758,7 @@ async function activateDocument(documentId, options = {}) {
   appState.editorReplaceQuery = "";
   renderDocumentTabs();
   updateDocumentChrome();
+  renderOutlinePanel();
   scheduleSessionPersistence();
   await renderPreviewNow();
   if (document.externalChangePending) {
@@ -2568,6 +2692,7 @@ async function persistWindowState() {
     pdfPaperSize: appState.pdfPaperSize,
     distractionFree: appState.distractionFree,
     workspaceCollapsed: appState.workspaceCollapsed,
+    outlineCollapsed: appState.outlineCollapsed,
     previewStylesheetPath: appState.previewStylesheetPath,
     pdfStylesheetPath: appState.pdfStylesheetPath
   });
@@ -2643,6 +2768,14 @@ async function bindEvents() {
 
   elements.expandWorkspace.addEventListener("click", () => {
     void setWorkspaceCollapsed(false);
+  });
+
+  elements.toggleOutline.addEventListener("click", () => {
+    void setOutlineCollapsed(!appState.outlineCollapsed);
+  });
+
+  elements.closeOutline.addEventListener("click", () => {
+    void setOutlineCollapsed(true);
   });
 
   document.querySelector("#toggle-focus").addEventListener("click", async () => {
@@ -2914,6 +3047,25 @@ async function bindEvents() {
     await activateDocument(tab.dataset.documentId);
   });
 
+  elements.outlineList.addEventListener("click", (event) => {
+    const entry = event.target instanceof Element ? event.target.closest("[data-line]") : null;
+    if (!entry || !editorView) {
+      return;
+    }
+
+    const lineNumber = Number(entry.dataset.line);
+    if (!Number.isInteger(lineNumber) || lineNumber < 1) {
+      return;
+    }
+
+    const targetLine = editorView.state.doc.line(Math.min(lineNumber, editorView.state.doc.lines));
+    editorView.dispatch({
+      selection: { anchor: targetLine.from },
+      effects: EditorView.scrollIntoView(targetLine.from, { y: "center" })
+    });
+    editorView.focus();
+  });
+
   elements.fileTree.addEventListener("toggle", async (event) => {
     const detailsNode = event.target;
     if (!(detailsNode instanceof HTMLDetailsElement) || !detailsNode.dataset.path) {
@@ -3059,7 +3211,8 @@ function registerBootSequence() {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
-      workspaceCollapsed: Boolean(state?.workspaceCollapsed)
+      workspaceCollapsed: Boolean(state?.workspaceCollapsed),
+      outlineCollapsed: Boolean(state?.outlineCollapsed)
     });
     applyEditorTheme(appState.theme);
 

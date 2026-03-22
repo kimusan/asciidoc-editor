@@ -15,6 +15,7 @@ const defaultState = {
   pdfPaperSize: "A4",
   distractionFree: false,
   workspaceCollapsed: false,
+  outlineCollapsed: false,
   previewStylesheetPath: null,
   pdfStylesheetPath: null
 };
