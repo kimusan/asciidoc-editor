@@ -920,6 +920,10 @@ function createLayout() {
                     <div class="panel-title">Editor</div>
                   </div>
                   <div class="editor-panel-meta">
+                    <button id="toggle-editor-search" class="toolbar-button ghost-button panel-chip panel-chip-compact panel-chip-button" type="button" aria-label="Toggle document search">
+                      <span class="button-icon">${ICONS.search}</span>
+                      <span>Search</span>
+                    </button>
                     <span id="stylesheet-chip" class="panel-chip panel-chip-compact">No custom preview CSS</span>
                     <div class="document-metrics document-metrics-compact">
                       <div class="metric-pill metric-pill-compact">
@@ -1297,6 +1301,7 @@ function createLayout() {
   elements.previewFrame = document.querySelector("#preview-frame");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
+  elements.toggleEditorSearch = document.querySelector("#toggle-editor-search");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorSearchShowReplace = document.querySelector("#editor-search-show-replace");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
@@ -1861,6 +1866,15 @@ function openEditorSearch({ prefillSelection = false, showReplace = false } = {}
   });
 }
 
+function toggleEditorSearch(options = {}) {
+  if (appState.editorSearchOpen) {
+    closeEditorSearch();
+    return;
+  }
+
+  openEditorSearch(options);
+}
+
 function closeEditorSearch() {
   appState.editorSearchOpen = false;
   appState.editorReplaceOpen = false;
@@ -2170,6 +2184,8 @@ function updateDocumentChrome() {
   elements.editorSearchInput.value = appState.editorSearchQuery;
   elements.editorReplaceInput.value = appState.editorReplaceQuery;
   elements.editorReplaceScopeOpenFiles.checked = appState.editorReplaceAllOpenFiles;
+  elements.toggleEditorSearch.classList.toggle("is-active", appState.editorSearchOpen);
+  elements.toggleEditorSearch.setAttribute("aria-pressed", String(appState.editorSearchOpen));
   elements.editorSearchShowReplace.classList.toggle("is-active", appState.editorReplaceOpen);
   elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
@@ -3563,6 +3579,10 @@ async function bindEvents() {
   elements.editorSearchInput.addEventListener("input", () => {
     appState.editorSearchQuery = elements.editorSearchInput.value;
     syncEditorSearchQuery();
+  });
+
+  elements.toggleEditorSearch.addEventListener("click", () => {
+    toggleEditorSearch({ prefillSelection: true });
   });
 
   elements.editorSearchInput.addEventListener("keydown", (event) => {
