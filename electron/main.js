@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import { watchFile, unwatchFile } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,8 @@ import { loadState, saveState } from "./store.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
 const WORKSPACE_EDITABLE_FILE_PATTERN = /\.(adoc|asciidoc|asc|css)$/i;
+const watchedPathsByWebContents = new Map();
+const fileWatchRegistrations = new Map();
 
 function isWorkspaceEditableFile(fileName) {
   return WORKSPACE_EDITABLE_FILE_PATTERN.test(fileName);
@@ -40,6 +43,80 @@ async function directoryContainsEditableFiles(dirPath) {
 
 function normalizeRecentFiles(recentFiles, filePath) {
   return [filePath, ...recentFiles.filter((item) => item !== filePath)].slice(0, 10);
+}
+
+function watchPathForSender(webContents, filePath) {
+  let registration = fileWatchRegistrations.get(filePath);
+  if (!registration) {
+    const listeners = new Set();
+    const handler = (currentStat, previousStat) => {
+      if (
+        currentStat.mtimeMs === previousStat.mtimeMs
+        && currentStat.nlink === previousStat.nlink
+      ) {
+        return;
+      }
+
+      for (const listener of listeners) {
+        if (listener.isDestroyed()) {
+          continue;
+        }
+
+        listener.send("fs:file-changed", {
+          filePath,
+          exists: currentStat.nlink > 0,
+          lastModifiedMs: currentStat.nlink > 0 ? currentStat.mtimeMs : null
+        });
+      }
+    };
+
+    watchFile(filePath, { interval: 1200, bigint: false }, handler);
+    registration = { listeners, handler };
+    fileWatchRegistrations.set(filePath, registration);
+  }
+
+  registration.listeners.add(webContents);
+}
+
+function unwatchPathForSender(webContents, filePath) {
+  const registration = fileWatchRegistrations.get(filePath);
+  if (!registration) {
+    return;
+  }
+
+  registration.listeners.delete(webContents);
+  if (registration.listeners.size === 0) {
+    unwatchFile(filePath, registration.handler);
+    fileWatchRegistrations.delete(filePath);
+  }
+}
+
+function updateWatchedPathsForSender(webContents, paths = []) {
+  const nextPaths = new Set((paths ?? []).filter(Boolean));
+  const previousPaths = watchedPathsByWebContents.get(webContents.id) ?? new Set();
+
+  for (const filePath of previousPaths) {
+    if (!nextPaths.has(filePath)) {
+      unwatchPathForSender(webContents, filePath);
+    }
+  }
+
+  for (const filePath of nextPaths) {
+    if (!previousPaths.has(filePath)) {
+      watchPathForSender(webContents, filePath);
+    }
+  }
+
+  watchedPathsByWebContents.set(webContents.id, nextPaths);
+}
+
+function clearWatchedPathsForSender(webContents) {
+  const watchedPaths = watchedPathsByWebContents.get(webContents.id) ?? new Set();
+  for (const filePath of watchedPaths) {
+    unwatchPathForSender(webContents, filePath);
+  }
+
+  watchedPathsByWebContents.delete(webContents.id);
 }
 
 function buildSaveDialogConfig(payload) {
@@ -263,6 +340,10 @@ async function createWindow() {
     return { action: "deny" };
   });
 
+  window.webContents.on("destroyed", () => {
+    clearWatchedPathsForSender(window.webContents);
+  });
+
   ipcMain.handle("app:close-response", async (_, payload) => {
     const resolver = closeRequestResolvers.get(payload?.requestId);
     if (!resolver) {
@@ -397,8 +478,41 @@ app.whenReady().then(async () => {
     return ["save", "discard", "cancel"][response] ?? "cancel";
   });
 
+  ipcMain.handle("dialog:confirm-external-change", async (event, payload = {}) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const itemName = payload.itemName ?? "This document";
+    const exists = payload.exists !== false;
+
+    const { response } = await dialog.showMessageBox(window, {
+      type: "warning",
+      buttons: exists
+        ? ["Reload from Disk", "Keep Editor Version", "Later"]
+        : ["Keep Editor Version", "Later"],
+      defaultId: 0,
+      cancelId: exists ? 2 : 1,
+      noLink: true,
+      title: "File changed on disk",
+      message: exists
+        ? `${itemName} was changed outside the editor.`
+        : `${itemName} was removed outside the editor.`,
+      detail: payload.isDirty
+        ? "Your current tab also has unsaved changes."
+        : "You can reload the file from disk or keep the current editor version."
+    });
+
+    if (!exists) {
+      return ["keep", "later"][response] ?? "later";
+    }
+
+    return ["reload", "keep", "later"][response] ?? "later";
+  });
+
   ipcMain.handle("fs:list-directory", async (_, rootPath) => listDirectory(rootPath));
   ipcMain.handle("fs:search-workspace", async (_, { rootPath, query, limit }) => searchWorkspace(rootPath, query, limit));
+  ipcMain.handle("fs:set-watched-paths", (event, paths) => {
+    updateWatchedPathsForSender(event.sender, paths);
+    return true;
+  });
 
   ipcMain.handle("fs:read-document", async (_, filePath) => {
     const document = await loadDocument(filePath);

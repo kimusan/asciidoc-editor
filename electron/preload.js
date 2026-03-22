@@ -10,11 +10,17 @@ contextBridge.exposeInMainWorld("desktop", {
   searchWorkspace: (payload) => ipcRenderer.invoke("fs:search-workspace", payload),
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),
+  setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),
+  onExternalFileChanged: (callback) => {
+    ipcRenderer.removeAllListeners("fs:file-changed");
+    ipcRenderer.on("fs:file-changed", (_, payload) => callback(payload));
+  },
   renderPreview: (payload) => ipcRenderer.invoke("preview:render", payload),
   followPreviewLink: (payload) => ipcRenderer.invoke("preview:follow-link", payload),
   exportDocument: (payload) => ipcRenderer.invoke("export:document", payload),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   confirmUnsaved: (payload) => ipcRenderer.invoke("dialog:confirm-unsaved", payload),
+  confirmExternalChange: (payload) => ipcRenderer.invoke("dialog:confirm-external-change", payload),
   onAppCloseRequested: (callback) => {
     ipcRenderer.removeAllListeners("app:close-requested");
     ipcRenderer.on("app:close-requested", (_, payload) => callback(payload));

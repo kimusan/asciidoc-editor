@@ -547,6 +547,9 @@ function createDocumentSession(document = {}) {
     content: document.content ?? DEFAULT_DOCUMENT_CONTENT,
     editorState: document.editorState ?? null,
     lastModifiedMs: document.lastModifiedMs ?? null,
+    externalChangePending: Boolean(document.externalChangePending),
+    existsOnDisk: document.existsOnDisk ?? true,
+    suppressWatchUntil: document.suppressWatchUntil ?? 0,
     isDirty: Boolean(document.isDirty),
     previewInSync: document.previewInSync ?? !document.isDirty
   };
@@ -594,9 +597,21 @@ function serializeOpenDocuments() {
     name: document.name,
     content: document.id === appState.activeDocumentId ? appState.currentContent : document.content,
     lastModifiedMs: document.lastModifiedMs ?? null,
+    externalChangePending: Boolean(document.externalChangePending),
+    existsOnDisk: document.existsOnDisk ?? true,
     isDirty: Boolean(document.isDirty),
     previewInSync: document.previewInSync ?? !document.isDirty
   }));
+}
+
+function getWatchedDocumentPaths() {
+  return appState.openDocuments
+    .map((document) => document.path)
+    .filter(Boolean);
+}
+
+function syncWatchedPaths() {
+  void window.desktop.setWatchedPaths(getWatchedDocumentPaths());
 }
 
 const appState = {
@@ -1378,9 +1393,14 @@ function updateDocumentChrome() {
   const trimmedContent = appState.currentContent.trim();
   const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
   const lineCount = appState.currentContent.split("\n").length;
+  const activeDocument = getDocumentSession();
 
   elements.documentName.textContent = appState.isDirty ? `${fileName} *` : fileName;
-  if (!currentDocumentHasPreview()) {
+  if (activeDocument?.externalChangePending) {
+    elements.documentStatus.textContent = activeDocument.existsOnDisk
+      ? (activeDocument.isDirty ? "Local changes + newer disk file" : "File changed on disk")
+      : "File removed on disk";
+  } else if (!currentDocumentHasPreview()) {
     elements.documentStatus.textContent = "No preview available";
   } else if (appState.isDirty) {
     elements.documentStatus.textContent = appState.previewInSync ? "Unsaved changes" : "Preview updating";
@@ -1580,7 +1600,7 @@ function applyShellTheme(theme) {
 function renderDocumentTabs() {
   elements.documentTabs.innerHTML = appState.openDocuments.map((document) => `
     <button
-      class="document-tab ${document.id === appState.activeDocumentId ? "is-active" : ""}"
+      class="document-tab ${document.id === appState.activeDocumentId ? "is-active" : ""} ${document.externalChangePending ? "has-external-change" : ""}"
       type="button"
       role="tab"
       aria-selected="${document.id === appState.activeDocumentId}"
@@ -1589,6 +1609,7 @@ function renderDocumentTabs() {
     >
       <span class="document-tab-label">${escapeHtml(document.name)}</span>
       ${document.isDirty ? `<span class="document-tab-dirty" aria-label="Unsaved changes"></span>` : ""}
+      ${document.externalChangePending ? `<span class="document-tab-external" aria-label="File changed on disk"></span>` : ""}
       <span class="document-tab-close" data-close-document="${document.id}" aria-label="Close ${escapeHtml(document.name)}">${ICONS.close}</span>
     </button>
   `).join("");
@@ -1616,6 +1637,9 @@ async function activateDocument(documentId, options = {}) {
   updateDocumentChrome();
   scheduleSessionPersistence();
   await renderPreviewNow();
+  if (document.externalChangePending) {
+    await promptForExternalChange(document);
+  }
   if (options.refreshTree !== false) {
     await refreshFileTree();
   }
@@ -1634,6 +1658,7 @@ async function openDocument(document) {
   if (session.workspacePath) {
     appState.workspacePath = session.workspacePath;
   }
+  syncWatchedPaths();
   await activateDocument(session.id);
   return session;
 }
@@ -2356,11 +2381,15 @@ async function saveDocumentSession(document, options = {}) {
   document.workspacePath = savedDocument.workspacePath;
   document.content = savedDocument.content;
   document.lastModifiedMs = savedDocument.lastModifiedMs;
+  document.existsOnDisk = true;
+  document.externalChangePending = false;
+  document.suppressWatchUntil = Date.now() + 2500;
   document.isDirty = false;
   if (document.id === appState.activeDocumentId) {
     syncMirrorStateFromDocument(document);
   }
 
+  syncWatchedPaths();
   await refreshFileTree();
   updateDocumentChrome();
   scheduleSessionPersistence();
@@ -2414,6 +2443,7 @@ async function closeDocument(documentId) {
 
   const wasActive = documentId === appState.activeDocumentId;
   appState.openDocuments.splice(closingIndex, 1);
+  syncWatchedPaths();
 
   if (appState.openDocuments.length === 0) {
     const untitled = createDocumentSession();
@@ -2461,6 +2491,68 @@ async function confirmApplicationClose() {
   }
 
   return false;
+}
+
+async function reloadDocumentSessionFromDisk(document) {
+  if (!document?.path) {
+    return false;
+  }
+
+  const reloadedDocument = await window.desktop.readDocument(document.path);
+  if (!reloadedDocument) {
+    return false;
+  }
+
+  document.name = reloadedDocument.name;
+  document.workspacePath = reloadedDocument.workspacePath;
+  document.content = reloadedDocument.content;
+  document.lastModifiedMs = reloadedDocument.lastModifiedMs;
+  document.existsOnDisk = true;
+  document.externalChangePending = false;
+  document.suppressWatchUntil = Date.now() + 2500;
+  document.isDirty = false;
+  document.previewInSync = false;
+  document.editorState = createEditorState(document.content);
+
+  if (document.id === appState.activeDocumentId) {
+    await activateDocument(document.id);
+  } else {
+    updateDocumentChrome();
+    renderDocumentTabs();
+    scheduleSessionPersistence();
+  }
+
+  return true;
+}
+
+async function promptForExternalChange(document) {
+  if (!document?.externalChangePending) {
+    return;
+  }
+
+  const decision = await window.desktop.confirmExternalChange({
+    itemName: document.name,
+    exists: document.existsOnDisk,
+    isDirty: document.isDirty
+  });
+
+  if (decision === "reload") {
+    await reloadDocumentSessionFromDisk(document);
+    return;
+  }
+
+  if (decision === "keep") {
+    document.externalChangePending = false;
+    if (!document.isDirty) {
+      document.isDirty = true;
+      if (document.id === appState.activeDocumentId) {
+        appState.isDirty = true;
+      }
+    }
+    updateDocumentChrome();
+    renderDocumentTabs();
+    scheduleSessionPersistence();
+  }
 }
 
 async function persistWindowState() {
@@ -2862,6 +2954,34 @@ async function bindEvents() {
     await window.desktop.respondToAppCloseRequest({ requestId, allowClose });
   });
 
+  window.desktop.onExternalFileChanged(async ({ filePath, exists, lastModifiedMs }) => {
+    const document = getDocumentSessionByPath(filePath);
+    if (!document) {
+      return;
+    }
+
+    if (Date.now() < (document.suppressWatchUntil ?? 0)) {
+      return;
+    }
+
+    if (exists && document.lastModifiedMs && Math.abs((lastModifiedMs ?? 0) - document.lastModifiedMs) < 1) {
+      return;
+    }
+
+    document.existsOnDisk = exists !== false;
+    document.lastModifiedMs = exists === false ? document.lastModifiedMs : (lastModifiedMs ?? document.lastModifiedMs);
+    document.externalChangePending = true;
+
+    if (document.id === appState.activeDocumentId) {
+      updateDocumentChrome();
+      await promptForExternalChange(document);
+      return;
+    }
+
+    renderDocumentTabs();
+    scheduleSessionPersistence();
+  });
+
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (appState.exportOverlayOpen) {
@@ -2945,6 +3065,7 @@ function registerBootSequence() {
 
     if (Array.isArray(restoredDocuments) && restoredDocuments.length > 0) {
       appState.openDocuments = restoredDocuments.map((document) => createDocumentSession(document));
+      syncWatchedPaths();
       const restoredActiveDocument = getDocumentSession(state?.activeDocumentId) ?? appState.openDocuments[0];
       await activateDocument(restoredActiveDocument.id);
     } else if (initialDocument) {

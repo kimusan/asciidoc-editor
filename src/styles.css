@@ -328,6 +328,18 @@ input:focus-visible,
   background: var(--accent-strong);
 }
 
+.document-tab-external {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f2b95a;
+}
+
+.document-tab.has-external-change {
+  border-color: rgba(242, 185, 90, 0.34);
+}
+
 .document-tab-close {
   width: 1rem;
   height: 1rem;
