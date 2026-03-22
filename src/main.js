@@ -870,12 +870,14 @@ function createLayout() {
             </button>
           </div>
           <div class="workspace-controls">
-            <button id="open-folder" class="toolbar-button ghost-button workspace-button" title="Choose a workspace folder to browse, search, and open files.">
-              <span class="button-icon">${ICONS.folder}</span><span>Workspace</span>
-            </button>
-            <button id="open-workspace-search" class="toolbar-button ghost-button workspace-button" title="Search across saved files in the current workspace.">
-              <span class="button-icon">${ICONS.search}</span><span>Search Workspace</span>
-            </button>
+            <div class="workspace-action-row">
+              <button id="open-folder" class="toolbar-button ghost-button workspace-button workspace-button-compact" title="Choose a workspace folder to browse, search, and open files.">
+                <span class="button-icon">${ICONS.folder}</span><span>Workspace</span>
+              </button>
+              <button id="open-workspace-search" class="toolbar-button ghost-button workspace-button workspace-button-icon" title="Search across saved files in the current workspace." aria-label="Search workspace contents">
+                <span class="button-icon">${ICONS.search}</span>
+              </button>
+            </div>
             <label class="workspace-search-shell">
               <span class="button-icon">${ICONS.search}</span>
               <input id="workspace-search" class="workspace-search" type="search" placeholder="Find files in workspace..." />
