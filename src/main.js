@@ -943,7 +943,6 @@ function createLayout() {
                       <input id="editor-search-input" class="editor-search-input" type="search" placeholder="Find in document..." />
                     </label>
                     <div class="editor-search-actions">
-                      <button id="editor-search-show-replace" class="toolbar-button ghost-button search-toggle" type="button">Replace</button>
                       <button id="editor-search-case" class="toolbar-button ghost-button search-toggle" type="button">Aa</button>
                       <button id="editor-search-word" class="toolbar-button ghost-button search-toggle" type="button">Word</button>
                       <button id="editor-search-regex" class="toolbar-button ghost-button search-toggle" type="button">.*</button>
@@ -1304,7 +1303,6 @@ function createLayout() {
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
   elements.toggleEditorSearch = document.querySelector("#toggle-editor-search");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
-  elements.editorSearchShowReplace = document.querySelector("#editor-search-show-replace");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
   elements.editorReplaceScopeRow = document.querySelector("#editor-replace-scope-row");
   elements.editorReplaceNoteRow = document.querySelector("#editor-replace-note-row");
@@ -1848,7 +1846,7 @@ function syncEditorSearchQuery() {
 
 function openEditorSearch({ prefillSelection = false, showReplace = false } = {}) {
   appState.editorSearchOpen = true;
-  appState.editorReplaceOpen = showReplace || appState.editorReplaceOpen;
+  appState.editorReplaceOpen = true;
 
   if (prefillSelection) {
     const selection = editorView.state.selection.main;
@@ -2188,7 +2186,6 @@ function updateDocumentChrome() {
   elements.editorReplaceScopeOpenFiles.checked = appState.editorReplaceAllOpenFiles;
   elements.toggleEditorSearch.classList.toggle("is-active", appState.editorSearchOpen);
   elements.toggleEditorSearch.setAttribute("aria-pressed", String(appState.editorSearchOpen));
-  elements.editorSearchShowReplace.classList.toggle("is-active", appState.editorReplaceOpen);
   elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
   elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
@@ -3596,18 +3593,6 @@ async function bindEvents() {
     if (event.key === "Escape") {
       event.preventDefault();
       closeEditorSearch();
-    }
-  });
-
-  elements.editorSearchShowReplace.addEventListener("click", () => {
-    appState.editorReplaceOpen = !appState.editorReplaceOpen;
-    updateDocumentChrome();
-    if (appState.editorReplaceOpen) {
-      requestAnimationFrame(() => {
-        elements.editorReplaceInput.focus();
-      });
-    } else {
-      elements.editorSearchInput.focus();
     }
   });
 
