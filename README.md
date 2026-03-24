@@ -1,7 +1,7 @@
 # The AsciiDoc Editor
 
 <p align="center">
-  <img src="build/icon.svg" alt="AsciiDoc Editor logo" width="156" />
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/build/icon.svg" alt="AsciiDoc Editor logo" width="156" />
 </p>
 
 The AsciiDoc Editor is a stand-alone desktop writing and editing environment for the AsciiDoc markup language. It combines a code-oriented editor, a live formatted preview, workspace browsing, export tools, and built-in reference material in a single desktop app.
