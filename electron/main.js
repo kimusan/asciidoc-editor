@@ -19,6 +19,19 @@ const fileWatchRegistrations = new Map();
 let mainWindow = null;
 let pendingOpenPath = null;
 
+function applyLinuxAppImageSandboxWorkaround() {
+  const isLinuxAppImage = process.platform === "linux" && Boolean(process.env.APPIMAGE);
+  if (!isLinuxAppImage) {
+    return;
+  }
+
+  // AppImage mounts are not suid-capable, so Chromium's setuid sandbox fails to start.
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-setuid-sandbox");
+}
+
+applyLinuxAppImageSandboxWorkaround();
+
 function isWorkspaceEditableFile(fileName) {
   return WORKSPACE_EDITABLE_FILE_PATTERN.test(fileName);
 }

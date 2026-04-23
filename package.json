@@ -27,6 +27,7 @@
       "package.json"
     ],
     "asar": true,
+    "afterPack": "./electron-builder.after-pack.cjs",
     "electronLanguages": [
       "en-US"
     ],
@@ -36,7 +37,11 @@
       "target": [
         "AppImage"
       ],
-      "category": "Office"
+      "category": "Office",
+      "executableArgs": [
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
+      ]
     },
     "win": {
       "icon": "build/icon.ico",
