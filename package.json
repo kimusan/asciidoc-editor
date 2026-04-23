@@ -56,9 +56,9 @@
     }
   },
   "devDependencies": {
-    "electron": "^35.1.5",
+    "electron": "^41.3.0",
     "electron-builder": "^26.8.1",
-    "vite": "^6.2.1"
+    "vite": "^8.0.10"
   },
   "dependencies": {
     "@asciidoctor/core": "^3.0.4",
