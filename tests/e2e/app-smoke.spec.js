@@ -7,6 +7,14 @@ import { fileURLToPath } from "node:url";
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 async function launchApp() {
+  // The app loads dist/index.html; without a renderer build the window
+  // comes up blank and every visibility assertion times out confusingly.
+  try {
+    await fs.access(path.join(PROJECT_ROOT, "dist", "index.html"));
+  } catch {
+    throw new Error("dist/index.html not found - run `npm run build` before the e2e suite");
+  }
+
   const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-profile-"));
   const app = await electron.launch({
     args: [PROJECT_ROOT, `--user-data-dir=${profileDir}`]
