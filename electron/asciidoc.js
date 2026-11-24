@@ -663,11 +663,12 @@ function extractSyncPoints(document) {
 }
 
 function renderDocument(source, filePath, options = {}) {
-  const loadOptions = buildLoadOptions(filePath, options);
-  const document = asciidoctor.load(source, loadOptions);
+  // Load once and convert the parsed document; calling asciidoctor.convert
+  // as well would parse the whole source a second time on every render.
+  const document = asciidoctor.load(source, buildLoadOptions(filePath, options));
   return {
     title: resolveDocumentTitle(document, filePath),
-    content: asciidoctor.convert(source, loadOptions),
+    content: document.convert(),
     syncPoints: extractSyncPoints(document)
   };
 }

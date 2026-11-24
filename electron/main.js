@@ -775,6 +775,14 @@ async function createWindow() {
     clearWatchedPathsForSender(window.webContents);
   });
 
+  window.webContents.on("render-process-gone", () => {
+    // Resolve any pending close handshake so the window can still close.
+    for (const resolve of closeRequestResolvers.values()) {
+      resolve(true);
+    }
+    closeRequestResolvers.clear();
+  });
+
   ipcMain.handle("app:close-response", async (event, payload) => {
     if (event.sender !== window.webContents) {
       return false;
@@ -801,6 +809,13 @@ async function createWindow() {
     const allowClose = await new Promise((resolve) => {
       closeRequestResolvers.set(requestId, resolve);
       window.webContents.send("app:close-requested", { requestId });
+      // Fall back to closing if the renderer is hung or crashed, so a
+      // missing response can never leave the window unclosable.
+      setTimeout(() => {
+        if (closeRequestResolvers.delete(requestId)) {
+          resolve(true);
+        }
+      }, 5000);
     });
 
     if (allowClose) {

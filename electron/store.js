@@ -48,7 +48,7 @@ export async function loadState() {
 }
 
 export async function saveState(partialState) {
-  writeQueue = writeQueue.then(async () => {
+  const write = writeQueue.then(async () => {
     let currentState = { ...defaultState };
     try {
       currentState = await readStateFile();
@@ -66,5 +66,12 @@ export async function saveState(partialState) {
     return nextState;
   });
 
-  return writeQueue;
+  // Keep the queue alive when a write fails (disk full, permissions, ...).
+  // Without this, one rejected write would chain every later saveState onto
+  // a rejected promise and silently disable session persistence.
+  writeQueue = write.catch((error) => {
+    console.error("[store] failed to persist state:", error);
+  });
+
+  return write;
 }
