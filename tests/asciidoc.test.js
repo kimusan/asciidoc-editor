@@ -88,6 +88,34 @@ test("renderPreview can render a print-friendly document without preview chrome"
   assert.doesNotMatch(html, /border-radius: 24px/);
 });
 
+test("renderPreview supports a dark color scheme driven by the app theme", async () => {
+  const lightHtml = await renderPreview("= Demo\n\nA paragraph.", null, {
+    previewColorScheme: "light"
+  });
+  const darkHtml = await renderPreview("= Demo\n\nA paragraph.", null, {
+    previewColorScheme: "dark"
+  });
+
+  assert.match(lightHtml, /--adoc-bg: #ffffff;/);
+  assert.match(lightHtml, /color-scheme: light;/);
+  assert.match(darkHtml, /--adoc-bg: #14181f;/);
+  assert.match(darkHtml, /color-scheme: dark;/);
+
+  // The highlight theme follows the scheme so code blocks stay readable.
+  assert.match(lightHtml, /\.hljs \{/);
+  assert.match(darkHtml, /\.hljs \{/);
+  assert.notEqual(lightHtml, darkHtml);
+});
+
+test("renderPreview keeps print output light even in dark mode", async () => {
+  const html = await renderPreview("= Demo\n\nA paragraph.", null, {
+    documentMode: "print",
+    previewColorScheme: "dark"
+  });
+
+  assert.match(html, /--adoc-bg: #ffffff;/);
+});
+
 test("convertDocument keeps msc blocks valid for the DocBook backend", async () => {
   const docbook = await convertDocument("= Demo\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", null, {
     backend: "docbook5",

@@ -1214,7 +1214,8 @@ app.whenReady().then(async () => {
       {
         baseDir: payload.baseDir,
         stylesheetPath: payload.stylesheetPath,
-        previewFontFamily: payload.previewFontFamily
+        previewFontFamily: payload.previewFontFamily,
+        previewColorScheme: payload.previewColorScheme === "dark" ? "dark" : "light"
       }
     );
   });

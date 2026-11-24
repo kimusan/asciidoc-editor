@@ -13,7 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, "asciidoc-worker.cjs");
 const WORKER_IDLE_REAP_MS = 120_000;
 
-const DOCUMENT_THEME = `
+const DOCUMENT_THEMES = {
+  light: `
   :root {
     color-scheme: light;
     --adoc-bg: #ffffff;
@@ -25,7 +26,21 @@ const DOCUMENT_THEME = `
     --adoc-accent: #2f4f6f;
     --adoc-code-bg: #f4f4f4;
   }
-`;
+`,
+  dark: `
+  :root {
+    color-scheme: dark;
+    --adoc-bg: #14181f;
+    --adoc-surface: #1a2029;
+    --adoc-text: #e6edf3;
+    --adoc-subtle: #9aa7b5;
+    --adoc-border: rgba(230, 237, 243, 0.16);
+    --adoc-link: #7dd3fc;
+    --adoc-accent: #27d1c1;
+    --adoc-code-bg: #21262f;
+  }
+`
+};
 
 const PREVIEW_FONT_STACKS = {
   serif: "\"Iowan Old Style\", \"Palatino Linotype\", \"Book Antiqua\", Palatino, \"Noto Serif\", serif",
@@ -33,7 +48,10 @@ const PREVIEW_FONT_STACKS = {
   mono: "\"IBM Plex Mono\", \"Cascadia Code\", \"SFMono-Regular\", Consolas, monospace"
 };
 
-const HIGHLIGHT_THEME_PATH = path.join(__dirname, "..", "node_modules", "highlight.js", "styles", "github.css");
+const HIGHLIGHT_THEME_PATHS = {
+  light: path.join(__dirname, "..", "node_modules", "highlight.js", "styles", "github.css"),
+  dark: path.join(__dirname, "..", "node_modules", "highlight.js", "styles", "github-dark.css")
+};
 
 const SHARED_DOCUMENT_STYLES = `
   .mscgen-block {
@@ -79,7 +97,7 @@ const SHARED_DOCUMENT_STYLES = `
     line-height: 1;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: rgba(0, 0, 0, 0.45);
+    color: var(--adoc-subtle);
   }
 
   .listingblock:hover code[data-lang]::before {
@@ -100,7 +118,7 @@ const SHARED_DOCUMENT_STYLES = `
   }
 
   table.tableblock, th.tableblock, td.tableblock {
-    border: 0 solid rgba(23, 23, 23, 0.14);
+    border: 0 solid var(--adoc-border);
   }
 
   table.grid-all > * > tr > * {
@@ -151,7 +169,7 @@ const SHARED_DOCUMENT_STYLES = `
   table.stripes-odd > * > tr:nth-of-type(odd),
   table.stripes-even > * > tr:nth-of-type(even),
   table.stripes-hover > * > tr:hover {
-    background: #f8f8f7;
+    background: color-mix(in srgb, var(--adoc-code-bg) 55%, transparent);
   }
 
   th.halign-left, td.halign-left { text-align: left; }
@@ -172,8 +190,8 @@ const BASE_PREVIEW_STYLES = `
   html, body {
     margin: 0;
     min-height: 100%;
-    background: #ffffff;
-    color: #171717;
+    background: var(--adoc-bg);
+    color: var(--adoc-text);
   }
 
   body {
@@ -214,15 +232,15 @@ const BASE_PREVIEW_STYLES = `
   }
 
   pre {
-    background: #f4f4f4;
-    border: 1px solid rgba(23, 23, 23, 0.14);
+    background: var(--adoc-code-bg);
+    border: 1px solid var(--adoc-border);
     border-radius: 8px;
     padding: 16px 18px;
     overflow-x: auto;
   }
 
   code {
-    background: #f4f4f4;
+    background: var(--adoc-code-bg);
     padding: 0.15em 0.35em;
     border-radius: 0.35em;
   }
@@ -231,7 +249,7 @@ const BASE_PREVIEW_STYLES = `
     margin: 1.4em 0;
     padding: 0.2em 0 0.2em 1.2em;
     border-left: 4px solid var(--adoc-accent);
-    color: #5d5d5d;
+    color: var(--adoc-subtle);
   }
 
   table {
@@ -240,18 +258,18 @@ const BASE_PREVIEW_STYLES = `
     margin: 1.5em 0;
     overflow: hidden;
     border-radius: 0;
-    border: 1px solid rgba(23, 23, 23, 0.14);
+    border: 1px solid var(--adoc-border);
   }
 
   th, td {
     padding: 0.75em 0.85em;
-    border-bottom: 1px solid rgba(23, 23, 23, 0.14);
+    border-bottom: 1px solid var(--adoc-border);
     text-align: left;
     vertical-align: top;
   }
 
   th {
-    background: #f6f6f6;
+    background: var(--adoc-surface);
   }
 
   img {
@@ -383,22 +401,25 @@ function buildPrintStyles(pageSize = "A4") {
   `;
 }
 
-let cachedHighlightThemeCss;
+const cachedHighlightThemeCss = {};
 
-async function loadHighlightThemeCss() {
-  if (cachedHighlightThemeCss !== undefined) {
-    return cachedHighlightThemeCss;
+async function loadHighlightThemeCss(scheme = "light") {
+  if (cachedHighlightThemeCss[scheme] !== undefined) {
+    return cachedHighlightThemeCss[scheme];
   }
 
   try {
-    cachedHighlightThemeCss = await fs.readFile(HIGHLIGHT_THEME_PATH, "utf8");
+    cachedHighlightThemeCss[scheme] = await fs.readFile(
+      HIGHLIGHT_THEME_PATHS[scheme] ?? HIGHLIGHT_THEME_PATHS.light,
+      "utf8"
+    );
   } catch {
     // Do not cache the failure; retry on a later render instead of
     // silently losing highlight colors for the whole process.
     return "";
   }
 
-  return cachedHighlightThemeCss;
+  return cachedHighlightThemeCss[scheme];
 }
 
 function escapeHtml(value) {
@@ -528,8 +549,13 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
     }
   }
 
-  const highlightThemeCss = await loadHighlightThemeCss();
   const documentMode = options.documentMode ?? "preview";
+  // Printed/PDF output always stays light; only the live preview follows
+  // the app theme.
+  const colorScheme = documentMode === "print"
+    ? "light"
+    : (options.previewColorScheme === "dark" ? "dark" : "light");
+  const highlightThemeCss = await loadHighlightThemeCss(colorScheme);
   const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
   const baseStyles = documentMode === "print"
     ? buildPrintStyles(options.pdfPaperSize ?? "A4")
@@ -537,7 +563,7 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
 
   return {
     title,
-    styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}`,
+    styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEMES[colorScheme]}${baseStyles}${highlightThemeCss}${customStyles}`,
     body,
     syncPoints
   };

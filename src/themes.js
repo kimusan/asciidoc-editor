@@ -184,7 +184,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(255, 255, 255, 0.09)",
     "--control-border": "rgba(255, 255, 255, 0.1)",
     "--control-border-hover": "rgba(124, 242, 216, 0.38)",
-    "--shadow": "0 24px 72px rgba(0, 0, 0, 0.22)"
+    "--shadow": "0 24px 72px rgba(0, 0, 0, 0.22)",
+    "--preview-shell-bg": "#14181f"
   },
   porcelain: {
     "--page-bg": "radial-gradient(circle at 12% 10%, rgba(59, 145, 255, 0.14), transparent 25%), radial-gradient(circle at 84% 8%, rgba(255, 132, 64, 0.16), transparent 18%), linear-gradient(180deg, #eef4fb 0%, #f7f3ea 52%, #efe7db 100%)",
@@ -201,7 +202,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(22, 32, 44, 0.08)",
     "--control-border": "rgba(22, 32, 44, 0.09)",
     "--control-border-hover": "rgba(31, 121, 255, 0.28)",
-    "--shadow": "0 24px 72px rgba(67, 89, 117, 0.12)"
+    "--shadow": "0 24px 72px rgba(67, 89, 117, 0.12)",
+    "--preview-shell-bg": "#ffffff"
   },
   nord: {
     "--page-bg": "radial-gradient(circle at 10% 8%, rgba(136, 192, 208, 0.18), transparent 24%), radial-gradient(circle at 88% 10%, rgba(191, 97, 106, 0.14), transparent 22%), linear-gradient(180deg, #242933 0%, #2c3440 52%, #20262f 100%)",
@@ -218,7 +220,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(255, 255, 255, 0.09)",
     "--control-border": "rgba(216, 222, 233, 0.1)",
     "--control-border-hover": "rgba(136, 192, 208, 0.36)",
-    "--shadow": "0 24px 72px rgba(7, 11, 17, 0.24)"
+    "--shadow": "0 24px 72px rgba(7, 11, 17, 0.24)",
+    "--preview-shell-bg": "#14181f"
   },
   darcula: {
     "--page-bg": "radial-gradient(circle at 12% 12%, rgba(104, 151, 187, 0.18), transparent 22%), radial-gradient(circle at 86% 10%, rgba(204, 120, 50, 0.14), transparent 20%), linear-gradient(180deg, #1f2124 0%, #282a2d 52%, #212325 100%)",
@@ -235,7 +238,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(255, 255, 255, 0.08)",
     "--control-border": "rgba(255, 255, 255, 0.1)",
     "--control-border-hover": "rgba(104, 151, 187, 0.34)",
-    "--shadow": "0 24px 72px rgba(0, 0, 0, 0.28)"
+    "--shadow": "0 24px 72px rgba(0, 0, 0, 0.28)",
+    "--preview-shell-bg": "#14181f"
   },
   solarized: {
     "--page-bg": "radial-gradient(circle at 10% 10%, rgba(42, 161, 152, 0.16), transparent 24%), radial-gradient(circle at 90% 10%, rgba(203, 75, 22, 0.14), transparent 20%), linear-gradient(180deg, #fdf6e3 0%, #f7f0dd 52%, #efe7d1 100%)",
@@ -252,7 +256,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(88, 110, 117, 0.08)",
     "--control-border": "rgba(88, 110, 117, 0.1)",
     "--control-border-hover": "rgba(38, 139, 210, 0.28)",
-    "--shadow": "0 24px 72px rgba(88, 110, 117, 0.14)"
+    "--shadow": "0 24px 72px rgba(88, 110, 117, 0.14)",
+    "--preview-shell-bg": "#ffffff"
   },
   material: {
     "--page-bg": "radial-gradient(circle at 12% 10%, rgba(103, 80, 164, 0.18), transparent 24%), radial-gradient(circle at 88% 12%, rgba(98, 91, 113, 0.16), transparent 22%), linear-gradient(180deg, #f8f4ff 0%, #f4eff8 48%, #ece6f0 100%)",
@@ -269,7 +274,8 @@ export const APP_THEME_VARS = {
     "--control-bg-hover": "rgba(29, 27, 32, 0.08)",
     "--control-border": "rgba(73, 69, 79, 0.1)",
     "--control-border-hover": "rgba(103, 80, 164, 0.28)",
-    "--shadow": "0 24px 72px rgba(103, 80, 164, 0.12)"
+    "--shadow": "0 24px 72px rgba(103, 80, 164, 0.12)",
+    "--preview-shell-bg": "#ffffff"
   }
 };
 

@@ -49,6 +49,15 @@ test("boots with an untitled document and a live preview", async () => {
       expect(await readPreviewText(window)).toContain("Start writing");
     }).toPass({ timeout: 15_000 });
 
+    // The default nord app theme is dark, so the preview document must
+    // carry the dark scheme tokens rather than the light defaults.
+    const previewScheme = await window.evaluate(() => {
+      const styleHost = document.querySelector("#preview-frame")
+        ?.contentDocument?.getElementById("preview-style-host");
+      return styleHost?.textContent?.match(/color-scheme:\s*(\w+)/)?.[1] ?? "missing";
+    });
+    expect(previewScheme).toBe("dark");
+
     await expect(window.locator(".document-tab").first()).toContainText("Untitled");
   } finally {
     await stopApp(app);

@@ -1061,7 +1061,7 @@ input:focus-visible,
 }
 
 .preview-frame-expanded {
-  background: #ffffff;
+  background: var(--preview-shell-bg, #ffffff);
 }
 
 .export-dialog {

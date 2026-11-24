@@ -217,7 +217,7 @@ const PREVIEW_SHELL_HTML = `<!doctype html>
       html, body {
         margin: 0;
         min-height: 100%;
-        background: #ffffff;
+        background: transparent;
       }
 
       body {
@@ -1919,6 +1919,12 @@ function currentDocumentHasPreview() {
   return canPreviewFileName(getCurrentDocumentName());
 }
 
+// Dark app themes drive a dark preview document; light themes stay light.
+// Keep in sync with the colorScheme logic in applyShellTheme.
+function getPreviewColorScheme() {
+  return ["porcelain", "solarized", "material"].includes(appState.theme) ? "light" : "dark";
+}
+
 function buildPreviewPayload() {
   const activeDocument = getDocumentSession();
   return {
@@ -1927,7 +1933,8 @@ function buildPreviewPayload() {
     baseDir: activeDocument?.workspacePath ?? appState.workspacePath ?? null,
     stylesheetPath: appState.previewStylesheetPath,
     previewFontFamily: appState.previewFontFamily,
-    pdfPaperSize: appState.pdfPaperSize
+    pdfPaperSize: appState.pdfPaperSize,
+    previewColorScheme: getPreviewColorScheme()
   };
 }
 
@@ -2685,6 +2692,7 @@ async function bindEvents() {
     appState.theme = normalizeThemeValue(event.target.value);
     applyEditorTheme(appState.theme);
     updateDocumentChrome();
+    await renderPreviewNow();
     await window.desktop.updateState({ theme: appState.theme });
   });
 
