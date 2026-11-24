@@ -3,11 +3,15 @@ import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Asciidoctor from "@asciidoctor/core";
+import docbookConverter from "@asciidoctor/docbook-converter";
 import hljs from "highlight.js/lib/common";
 import { JSDOM } from "jsdom";
 import mscgenjs from "mscgenjs";
 
 const asciidoctor = Asciidoctor();
+// Asciidoctor.js 3.x ships the DocBook converter as a separate package; the
+// DocBook export is broken without registering it.
+docbookConverter.register();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DOCUMENT_THEME = `
@@ -396,18 +400,14 @@ function resolveBaseDir(filePath, baseDir = null) {
   return path.dirname(filePath);
 }
 
-function buildAttributes(stylesheetPath) {
-  const attributes = {
+function buildAttributes() {
+  // Custom stylesheets are inlined by the callers themselves; the
+  // stylesheet/linkcss attributes only ever produced a <head> link that both
+  // the preview and the HTML export discard, and safe mode ignores them.
+  return {
     "source-highlighter": "highlight.js",
     "icons": "font"
   };
-
-  if (stylesheetPath) {
-    attributes.stylesheet = stylesheetPath;
-    attributes.linkcss = true;
-  }
-
-  return attributes;
 }
 
 function getMscCacheKey(source, options = {}) {
@@ -499,6 +499,13 @@ function ensureMscExtensionsRegistered() {
           return self.createBlock(parent, "pass", "");
         }
 
+        // The MSC renderer emits raw HTML/SVG. The extension registry is
+        // global, so without this gate DocBook exports would embed invalid
+        // HTML; fall back to a literal block for non-HTML backends.
+        if (parent.getDocument().getBackend() !== "html5") {
+          return self.createBlock(parent, "literal", source);
+        }
+
         try {
           return self.createBlock(parent, "pass", buildMscHtml(source, { inputType }));
         } catch (error) {
@@ -531,7 +538,7 @@ function buildLoadOptions(filePath, options = {}) {
     base_dir: resolveBaseDir(filePath, options.baseDir),
     standalone: options.standalone ?? true,
     backend: options.backend ?? "html5",
-    attributes: buildAttributes(options.stylesheetPath)
+    attributes: buildAttributes()
   };
 }
 
@@ -575,7 +582,9 @@ async function loadHighlightThemeCss() {
   try {
     cachedHighlightThemeCss = await fs.readFile(HIGHLIGHT_THEME_PATH, "utf8");
   } catch {
-    cachedHighlightThemeCss = "";
+    // Do not cache the failure; retry on a later render instead of
+    // silently losing highlight colors for the whole process.
+    return "";
   }
 
   return cachedHighlightThemeCss;

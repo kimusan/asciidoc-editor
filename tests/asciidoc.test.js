@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { convertDocument, renderPreview } from "../electron/asciidoc.js";
+import { convertDocument, exportDocument, renderPreview } from "../electron/asciidoc.js";
 
 test("convertDocument resolves include directives from the source directory", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-"));
@@ -84,4 +84,31 @@ test("renderPreview can render a print-friendly document without preview chrome"
   assert.match(html, /table-layout: fixed;/);
   assert.doesNotMatch(html, /box-shadow: 0 24px 60px/);
   assert.doesNotMatch(html, /border-radius: 24px/);
+});
+
+test("convertDocument keeps msc blocks valid for the DocBook backend", async () => {
+  const docbook = convertDocument("= Demo\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", null, {
+    backend: "docbook5",
+    standalone: true
+  });
+
+  assert.doesNotMatch(docbook, /<svg\b/);
+  assert.doesNotMatch(docbook, /mscgen-block/);
+  assert.match(docbook, /<literallayout/);
+  assert.match(docbook, /a=&gt;b/);
+});
+
+test("exportDocument writes a standalone HTML document", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-export-"));
+  const destinationPath = path.join(tempRoot, "out.html");
+
+  await exportDocument({
+    source: "= Demo\n\nA paragraph.",
+    destinationPath,
+    format: "html"
+  });
+
+  const html = await fs.readFile(destinationPath, "utf8");
+  assert.match(html, /<title>Demo<\/title>/);
+  assert.match(html, /A paragraph\./);
 });
