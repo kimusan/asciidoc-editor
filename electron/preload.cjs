@@ -1,4 +1,6 @@
-import { contextBridge, ipcRenderer } from "electron";
+// Sandboxed renderer preloads must be CommonJS: the sandboxed preload
+// bundler cannot evaluate ES module syntax, so require() is mandatory here.
+const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("desktop", {
   getBootPayload: () => ipcRenderer.invoke("app:get-boot-payload"),

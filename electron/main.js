@@ -86,8 +86,18 @@ async function openExternalUrl(url) {
   return true;
 }
 
+function getMainWindowWebContents() {
+  // Touching .webContents on a destroyed window throws; every use after
+  // startup must go through this guard.
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return null;
+  }
+
+  return mainWindow.webContents;
+}
+
 function assertTrustedSender(event) {
-  if (!mainWindow || event.sender !== mainWindow.webContents) {
+  if (event.sender !== getMainWindowWebContents()) {
     throw new Error("Untrusted IPC sender");
   }
 }
@@ -741,12 +751,16 @@ async function createWindow() {
     backgroundColor: "#111418",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       sandbox: true
     }
   });
   mainWindow = window;
+  // Capture the WebContents reference once: after the window is destroyed,
+  // touching window.webContents throws "Object had been destroyed", and both
+  // the destroyed handler and IPC sender checks run after that point.
+  const webContents = window.webContents;
 
   if (process.platform !== "darwin") {
     window.setMenuBarVisibility(false);
@@ -758,12 +772,12 @@ async function createWindow() {
 
   await window.loadFile(path.join(DIST_DIR, "index.html"));
 
-  window.webContents.setWindowOpenHandler(({ url }) => {
+  webContents.setWindowOpenHandler(({ url }) => {
     void openExternalUrl(url);
     return { action: "deny" };
   });
 
-  window.webContents.on("will-navigate", (event, url) => {
+  webContents.on("will-navigate", (event, url) => {
     // The shell must never navigate away from the bundled app; a remote page
     // would load with the preload bridge attached.
     if (!url.startsWith("file://")) {
@@ -771,11 +785,11 @@ async function createWindow() {
     }
   });
 
-  window.webContents.on("destroyed", () => {
-    clearWatchedPathsForSender(window.webContents);
+  webContents.on("destroyed", () => {
+    clearWatchedPathsForSender(webContents);
   });
 
-  window.webContents.on("render-process-gone", () => {
+  webContents.on("render-process-gone", () => {
     // Resolve any pending close handshake so the window can still close.
     for (const resolve of closeRequestResolvers.values()) {
       resolve(true);
@@ -784,7 +798,7 @@ async function createWindow() {
   });
 
   ipcMain.handle("app:close-response", async (event, payload) => {
-    if (event.sender !== window.webContents) {
+    if (event.sender !== webContents) {
       return false;
     }
 
@@ -808,7 +822,12 @@ async function createWindow() {
     const requestId = randomUUID();
     const allowClose = await new Promise((resolve) => {
       closeRequestResolvers.set(requestId, resolve);
-      window.webContents.send("app:close-requested", { requestId });
+      if (webContents.isDestroyed()) {
+        resolve(true);
+        return;
+      }
+
+      webContents.send("app:close-requested", { requestId });
       // Fall back to closing if the renderer is hung or crashed, so a
       // missing response can never leave the window unclosable.
       setTimeout(() => {
@@ -820,7 +839,9 @@ async function createWindow() {
 
     if (allowClose) {
       allowWindowClose = true;
-      window.close();
+      if (!window.isDestroyed()) {
+        window.close();
+      }
     }
   });
 
@@ -843,10 +864,10 @@ if (!singleInstanceLock) {
     const launchPath = extractLaunchPath(argv);
     if (launchPath) {
       pendingOpenPath = launchPath;
-      mainWindow?.webContents.send("app:open-path", { path: launchPath });
+      getMainWindowWebContents()?.send("app:open-path", { path: launchPath });
     }
 
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
@@ -857,8 +878,8 @@ if (!singleInstanceLock) {
   app.on("open-file", (event, filePath) => {
     event.preventDefault();
     pendingOpenPath = filePath;
-    mainWindow?.webContents.send("app:open-path", { path: filePath });
-    if (mainWindow) {
+    getMainWindowWebContents()?.send("app:open-path", { path: filePath });
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
