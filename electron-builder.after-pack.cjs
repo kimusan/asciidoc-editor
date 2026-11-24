@@ -38,7 +38,22 @@ exports.default = async function afterPack(context) {
 set -eu
 
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$APPDIR/${binaryName}" --no-sandbox --disable-setuid-sandbox "$@"
+
+# AppImage mounts are not suid-capable, so Chromium's setuid sandbox helper
+# fails there. Prefer the user-namespace sandbox (kept enabled by only
+# disabling the setuid helper) and fall back to --no-sandbox only on systems
+# where unprivileged user namespaces are unavailable.
+if [ -r /proc/sys/kernel/unprivileged_userns_clone ] \\
+   && [ "\$(cat /proc/sys/kernel/unprivileged_userns_clone)" = "0" ]; then
+  exec "$APPDIR/${binaryName}" --no-sandbox --disable-setuid-sandbox "$@"
+fi
+
+if [ ! -e /proc/sys/user/max_user_namespaces ] \\
+   || [ "\$(cat /proc/sys/user/max_user_namespaces 2>/dev/null || echo 0)" = "0" ]; then
+  exec "$APPDIR/${binaryName}" --no-sandbox --disable-setuid-sandbox "$@"
+fi
+
+exec "$APPDIR/${binaryName}" --disable-setuid-sandbox "$@"
 `;
 
   await fs.writeFile(launcherPath, launcherScript, { mode: 0o755 });

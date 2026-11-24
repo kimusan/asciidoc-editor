@@ -37,11 +37,7 @@
       "target": [
         "AppImage"
       ],
-      "category": "Office",
-      "executableArgs": [
-        "--no-sandbox",
-        "--disable-setuid-sandbox"
-      ]
+      "category": "Office"
     },
     "win": {
       "icon": "build/icon.ico",

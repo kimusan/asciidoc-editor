@@ -62,6 +62,44 @@ function isWorkspaceBrowsableFile(fileName) {
   return isWorkspaceEditableFile(fileName) || WORKSPACE_ASSET_FILE_PATTERN.test(fileName);
 }
 
+const EXTERNAL_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+async function openExternalUrl(url) {
+  if (typeof url !== "string") {
+    return false;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return false;
+  }
+
+  // shell.openExternal delegates to the OS, so arbitrary schemes (ms-msdt:,
+  // smb:, custom handlers) must never reach it.
+  if (!EXTERNAL_URL_PROTOCOLS.has(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
+    return false;
+  }
+
+  await shell.openExternal(parsedUrl.href);
+  return true;
+}
+
+function assertTrustedSender(event) {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error("Untrusted IPC sender");
+  }
+}
+
+function requireString(value, name) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Expected a non-empty string for ${name}`);
+  }
+
+  return value;
+}
+
 async function directoryContainsBrowsableFiles(dirPath) {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -705,7 +743,7 @@ async function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
-      sandbox: false
+      sandbox: true
     }
   });
   mainWindow = window;
@@ -721,15 +759,27 @@ async function createWindow() {
   await window.loadFile(path.join(DIST_DIR, "index.html"));
 
   window.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    void openExternalUrl(url);
     return { action: "deny" };
+  });
+
+  window.webContents.on("will-navigate", (event, url) => {
+    // The shell must never navigate away from the bundled app; a remote page
+    // would load with the preload bridge attached.
+    if (!url.startsWith("file://")) {
+      event.preventDefault();
+    }
   });
 
   window.webContents.on("destroyed", () => {
     clearWatchedPathsForSender(window.webContents);
   });
 
-  ipcMain.handle("app:close-response", async (_, payload) => {
+  ipcMain.handle("app:close-response", async (event, payload) => {
+    if (event.sender !== window.webContents) {
+      return false;
+    }
+
     const resolver = closeRequestResolvers.get(payload?.requestId);
     if (!resolver) {
       return false;
@@ -807,7 +857,8 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
   }
 
-  ipcMain.handle("dialog:open-file", async () => {
+  ipcMain.handle("dialog:open-file", async (event) => {
+    assertTrustedSender(event);
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Open AsciiDoc file",
       properties: ["openFile"],
@@ -831,7 +882,8 @@ app.whenReady().then(async () => {
     return document;
   });
 
-  ipcMain.handle("dialog:open-project", async () => {
+  ipcMain.handle("dialog:open-project", async (event) => {
+    assertTrustedSender(event);
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Open AsciiDoc project",
       properties: ["openFile"],
@@ -858,7 +910,8 @@ app.whenReady().then(async () => {
     };
   });
 
-  ipcMain.handle("dialog:open-folder", async () => {
+  ipcMain.handle("dialog:open-folder", async (event) => {
+    assertTrustedSender(event);
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Choose workspace folder",
       properties: ["openDirectory"]
@@ -872,12 +925,15 @@ app.whenReady().then(async () => {
     return filePaths[0];
   });
 
-  ipcMain.handle("dialog:save-file", async (_, payload) => {
+  ipcMain.handle("dialog:save-file", async (event, payload) => {
+    assertTrustedSender(event);
     const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig(payload));
     return canceled ? null : filePath;
   });
 
-  ipcMain.handle("project:open-file", async (_, projectPath) => {
+  ipcMain.handle("project:open-file", async (event, projectPath) => {
+    assertTrustedSender(event);
+    requireString(projectPath, "projectPath");
     const state = await loadState();
     const project = await loadProjectFile(projectPath);
     await saveState({
@@ -891,7 +947,8 @@ app.whenReady().then(async () => {
     };
   });
 
-  ipcMain.handle("project:save-file", async (_, payload = {}) => {
+  ipcMain.handle("project:save-file", async (event, payload = {}) => {
+    assertTrustedSender(event);
     let projectPath = payload.projectPath ?? null;
     if (!projectPath) {
       const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig({
@@ -918,7 +975,8 @@ app.whenReady().then(async () => {
     return savedProject;
   });
 
-  ipcMain.handle("dialog:choose-stylesheet", async (_, kind = "preview") => {
+  ipcMain.handle("dialog:choose-stylesheet", async (event, kind = "preview") => {
+    assertTrustedSender(event);
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: kind === "pdf" ? "Choose PDF stylesheet" : "Choose preview stylesheet",
       properties: ["openFile"],
@@ -997,26 +1055,44 @@ app.whenReady().then(async () => {
     return ["reload", "keep", "later"][response] ?? "later";
   });
 
-  ipcMain.handle("fs:list-directory", async (_, rootPath) => listDirectory(rootPath));
-  ipcMain.handle("fs:search-workspace", async (_, { rootPath, query, limit }) => searchWorkspace(rootPath, query, limit));
-  ipcMain.handle("fs:search-workspace-content", async (_, payload = {}) => searchWorkspaceContent(
-    payload.rootPath,
-    payload.query,
-    payload.options,
-    payload.limit
-  ));
-  ipcMain.handle("fs:replace-workspace-content", async (_, payload = {}) => replaceWorkspaceContent(
-    payload.rootPath,
-    payload.query,
-    payload.replaceText ?? "",
-    payload.options
-  ));
+  ipcMain.handle("fs:list-directory", async (event, rootPath) => {
+    assertTrustedSender(event);
+    return listDirectory(requireString(rootPath, "rootPath"));
+  });
+  ipcMain.handle("fs:search-workspace", async (event, { rootPath, query, limit }) => {
+    assertTrustedSender(event);
+    requireString(rootPath, "rootPath");
+    return searchWorkspace(rootPath, query, limit);
+  });
+  ipcMain.handle("fs:search-workspace-content", async (event, payload = {}) => {
+    assertTrustedSender(event);
+    requireString(payload.rootPath, "rootPath");
+    return searchWorkspaceContent(
+      payload.rootPath,
+      payload.query,
+      payload.options,
+      payload.limit
+    );
+  });
+  ipcMain.handle("fs:replace-workspace-content", async (event, payload = {}) => {
+    assertTrustedSender(event);
+    requireString(payload.rootPath, "rootPath");
+    return replaceWorkspaceContent(
+      payload.rootPath,
+      payload.query,
+      payload.replaceText ?? "",
+      payload.options
+    );
+  });
   ipcMain.handle("fs:set-watched-paths", (event, paths) => {
-    updateWatchedPathsForSender(event.sender, paths);
+    assertTrustedSender(event);
+    updateWatchedPathsForSender(event.sender, Array.isArray(paths) ? paths.filter((item) => typeof item === "string") : []);
     return true;
   });
 
-  ipcMain.handle("fs:read-document", async (_, filePath) => {
+  ipcMain.handle("fs:read-document", async (event, filePath) => {
+    assertTrustedSender(event);
+    requireString(filePath, "filePath");
     const document = await loadDocument(filePath);
     const currentState = await loadState();
     await saveState({
@@ -1028,6 +1104,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("fs:import-assets", async (event, payload = {}) => {
+    assertTrustedSender(event);
     const assetPaths = Array.isArray(payload.assetPaths)
       ? payload.assetPaths.filter(Boolean)
       : [];
@@ -1073,13 +1150,15 @@ app.whenReady().then(async () => {
     };
   });
 
-  ipcMain.handle("fs:save-document", async (_, { filePath, content }) => {
+  ipcMain.handle("fs:save-document", async (event, { filePath, content }) => {
+    assertTrustedSender(event);
+    requireString(filePath, "filePath");
     let resolvedPath = filePath;
     if (!resolvedPath) {
       return null;
     }
 
-    await fs.writeFile(resolvedPath, content, "utf8");
+    await fs.writeFile(resolvedPath, typeof content === "string" ? content : String(content), "utf8");
     const document = await loadDocument(resolvedPath);
     const currentState = await loadState();
     await saveState({
@@ -1090,21 +1169,25 @@ app.whenReady().then(async () => {
     return document;
   });
 
-  ipcMain.handle("preview:render", async (_, payload) => renderPreviewDocument(
-    payload.content,
-    payload.filePath,
-    {
-      baseDir: payload.baseDir,
-      stylesheetPath: payload.stylesheetPath,
-      previewFontFamily: payload.previewFontFamily
-    }
-  ));
+  ipcMain.handle("preview:render", async (event, payload) => {
+    assertTrustedSender(event);
+    return renderPreviewDocument(
+      payload.content,
+      payload.filePath,
+      {
+        baseDir: payload.baseDir,
+        stylesheetPath: payload.stylesheetPath,
+        previewFontFamily: payload.previewFontFamily
+      }
+    );
+  });
 
-  ipcMain.handle("preview:follow-link", async (_, { href, currentFilePath }) => {
+  ipcMain.handle("preview:follow-link", async (event, { href, currentFilePath }) => {
+    assertTrustedSender(event);
     const result = await resolvePreviewLinkTarget(href, currentFilePath);
 
     if (result.type === "external") {
-      await shell.openExternal(result.url);
+      await openExternalUrl(result.url);
       return result;
     }
 
@@ -1130,10 +1213,18 @@ app.whenReady().then(async () => {
     return result;
   });
 
-  ipcMain.handle("export:document", async (_, payload) => exportDocument(payload));
-  ipcMain.handle("shell:open-external", async (_, url) => shell.openExternal(url));
+  ipcMain.handle("export:document", async (event, payload) => {
+    assertTrustedSender(event);
+    requireString(payload?.destinationPath, "destinationPath");
+    return exportDocument(payload);
+  });
+  ipcMain.handle("shell:open-external", async (event, url) => {
+    assertTrustedSender(event);
+    return openExternalUrl(url);
+  });
 
-  ipcMain.handle("app:get-boot-payload", async () => {
+  ipcMain.handle("app:get-boot-payload", async (event) => {
+    assertTrustedSender(event);
     const state = await loadState();
     const launchPath = pendingOpenPath;
     pendingOpenPath = null;
@@ -1183,8 +1274,18 @@ app.whenReady().then(async () => {
     };
   });
 
-  ipcMain.handle("state:update", async (_, partialState) => saveState(partialState));
-  ipcMain.handle("state:load", async () => loadState());
+  ipcMain.handle("state:update", async (event, partialState) => {
+    assertTrustedSender(event);
+    if (!partialState || typeof partialState !== "object") {
+      return null;
+    }
+
+    return saveState(partialState);
+  });
+  ipcMain.handle("state:load", async (event) => {
+    assertTrustedSender(event);
+    return loadState();
+  });
 
   await createWindow();
 
