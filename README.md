@@ -89,11 +89,7 @@ The workflow also supports manual runs via `workflow_dispatch`.
 
 ## Validation Status
 
-Latest local validation:
-
-- `npm test` passes
-- `npm run build` passes
-- `npm run package:linux` passes and produces `release/AsciiDoc Editor-0.5.0.AppImage`
+Tests and the renderer build run in CI on every push and pull request (`.github/workflows/ci.yml`), and again before packaging on release tags.
 
 ## File Association Helpers
 
