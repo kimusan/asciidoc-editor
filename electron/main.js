@@ -6,6 +6,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
+import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1316,7 +1317,7 @@ app.whenReady().then(async () => {
       return null;
     }
 
-    return saveState(partialState);
+    return saveState(sanitizePartialState(partialState));
   });
   ipcMain.handle("state:load", async (event) => {
     assertTrustedSender(event);
