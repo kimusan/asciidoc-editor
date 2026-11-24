@@ -1,0 +1,48 @@
+export const ICONS = {  brand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h8.379a2 2 0 0 1 1.414.586l3.12 3.12A2 2 0 0 1 19 9.121V18.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5z" fill="currentColor" opacity=".18"/><path d="M8 11.5h8M8 15h5M14 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  newDocument: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v6M9 12h6M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h3.586a2 2 0 0 1 1.414.586l1.12 1.121A2 2 0 0 0 13.035 9H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  fileAsciiDoc: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="currentColor" opacity=".14"/><path d="M8.5 9.25h7M8.5 12h7M8.5 14.75h4.5M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileCode: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-3.5 4 3.5 4M15 8l3.5 4-3.5 4M13 6l-2 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileImage: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5.5" width="15" height="13" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m6.5 16 3.5-3 2.5 2 2.5-2.5 2.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  filePdf: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.25 15.25v-5h2.15a1.55 1.55 0 0 1 0 3.1H8.25M13 15.25v-5h1.7a2.5 2.5 0 1 1 0 5ZM15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  fileStyle: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 5.25h11.5L16 18.75l-4-2-4 2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9.25h6M9.5 12.25h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  fileText: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h7.79a2 2 0 0 1 1.42.59l2.45 2.45a2 2 0 0 1 .59 1.42v10.79A1.75 1.75 0 0 1 18.25 20h-10.5A1.75 1.75 0 0 1 6 18.25Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 9.25h7M8.5 12h7M8.5 14.75h5M15 3.5v3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  open: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18.5A1.5 1.5 0 0 1 4.5 17V7A1.5 1.5 0 0 1 6 5.5h4l1.5 2H18A1.5 1.5 0 0 1 19.5 9v8A1.5 1.5 0 0 1 18 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12h6m-3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  save: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h9.879a2 2 0 0 1 1.414.586l.621.621A2 2 0 0 1 19 7.621V17.5A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  export: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M6 16.5v1A1.5 1.5 0 0 0 7.5 19h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  reference: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 5h8A1.5 1.5 0 0 1 17 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 17.5v-11A1.5 1.5 0 0 1 7.5 5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h5m-5 3h6m-6 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  shortcuts: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 10h1.5M11 10h1.5M14.5 10H16M7.5 14h4M13 14h3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v5M12 7.5h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19 12a7.2 7.2 0 0 0-.08-1l1.86-1.45-1.75-3.03-2.25.72a7.55 7.55 0 0 0-1.72-.99L14.7 3h-3.4l-.36 2.25a7.55 7.55 0 0 0-1.72.99l-2.25-.72-1.75 3.03L5.08 11a7.2 7.2 0 0 0 0 2l-1.86 1.45 1.75 3.03 2.25-.72c.53.4 1.11.73 1.72.99L11.3 21h3.4l.36-2.25c.61-.26 1.19-.59 1.72-.99l2.25.72 1.75-3.03L18.92 13c.05-.33.08-.66.08-1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+  focus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.5H5.5A1.5 1.5 0 0 0 4 6v2.5M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  expand: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4H20v5.5M20 4l-7 7M9.5 20H4v-5.5M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  preview: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5.5 8.5-5.5S20.5 12 20.5 12 17.5 17.5 12 17.5 3.5 12 3.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  collapseSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M13.5 9 10 12l3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  expandSidebar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 5.5v13M10.5 9 14 12l-3.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+};
+
+export function getFileTypeMeta(name) {
+  if (/\.(adoc|asciidoc|asc)$/i.test(name)) {
+    return { icon: ICONS.fileAsciiDoc, kind: "asciidoc" };
+  }
+
+  if (/\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i.test(name)) {
+    return { icon: ICONS.fileImage, kind: "image" };
+  }
+
+  if (/\.(css|scss|sass|less)$/i.test(name)) {
+    return { icon: ICONS.fileStyle, kind: "style" };
+  }
+
+  if (/\.(pdf)$/i.test(name)) {
+    return { icon: ICONS.filePdf, kind: "pdf" };
+  }
+
+  if (/\.(js|mjs|cjs|ts|tsx|jsx|json|yml|yaml|xml|html|htm|sh|ps1|bat)$/i.test(name)) {
+    return { icon: ICONS.fileCode, kind: "code" };
+  }
+
+  return { icon: ICONS.fileText, kind: "text" };
+}

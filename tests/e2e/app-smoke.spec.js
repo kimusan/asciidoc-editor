@@ -77,3 +77,26 @@ test("edits flow into the preview and the outline", async () => {
     await stopApp(app);
   }
 });
+
+test("settings and help overlays render their option lists", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+
+    // Settings overlay: theme/font/paper selects are built from the
+    // extracted option tables via renderOptionMarkup.
+    await window.keyboard.press("ControlOrMeta+,");
+    await expect(window.locator("#settings-overlay")).toBeVisible({ timeout: 5_000 });
+    await expect(window.locator("select#settings-app-theme option")).toHaveCount(6, { timeout: 5_000 });
+    await expect(window.locator("select#settings-preview-font option")).toHaveCount(3);
+
+    // Keyboard help overlay: shortcut cards come from SHORTCUT_SECTIONS.
+    await window.keyboard.press("Escape");
+    await window.keyboard.press("F1");
+    await expect(window.locator(".shortcut-card").first()).toBeVisible({ timeout: 5_000 });
+    await expect(window.locator(".shortcut-card h3").first()).toContainText(/Document|Search|Panels/);
+  } finally {
+    await stopApp(app);
+  }
+});
