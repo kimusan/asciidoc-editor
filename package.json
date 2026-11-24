@@ -1,8 +1,8 @@
 {
   "name": "asciidoc-editor",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A portable cross-platform AsciiDoc editor with live preview.",
-  "author": "Kim Schulz",
+  "author": "Kim Schulz <kim@schulz.dk>",
   "license": "MIT",
   "type": "module",
   "main": "electron/main.js",
@@ -12,8 +12,8 @@
     "start": "electron .",
     "test": "node --test",
     "test:e2e": "playwright test",
-    "package:linux": "npm run build && electron-builder --linux AppImage",
-    "package:win": "npm run build && electron-builder --win portable --x64"
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:win": "npm run build && electron-builder --win --x64"
   },
   "build": {
     "appId": "org.kimusan.asciidoceditor",
@@ -40,7 +40,10 @@
     "linux": {
       "icon": "build/icon.png",
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb",
+        "rpm",
+        "pacman"
       ],
       "category": "Office"
     },
@@ -49,6 +52,12 @@
       "target": [
         {
           "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
           "arch": [
             "x64"
           ]
