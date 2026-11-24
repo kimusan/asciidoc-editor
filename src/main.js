@@ -31,6 +31,7 @@ import {
   renderShortcutSections,
   SHORTCUT_SECTIONS
 } from "./help-content.js";
+import { appState, editorRef, elements } from "./app-state.js";
 import {
   canOpenFileInEditor,
   canPreviewFileName,
@@ -196,72 +197,6 @@ function syncWatchedPaths() {
   void window.desktop.setWatchedPaths(getWatchedDocumentPaths());
 }
 
-const appState = {
-  openDocuments: [],
-  activeDocumentId: null,
-  nextDocumentId: 1,
-  untitledSequence: 1,
-  currentProjectPath: null,
-  currentProjectName: null,
-  workspacePath: null,
-  openFilePath: null,
-  recentFiles: [],
-  recentProjects: [],
-  projectSessions: {},
-  previewStylesheetPath: null,
-  pdfStylesheetPath: null,
-  previewFontFamily: "serif",
-  pdfPaperSize: "A4",
-  theme: "nord",
-  distractionFree: false,
-  workspaceCollapsed: false,
-  outlineCollapsed: false,
-  workspaceQuery: "",
-  workspaceContentSearchOpen: false,
-  workspaceContentQuery: "",
-  workspaceContentCaseSensitive: false,
-  workspaceContentWholeWord: false,
-  workspaceContentRegex: false,
-  workspaceContentResults: [],
-  workspaceContentSummary: "Search across the current workspace.",
-  workspaceContentBusy: false,
-  outlineEntries: [],
-  editorSearchOpen: false,
-  editorSearchQuery: "",
-  editorReplaceOpen: false,
-  editorReplaceQuery: "",
-  editorReplaceAllOpenFiles: false,
-  editorSearchCaseSensitive: false,
-  editorSearchWholeWord: false,
-  editorSearchRegex: false,
-  currentContent: "= Untitled\n\nStart writing...",
-  currentFileName: "Untitled.adoc",
-  isDirty: false,
-  previewInSync: true,
-  isApplyingDocument: false,
-  pendingPreviewAnchor: null,
-  previewOverlayOpen: false,
-  exportOverlayOpen: false,
-  referenceQuery: "",
-  referenceOpen: false,
-  settingsOpen: false,
-  helpOpen: false,
-  aboutOpen: false,
-  splitRatio: 0.5,
-  previewRenderVersion: 0,
-  isHandlingCloseRequest: false,
-  autoSaveTimer: null,
-  renderTimer: null,
-  syncTimer: null,
-  outlineTimer: null,
-  metricsTimer: null,
-  lastPreviewDocument: null,
-  expandedPreviewStale: true,
-  directoryCache: new Map()
-};
-
-const elements = {};
-let editorView;
 let editorExtensions = [];
 
 const PREVIEW_SHELL_HTML = `<!doctype html>
@@ -966,13 +901,13 @@ async function handleIncomingPath(filePath) {
 }
 
 function buildSnippetInsertion(snippet) {
-  const selection = editorView.state.selection.main;
+  const selection = editorRef.view.state.selection.main;
   let insert = snippet;
 
   if (snippet.includes("\n")) {
-    const beforeCharacter = selection.from > 0 ? editorView.state.sliceDoc(selection.from - 1, selection.from) : "";
-    const afterCharacter = selection.to < editorView.state.doc.length
-      ? editorView.state.sliceDoc(selection.to, selection.to + 1)
+    const beforeCharacter = selection.from > 0 ? editorRef.view.state.sliceDoc(selection.from - 1, selection.from) : "";
+    const afterCharacter = selection.to < editorRef.view.state.doc.length
+      ? editorRef.view.state.sliceDoc(selection.to, selection.to + 1)
       : "";
 
     if (beforeCharacter && beforeCharacter !== "\n") {
@@ -991,14 +926,14 @@ function buildSnippetInsertion(snippet) {
 }
 
 function insertTextAtSelection(snippet, options = {}) {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
   const { selection, insert } = buildSnippetInsertion(snippet);
   const anchor = selection.from + insert.length;
 
-  editorView.dispatch({
+  editorRef.view.dispatch({
     changes: {
       from: selection.from,
       to: selection.to,
@@ -1013,13 +948,13 @@ function insertTextAtSelection(snippet, options = {}) {
   }
 
   requestAnimationFrame(() => {
-    editorView.focus();
+    editorRef.view.focus();
   });
 }
 
 function insertReferenceSnippet(referenceIndex) {
   const entry = MARKUP_REFERENCE[referenceIndex];
-  if (!entry || !editorView) {
+  if (!entry || !editorRef.view) {
     return;
   }
 
@@ -1082,21 +1017,21 @@ function buildWorkspaceContentOptions() {
 }
 
 function jumpToEditorLocation(lineNumber, column = 1, matchLength = 0) {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
-  const targetLine = editorView.state.doc.line(Math.min(Math.max(1, lineNumber), editorView.state.doc.lines));
+  const targetLine = editorRef.view.state.doc.line(Math.min(Math.max(1, lineNumber), editorRef.view.state.doc.lines));
   const from = Math.min(targetLine.from + Math.max(0, column - 1), targetLine.to);
   const to = Math.min(from + Math.max(0, matchLength), targetLine.to);
-  editorView.dispatch({
+  editorRef.view.dispatch({
     selection: {
       anchor: from,
       head: to
     },
     effects: EditorView.scrollIntoView(from, { y: "center" })
   });
-  editorView.focus();
+  editorRef.view.focus();
 }
 
 async function openWorkspaceResult(resultPath, lineNumber, column, matchLength) {
@@ -1161,7 +1096,7 @@ async function runWorkspaceContentSearch() {
 }
 
 async function importDroppedAssets(files) {
-  if (!editorView || !currentDocumentHasPreview()) {
+  if (!editorRef.view || !currentDocumentHasPreview()) {
     return;
   }
 
@@ -1208,11 +1143,11 @@ function getOutlineEntries(content = appState.currentContent) {
 }
 
 function getActiveOutlineLineNumber() {
-  if (!editorView || appState.outlineEntries.length === 0) {
+  if (!editorRef.view || appState.outlineEntries.length === 0) {
     return null;
   }
 
-  const currentLine = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+  const currentLine = editorRef.view.state.doc.lineAt(editorRef.view.state.selection.main.head).number;
   let activeEntry = appState.outlineEntries[0];
 
   for (const entry of appState.outlineEntries) {
@@ -1299,11 +1234,11 @@ function buildEditorSearchQuery() {
 }
 
 function updateEditorSearchStatus() {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
-  const query = getSearchQuery(editorView.state);
+  const query = getSearchQuery(editorRef.view.state);
   if (!query.search) {
     elements.editorSearchStatus.textContent = "0 matches";
     return;
@@ -1314,8 +1249,8 @@ function updateEditorSearchStatus() {
     return;
   }
 
-  const cursor = query.getCursor(editorView.state.doc.toString());
-  const selection = editorView.state.selection.main;
+  const cursor = query.getCursor(editorRef.view.state.doc.toString());
+  const selection = editorRef.view.state.selection.main;
   let total = 0;
   let current = 0;
 
@@ -1336,18 +1271,18 @@ function updateEditorSearchStatus() {
 }
 
 function syncEditorSearchQuery() {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
-  editorView.dispatch({
+  editorRef.view.dispatch({
     effects: setSearchQuery.of(buildEditorSearchQuery())
   });
   updateEditorSearchStatus();
 }
 
 function openEditorSearch({ prefillSelection = false, showReplace = false } = {}) {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
@@ -1355,8 +1290,8 @@ function openEditorSearch({ prefillSelection = false, showReplace = false } = {}
   appState.editorReplaceOpen = showReplace;
 
   if (prefillSelection) {
-    const selection = editorView.state.selection.main;
-    const selectedText = selection.empty ? "" : editorView.state.sliceDoc(selection.from, selection.to);
+    const selection = editorRef.view.state.selection.main;
+    const selectedText = selection.empty ? "" : editorRef.view.state.sliceDoc(selection.from, selection.to);
     if (selectedText) {
       appState.editorSearchQuery = selectedText;
     }
@@ -1381,7 +1316,7 @@ function toggleEditorSearch(options = {}) {
 }
 
 function closeEditorSearch() {
-  if (!editorView) {
+  if (!editorRef.view) {
     return;
   }
 
@@ -1392,7 +1327,7 @@ function closeEditorSearch() {
   appState.editorReplaceAllOpenFiles = false;
   updateDocumentChrome();
   syncEditorSearchQuery();
-  editorView.focus();
+  editorRef.view.focus();
 }
 
 function runEditorSearchNavigation(direction) {
@@ -1406,7 +1341,7 @@ function runEditorSearchNavigation(direction) {
   }
 
   const command = direction === "previous" ? findPrevious : findNext;
-  command(editorView);
+  command(editorRef.view);
   updateEditorSearchStatus();
 }
 
@@ -1420,7 +1355,7 @@ function runEditorReplaceNext() {
     return;
   }
 
-  replaceNext(editorView);
+  replaceNext(editorRef.view);
   updateEditorSearchStatus();
 }
 
@@ -1486,10 +1421,10 @@ async function runEditorReplaceAllOpenDocuments() {
   }
 
   if (activeReplacement) {
-    editorView.dispatch({
+    editorRef.view.dispatch({
       changes: {
         from: 0,
-        to: editorView.state.doc.length,
+        to: editorRef.view.state.doc.length,
         insert: activeReplacement.content
       }
     });
@@ -1523,7 +1458,7 @@ function runEditorReplaceAll() {
     return;
   }
 
-  replaceAll(editorView);
+  replaceAll(editorRef.view);
   updateEditorSearchStatus();
 }
 
@@ -1625,7 +1560,7 @@ function createEditor() {
     })
   ];
 
-  editorView = new EditorView({
+  editorRef.view = new EditorView({
     state: createEditorState(appState.currentContent),
     parent: document.querySelector("#editor-root")
   });
@@ -1637,7 +1572,7 @@ function updateDocumentMetrics() {
     return;
   }
 
-  const doc = editorView?.state.doc;
+  const doc = editorRef.view?.state.doc;
   const content = doc ? doc.sliceString(0) : appState.currentContent;
   const trimmedContent = content.trim();
   elements.wordCount.textContent = String(trimmedContent ? trimmedContent.split(/\s+/).length : 0);
@@ -1869,7 +1804,7 @@ function bindSplitter() {
 
 function applyEditorTheme(theme) {
   const themeConfig = THEME_STYLES[theme] ?? THEME_STYLES.nocturne;
-  editorView.dispatch({
+  editorRef.view.dispatch({
     effects: [
       themeCompartment.reconfigure(themeConfig.syntax),
       editorThemeCompartment.reconfigure(themeConfig.editor)
@@ -1918,10 +1853,10 @@ async function activateDocument(documentId, options = {}) {
 
   syncMirrorStateFromDocument(document);
   appState.isApplyingDocument = true;
-  editorView.setState(document.editorState ?? createEditorState(document.content));
+  editorRef.view.setState(document.editorState ?? createEditorState(document.content));
   appState.isApplyingDocument = false;
-  document.editorState = editorView.state;
-  appState.currentContent = editorView.state.doc.toString();
+  document.editorState = editorRef.view.state;
+  appState.currentContent = editorRef.view.state.doc.toString();
   appState.isDirty = document.isDirty;
   appState.previewInSync = document.previewInSync;
   appState.editorSearchOpen = false;
@@ -2347,7 +2282,7 @@ function getLineRatio(lineNumber, startLine, endLine) {
 function getEditorSectionSyncPosition() {
   const lineNumber = getEditorSyncLineNumber();
   const sections = getSourceSections();
-  const totalLines = editorView.state.doc.lines;
+  const totalLines = editorRef.view.state.doc.lines;
 
   if (sections.length === 0) {
     return {
@@ -2376,9 +2311,9 @@ function getEditorSectionSyncPosition() {
 }
 
 function getEditorSyncLineNumber() {
-  const selectionLine = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
-  const viewportStartLine = editorView.state.doc.lineAt(editorView.viewport.from).number;
-  const viewportEndLine = editorView.state.doc.lineAt(editorView.viewport.to).number;
+  const selectionLine = editorRef.view.state.doc.lineAt(editorRef.view.state.selection.main.head).number;
+  const viewportStartLine = editorRef.view.state.doc.lineAt(editorRef.view.viewport.from).number;
+  const viewportEndLine = editorRef.view.state.doc.lineAt(editorRef.view.viewport.to).number;
 
   if (selectionLine >= viewportStartLine && selectionLine <= viewportEndLine) {
     return selectionLine;
@@ -2476,7 +2411,7 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
   }
 
   const { scrollingElement, viewportHeight, maxScrollTop } = getPreviewScrollMetrics(frame, frameDocument);
-  const totalLines = editorView.state.doc.lines;
+  const totalLines = editorRef.view.state.doc.lines;
   let previousAnchor = null;
   let nextAnchor = null;
 
@@ -2510,7 +2445,7 @@ function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFrame, be
 }
 
 function syncPreviewToEditorPosition() {
-  if (!editorView || appState.pendingPreviewAnchor || !currentDocumentHasPreview()) {
+  if (!editorRef.view || appState.pendingPreviewAnchor || !currentDocumentHasPreview()) {
     return;
   }
 
@@ -3378,7 +3313,7 @@ async function bindEvents() {
 
   elements.outlineList.addEventListener("click", (event) => {
     const entry = event.target instanceof Element ? event.target.closest("[data-line]") : null;
-    if (!entry || !editorView) {
+    if (!entry || !editorRef.view) {
       return;
     }
 
@@ -3387,12 +3322,12 @@ async function bindEvents() {
       return;
     }
 
-    const targetLine = editorView.state.doc.line(Math.min(lineNumber, editorView.state.doc.lines));
-    editorView.dispatch({
+    const targetLine = editorRef.view.state.doc.line(Math.min(lineNumber, editorRef.view.state.doc.lines));
+    editorRef.view.dispatch({
       selection: { anchor: targetLine.from },
       effects: EditorView.scrollIntoView(targetLine.from, { y: "center" })
     });
-    editorView.focus();
+    editorRef.view.focus();
   });
 
   elements.fileTree.addEventListener("toggle", async (event) => {
