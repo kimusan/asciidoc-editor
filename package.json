@@ -27,6 +27,10 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "electron/asciidoc-worker.cjs",
+      "node_modules/**"
+    ],
     "afterPack": "./electron-builder.after-pack.cjs",
     "electronLanguages": [
       "en-US"

@@ -1,18 +1,17 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import crypto from "node:crypto";
+import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
-import Asciidoctor from "@asciidoctor/core";
-import docbookConverter from "@asciidoctor/docbook-converter";
-import hljs from "highlight.js/lib/common";
-import { JSDOM } from "jsdom";
-import mscgenjs from "mscgenjs";
 
-const asciidoctor = Asciidoctor();
-// Asciidoctor.js 3.x ships the DocBook converter as a separate package; the
-// DocBook export is broken without registering it.
-docbookConverter.register();
+// The CPU-heavy parts of the pipeline (Asciidoctor parse/convert, mscgen SVG
+// rendering, highlight.js) live in electron/asciidoc-worker.cjs and run on a
+// worker thread so large documents cannot stall the main process event loop.
+// This module keeps the file IO, style composition and the PDF printing path
+// (which needs BrowserWindow and therefore must stay on the main thread).
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WORKER_PATH = path.join(__dirname, "asciidoc-worker.cjs");
+const WORKER_IDLE_REAP_MS = 120_000;
 
 const DOCUMENT_THEME = `
   :root {
@@ -162,10 +161,6 @@ const SHARED_DOCUMENT_STYLES = `
   th.valign-middle, td.valign-middle { vertical-align: middle; }
   th.valign-bottom, td.valign-bottom { vertical-align: bottom; }
 `;
-
-let cachedHighlightThemeCss;
-const mscSvgCache = new Map();
-let mscExtensionsRegistered = false;
 
 const BASE_PREVIEW_STYLES = `
   :root {
@@ -388,191 +383,7 @@ function buildPrintStyles(pageSize = "A4") {
   `;
 }
 
-function resolveBaseDir(filePath, baseDir = null) {
-  if (baseDir) {
-    return baseDir;
-  }
-
-  if (!filePath) {
-    return process.cwd();
-  }
-
-  return path.dirname(filePath);
-}
-
-function buildAttributes() {
-  // Custom stylesheets are inlined by the callers themselves; the
-  // stylesheet/linkcss attributes only ever produced a <head> link that both
-  // the preview and the HTML export discard, and safe mode ignores them.
-  return {
-    "source-highlighter": "highlight.js",
-    "icons": "font"
-  };
-}
-
-function getMscCacheKey(source, options = {}) {
-  return crypto.createHash("sha256")
-    .update(JSON.stringify({
-      source,
-      inputType: options.inputType ?? "mscgen"
-    }))
-    .digest("hex");
-}
-
-function renderMscSvg(source, options = {}) {
-  const cacheKey = getMscCacheKey(source, options);
-  if (mscSvgCache.has(cacheKey)) {
-    return mscSvgCache.get(cacheKey);
-  }
-
-  const dom = new JSDOM("<div id=\"mscgen-root\"></div>");
-  const previousWindow = globalThis.window;
-  const previousDocument = globalThis.document;
-
-  globalThis.window = dom.window;
-  globalThis.document = dom.window.document;
-
-  try {
-    let renderedSvg;
-    let renderError;
-
-    mscgenjs.renderMsc(
-      source,
-      {
-        elementId: "mscgen-root",
-        inputType: options.inputType ?? "mscgen",
-        includeSource: false
-      },
-      (error, svg) => {
-        renderError = error;
-        renderedSvg = typeof svg === "string"
-          ? svg
-          : dom.window.document.getElementById("mscgen-root")?.innerHTML ?? "";
-      }
-    );
-
-    if (renderError) {
-      throw renderError instanceof Error ? renderError : new Error(String(renderError));
-    }
-
-    if (!renderedSvg) {
-      throw new Error("mscgen.js did not produce SVG output");
-    }
-
-    mscSvgCache.set(cacheKey, renderedSvg);
-    return renderedSvg;
-  } finally {
-    if (previousWindow === undefined) {
-      delete globalThis.window;
-    } else {
-      globalThis.window = previousWindow;
-    }
-
-    if (previousDocument === undefined) {
-      delete globalThis.document;
-    } else {
-      globalThis.document = previousDocument;
-    }
-
-    dom.window.close();
-  }
-}
-
-function buildMscHtml(source, options = {}) {
-  const svg = renderMscSvg(source, options);
-  return `<div class="imageblock mscgen-block" data-msc-input="${escapeHtml(options.inputType ?? "mscgen")}"><div class="content">${svg}</div></div>`;
-}
-
-function ensureMscExtensionsRegistered() {
-  if (mscExtensionsRegistered) {
-    return;
-  }
-
-  const registerMscBlock = (registry, name, inputType) => {
-    registry.block(function () {
-      const self = this;
-      self.named(name);
-      self.onContext("listing");
-      self.process(function (parent, reader) {
-        const source = reader.getLines().join("\n").trim();
-        if (!source) {
-          return self.createBlock(parent, "pass", "");
-        }
-
-        // The MSC renderer emits raw HTML/SVG. The extension registry is
-        // global, so without this gate DocBook exports would embed invalid
-        // HTML; fall back to a literal block for non-HTML backends.
-        if (parent.getDocument().getBackend() !== "html5") {
-          return self.createBlock(parent, "literal", source);
-        }
-
-        try {
-          return self.createBlock(parent, "pass", buildMscHtml(source, { inputType }));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return self.createBlock(
-            parent,
-            "pass",
-            `<div class="admonitionblock warning mscgen-error"><table><tbody><tr><td class="icon"><div class="title">!</div></td><td class="content"><div class="title">MSC render failed</div><pre>${escapeHtml(message)}</pre></td></tr></tbody></table></div>`
-          );
-        }
-      });
-    });
-  };
-
-  asciidoctor.Extensions.register(function () {
-    registerMscBlock(this, "msc", "mscgen");
-    registerMscBlock(this, "mscgen", "mscgen");
-  });
-  mscExtensionsRegistered = true;
-}
-
-function buildLoadOptions(filePath, options = {}) {
-  ensureMscExtensionsRegistered();
-  return {
-    // "server" keeps include:: resolution relative to base_dir while blocking
-    // absolute and parent-escaping paths, so an untrusted document cannot read
-    // arbitrary files from disk. Passthrough scripts are additionally blocked
-    // by the sandboxed preview iframe in the renderer.
-    safe: "server",
-    base_dir: resolveBaseDir(filePath, options.baseDir),
-    standalone: options.standalone ?? true,
-    backend: options.backend ?? "html5",
-    attributes: buildAttributes()
-  };
-}
-
-function extractBodyContents(html) {
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  return bodyMatch ? bodyMatch[1].trim() : html;
-}
-
-function decodeHtmlEntities(value) {
-  return value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&quot;", "\"")
-    .replaceAll("&#39;", "'");
-}
-
-function highlightCodeBlocks(html) {
-  return html.replace(
-    /<code([^>]*)data-lang="([^"]+)"([^>]*)>([\s\S]*?)<\/code>/g,
-    (_, beforeAttrs, language, afterAttrs, code) => {
-      const source = decodeHtmlEntities(code);
-
-      let highlighted;
-      try {
-        highlighted = hljs.highlight(source, { language }).value;
-      } catch {
-        highlighted = hljs.highlightAuto(source).value;
-      }
-
-      return `<code${beforeAttrs}data-lang="${language}"${afterAttrs}>${highlighted}</code>`;
-    }
-  );
-}
+let cachedHighlightThemeCss;
 
 async function loadHighlightThemeCss() {
   if (cachedHighlightThemeCss !== undefined) {
@@ -590,10 +401,6 @@ async function loadHighlightThemeCss() {
   return cachedHighlightThemeCss;
 }
 
-function loadDocument(source, filePath, options = {}) {
-  return asciidoctor.load(source, buildLoadOptions(filePath, options));
-}
-
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -603,112 +410,102 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function resolveDocumentTitle(document, filePath) {
-  const title = document.getDocumentTitle?.() ?? document.getDoctitle?.();
-  if (title) {
-    return title;
+let renderWorker = null;
+let nextJobId = 1;
+const pendingJobs = new Map();
+let workerReapTimer = null;
+
+function failPendingJobs(error) {
+  for (const job of pendingJobs.values()) {
+    job.reject(error);
+  }
+  pendingJobs.clear();
+}
+
+function getRenderWorker() {
+  if (renderWorker) {
+    return renderWorker;
   }
 
-  if (filePath) {
-    return path.parse(filePath).name;
+  const worker = new Worker(WORKER_PATH);
+  // The worker must never keep the app process alive on its own.
+  worker.unref();
+  renderWorker = worker;
+
+  worker.on("message", ({ id, result, error }) => {
+    const job = pendingJobs.get(id);
+    if (!job) {
+      return;
+    }
+
+    pendingJobs.delete(id);
+    if (error) {
+      job.reject(new Error(error.message));
+    } else {
+      job.resolve(result);
+    }
+    scheduleWorkerReap();
+  });
+
+  worker.on("error", (error) => {
+    if (renderWorker === worker) {
+      renderWorker = null;
+    }
+    failPendingJobs(error instanceof Error ? error : new Error(String(error)));
+  });
+
+  worker.on("exit", () => {
+    if (renderWorker === worker) {
+      renderWorker = null;
+    }
+    failPendingJobs(new Error("AsciiDoc render worker exited unexpectedly"));
+  });
+
+  return worker;
+}
+
+function scheduleWorkerReap() {
+  clearTimeout(workerReapTimer);
+  if (pendingJobs.size > 0) {
+    return;
   }
 
-  return "AsciiDoc Document";
+  workerReapTimer = setTimeout(() => {
+    if (renderWorker && pendingJobs.size === 0) {
+      const worker = renderWorker;
+      renderWorker = null;
+      void worker.terminate();
+    }
+  }, WORKER_IDLE_REAP_MS);
+  workerReapTimer.unref?.();
 }
 
-function getNodeLineNumber(node) {
-  const sourceLocation = node.getSourceLocation?.();
-  if (!sourceLocation) {
-    return null;
-  }
+function runRenderJob(op, ...args) {
+  const worker = getRenderWorker();
+  const id = nextJobId++;
 
-  if (typeof sourceLocation.getLineNumber === "function") {
-    return sourceLocation.getLineNumber();
-  }
-
-  return sourceLocation.lineno ?? null;
+  return new Promise((resolve, reject) => {
+    pendingJobs.set(id, { resolve, reject });
+    worker.postMessage({ id, op, args });
+  });
 }
 
-function extractSyncPoints(document) {
-  const supportedContexts = new Set([
-    "document",
-    "section",
-    "paragraph",
-    "listing",
-    "literal",
-    "ulist",
-    "olist",
-    "dlist",
-    "image",
-    "table",
-    "admonition",
-    "quote",
-    "verse",
-    "sidebar",
-    "example",
-    "open",
-    "stem"
-  ]);
-
-  const nodes = [
-    document,
-    ...(document.findBy?.(() => true) ?? [])
-  ];
-
-  return nodes
-    .map((node) => {
-      const context = node === document ? "document" : node.getContext?.();
-      const lineNumber = getNodeLineNumber(node);
-      if (!context || !lineNumber || !supportedContexts.has(context)) {
-        return null;
-      }
-
-      return {
-        context,
-        lineNumber
-      };
-    })
-    .filter(Boolean);
-}
-
-function renderDocument(source, filePath, options = {}) {
-  // Load once and convert the parsed document; calling asciidoctor.convert
-  // as well would parse the whole source a second time on every render.
-  const document = asciidoctor.load(source, buildLoadOptions(filePath, options));
-  return {
-    title: resolveDocumentTitle(document, filePath),
-    content: document.convert(),
-    syncPoints: extractSyncPoints(document)
-  };
-}
-
-function buildPreviewHtml({ title, styles, body }) {
-  return `<!doctype html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>${escapeHtml(title)}</title>
-      <style>${styles}</style>
-    </head>
-    <body>
-      <main>
-        ${body}
-      </main>
-    </body>
-  </html>`;
-}
-
-export function convertDocument(source, filePath, options = {}) {
-  return renderDocument(source, filePath, options).content;
+export async function convertDocument(source, filePath, options = {}) {
+  const { content } = await runRenderJob("renderDocument", source, filePath, options);
+  return content;
 }
 
 export async function renderPreviewDocument(source, filePath, options = {}) {
-  const { title, content, syncPoints } = renderDocument(source, filePath, {
-    standalone: true,
-    stylesheetPath: options.stylesheetPath
-  });
-  const rendered = highlightCodeBlocks(extractBodyContents(content));
+  const { title, body, syncPoints } = await runRenderJob(
+    "renderPreviewBody",
+    source,
+    filePath,
+    {
+      baseDir: options.baseDir,
+      backend: "html5",
+      standalone: true
+    }
+  );
 
   let customStyles = "";
   if (options.stylesheetPath) {
@@ -729,9 +526,26 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
   return {
     title,
     styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEME}${baseStyles}${highlightThemeCss}${customStyles}`,
-    body: rendered,
+    body,
     syncPoints
   };
+}
+
+function buildPreviewHtml({ title, styles, body }) {
+  return `<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${escapeHtml(title)}</title>
+      <style>${styles}</style>
+    </head>
+    <body>
+      <main>
+        ${body}
+      </main>
+    </body>
+  </html>`;
 }
 
 export async function renderPreview(source, filePath, options = {}) {
@@ -760,7 +574,7 @@ export async function exportDocument({
   }
 
   if (format === "docbook") {
-    const docbook = convertDocument(source, filePath, {
+    const docbook = await convertDocument(source, filePath, {
       baseDir,
       backend: "docbook5",
       standalone: true

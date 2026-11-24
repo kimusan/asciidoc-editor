@@ -11,7 +11,7 @@ test("convertDocument resolves include directives from the source directory", as
   await fs.writeFile(partialPath, "Included paragraph.", "utf8");
 
   const source = "= Demo\n\ninclude::partial.adoc[]";
-  const html = convertDocument(source, path.join(tempRoot, "main.adoc"));
+  const html = await convertDocument(source, path.join(tempRoot, "main.adoc"));
 
   assert.match(html, /Included paragraph\./);
 });
@@ -87,7 +87,7 @@ test("renderPreview can render a print-friendly document without preview chrome"
 });
 
 test("convertDocument keeps msc blocks valid for the DocBook backend", async () => {
-  const docbook = convertDocument("= Demo\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", null, {
+  const docbook = await convertDocument("= Demo\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----", null, {
     backend: "docbook5",
     standalone: true
   });
