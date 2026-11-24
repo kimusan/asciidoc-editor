@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { convertDocument, exportDocument, renderPreview } from "../electron/asciidoc.js";
+import { convertDocument, disposeRenderWorker, exportDocument, renderPreview } from "../electron/asciidoc.js";
+
+test.after(() => disposeRenderWorker());
 
 test("convertDocument resolves include directives from the source directory", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-"));

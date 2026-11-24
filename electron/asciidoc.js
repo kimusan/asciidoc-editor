@@ -490,6 +490,18 @@ function runRenderJob(op, ...args) {
   });
 }
 
+// Test/shutdown hook: an unref()ed worker still leaves a live MessagePort
+// that can hold a host process open under node --test, so tests terminate
+// the worker explicitly once they are done with the pipeline.
+export async function disposeRenderWorker() {
+  clearTimeout(workerReapTimer);
+  const worker = renderWorker;
+  renderWorker = null;
+  if (worker) {
+    await worker.terminate();
+  }
+}
+
 export async function convertDocument(source, filePath, options = {}) {
   const { content } = await runRenderJob("renderDocument", source, filePath, options);
   return content;
