@@ -53,6 +53,12 @@ jobs:
       - name: Build distributable
         run: ${{ matrix.package_command }}
 
+      - name: Run e2e against the packaged app
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          ASCIIDOC_E2E_EXECUTABLE: ${{ github.workspace }}/release/linux-unpacked/asciidoc-editor
+        run: xvfb-run -a npm run test:e2e
+
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v4
         with:
@@ -63,6 +69,7 @@ jobs:
             release/*.rpm
             release/*.pacman
             release/*.exe
+            release/*.zip
           if-no-files-found: error
 
   publish-release:
@@ -87,7 +94,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-artifacts
-          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pacman" -o -name "*.exe" \) -exec sha256sum {} + > checksums.sha256
+          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pacman" -o -name "*.exe" -o -name "*.zip" \) -exec sha256sum {} + > checksums.sha256
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
@@ -99,6 +106,7 @@ jobs:
             release-artifacts/linux-packages/*.rpm
             release-artifacts/linux-packages/*.pacman
             release-artifacts/windows-packages/*.exe
+            release-artifacts/windows-packages/*.zip
             release-artifacts/checksums.sha256
             tools/linux/register-adp-file-association.sh
             tools/windows/register-adp-file-association.reg

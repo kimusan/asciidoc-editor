@@ -16,8 +16,16 @@ async function launchApp() {
   }
 
   const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-profile-"));
+  // ASCIIDOC_E2E_EXECUTABLE points the suite at a packaged binary
+  // (e.g. release/linux-unpacked/asciidoc-editor) to verify the shipped
+  // layout instead of the dev tree.
+  const packagedExecutable = process.env.ASCIIDOC_E2E_EXECUTABLE;
   const app = await electron.launch({
-    args: [PROJECT_ROOT, `--user-data-dir=${profileDir}`]
+    ...(packagedExecutable ? { executablePath: packagedExecutable } : {}),
+    args: [
+      ...(packagedExecutable ? [] : [PROJECT_ROOT]),
+      `--user-data-dir=${profileDir}`
+    ]
   });
   const window = await app.firstWindow();
   return { app, window };
@@ -90,6 +98,36 @@ test("edits flow into the preview and the outline", async () => {
     }).toPass({ timeout: 10_000 });
 
     await expect(window.locator(".outline-entry", { hasText: "Fresh Section" })).toBeVisible({ timeout: 10_000 });
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("render worker handles source highlighting and msc diagrams", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+
+    // These block types exercise the worker's heaviest dependencies:
+    // highlight.js for the source block, jsdom + mscgenjs for the
+    // diagram. They must resolve in both the dev tree and the packaged
+    // asar layout. insertText is used instead of keyboard.type because
+    // per-key events can drop characters against CodeMirror here.
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("ControlOrMeta+End");
+    await window.keyboard.insertText(
+      "\n[source,js]\n----\nconst total = 1;\n----\n\n[msc]\n----\nmsc {\n  a,b;\n  a=>b[label=\"hello\"];\n}\n----"
+    );
+
+    await expect(async () => {
+      const previewHtml = await window.evaluate(() => {
+        const frame = document.querySelector("#preview-frame");
+        return frame?.contentDocument?.getElementById("preview-root")?.innerHTML ?? "";
+      });
+      expect(previewHtml).toContain("<svg");
+      expect(previewHtml).toContain("hljs");
+    }).toPass({ timeout: 15_000 });
   } finally {
     await stopApp(app);
   }
