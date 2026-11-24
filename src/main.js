@@ -410,7 +410,7 @@ function createLayout() {
           </div>
         </section>
       </main>
-      <div id="preview-overlay" class="reference-overlay" hidden>
+      <div id="preview-overlay" class="reference-overlay">
         <div id="preview-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog preview-dialog panel" role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title">
           <div class="panel-header">
@@ -426,7 +426,7 @@ function createLayout() {
           <iframe id="preview-frame-expanded" class="preview-frame preview-frame-expanded" title="Expanded AsciiDoc preview" sandbox="allow-same-origin"></iframe>
         </section>
       </div>
-      <div id="export-overlay" class="reference-overlay" hidden>
+      <div id="export-overlay" class="reference-overlay">
         <div id="export-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog export-dialog panel" role="dialog" aria-modal="true" aria-labelledby="export-title">
           <div class="panel-header">
@@ -455,7 +455,7 @@ function createLayout() {
           </div>
         </section>
       </div>
-      <div id="settings-overlay" class="reference-overlay" hidden>
+      <div id="settings-overlay" class="reference-overlay">
         <div id="settings-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog settings-dialog panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
           <div class="panel-header">
@@ -528,7 +528,7 @@ function createLayout() {
           </div>
         </section>
       </div>
-      <div id="reference-overlay" class="reference-overlay" hidden>
+      <div id="reference-overlay" class="reference-overlay">
         <div id="reference-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog panel" role="dialog" aria-modal="true" aria-labelledby="reference-title">
           <div class="panel-header">
@@ -548,7 +548,7 @@ function createLayout() {
           <div id="reference-results" class="reference-results"></div>
         </section>
       </div>
-      <div id="workspace-content-overlay" class="reference-overlay" hidden>
+      <div id="workspace-content-overlay" class="reference-overlay">
         <div id="workspace-content-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog workspace-search-dialog panel" role="dialog" aria-modal="true" aria-labelledby="workspace-content-title">
           <div class="panel-header">
@@ -581,7 +581,7 @@ function createLayout() {
           <div id="workspace-content-results" class="workspace-content-results"></div>
         </section>
       </div>
-      <div id="help-overlay" class="reference-overlay" hidden>
+      <div id="help-overlay" class="reference-overlay">
         <div id="help-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog shortcuts-dialog panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
           <div class="panel-header">
@@ -602,7 +602,7 @@ function createLayout() {
           </div>
         </section>
       </div>
-      <div id="about-overlay" class="reference-overlay" hidden>
+      <div id="about-overlay" class="reference-overlay">
         <div id="about-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog about-dialog panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
           <div class="panel-header">
@@ -1634,19 +1634,12 @@ function updateDocumentChrome() {
   elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
   const pdfCssSuffix = appState.pdfStylesheetPath ? " with custom PDF CSS." : ".";
   elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize})${pdfCssSuffix}`;
-  elements.settingsOverlay.hidden = !appState.settingsOpen;
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
-  elements.previewOverlay.hidden = !appState.previewOverlayOpen;
   elements.previewOverlay.classList.toggle("is-open", appState.previewOverlayOpen);
-  elements.exportOverlay.hidden = !appState.exportOverlayOpen;
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
-  elements.referenceOverlay.hidden = !appState.referenceOpen;
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
-  elements.workspaceContentOverlay.hidden = !appState.workspaceContentSearchOpen;
   elements.workspaceContentOverlay.classList.toggle("is-open", appState.workspaceContentSearchOpen);
-  elements.helpOverlay.hidden = !appState.helpOpen;
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
-  elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
   setInputElementValue(elements.workspaceContentQuery, appState.workspaceContentQuery);
   elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
