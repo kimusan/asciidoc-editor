@@ -523,7 +523,11 @@ function ensureMscExtensionsRegistered() {
 function buildLoadOptions(filePath, options = {}) {
   ensureMscExtensionsRegistered();
   return {
-    safe: "unsafe",
+    // "server" keeps include:: resolution relative to base_dir while blocking
+    // absolute and parent-escaping paths, so an untrusted document cannot read
+    // arbitrary files from disk. Passthrough scripts are additionally blocked
+    // by the sandboxed preview iframe in the renderer.
+    safe: "server",
     base_dir: resolveBaseDir(filePath, options.baseDir),
     standalone: options.standalone ?? true,
     backend: options.backend ?? "html5",

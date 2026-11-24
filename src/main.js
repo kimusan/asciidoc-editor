@@ -988,7 +988,7 @@ function createLayout() {
                     <button id="open-preview-overlay" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.expand}</span><span>Expand</span></button>
                   </div>
                 </div>
-                <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview"></iframe>
+                <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview" sandbox="allow-same-origin"></iframe>
               </section>
             </div>
             <aside id="outline-panel" class="outline-panel" aria-label="Document outline">
@@ -1022,7 +1022,7 @@ function createLayout() {
             </div>
             <button id="close-preview-overlay" class="toolbar-button ghost-button"><span>Close</span></button>
           </div>
-          <iframe id="preview-frame-expanded" class="preview-frame preview-frame-expanded" title="Expanded AsciiDoc preview"></iframe>
+          <iframe id="preview-frame-expanded" class="preview-frame preview-frame-expanded" title="Expanded AsciiDoc preview" sandbox="allow-same-origin"></iframe>
         </section>
       </div>
       <div id="export-overlay" class="reference-overlay" hidden>
