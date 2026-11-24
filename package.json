@@ -11,6 +11,7 @@
     "build": "vite build",
     "start": "electron .",
     "test": "node --test",
+    "test:e2e": "playwright test",
     "package:linux": "npm run build && electron-builder --linux AppImage",
     "package:win": "npm run build && electron-builder --win portable --x64"
   },
@@ -56,6 +57,7 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1",
     "vite": "^8.0.10"
