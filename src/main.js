@@ -1,7 +1,6 @@
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { autocompletion } from "@codemirror/autocomplete";
 import {
   search,
   searchKeymap,
@@ -775,6 +774,10 @@ const appState = {
   autoSaveTimer: null,
   renderTimer: null,
   syncTimer: null,
+  outlineTimer: null,
+  metricsTimer: null,
+  lastPreviewDocument: null,
+  expandedPreviewStale: true,
   directoryCache: new Map()
 };
 
@@ -1757,8 +1760,19 @@ function updateActiveOutlineEntry() {
   });
 }
 
+function outlineEntriesEqual(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((entry, index) => entry.level === right[index].level
+    && entry.lineNumber === right[index].lineNumber
+    && entry.title === right[index].title);
+}
+
 function renderOutlinePanel() {
   const outlineEntries = currentDocumentHasPreview() ? getOutlineEntries(appState.currentContent) : [];
+  const entriesUnchanged = outlineEntriesEqual(outlineEntries, appState.outlineEntries);
   appState.outlineEntries = outlineEntries;
 
   if (!elements.outlineList || !elements.outlineSummary) {
@@ -1772,20 +1786,27 @@ function renderOutlinePanel() {
   }
 
   elements.outlineSummary.textContent = `${outlineEntries.length} section${outlineEntries.length === 1 ? "" : "s"}`;
-  elements.outlineList.innerHTML = outlineEntries.length > 0
-    ? outlineEntries.map((entry) => `
-      <button
-        class="outline-entry outline-level-${entry.level}"
-        type="button"
-        data-line="${entry.lineNumber}"
-        title="Jump to line ${entry.lineNumber}"
-      >
-        <span class="outline-entry-label">${escapeHtml(entry.title)}</span>
-      </button>
-    `).join("")
-    : `<div class="outline-empty">No section headings yet. Add <code>= Title</code> or <code>== Section</code> headings to build an outline.</div>`;
+  if (!entriesUnchanged) {
+    elements.outlineList.innerHTML = outlineEntries.length > 0
+      ? outlineEntries.map((entry) => `
+        <button
+          class="outline-entry outline-level-${entry.level}"
+          type="button"
+          data-line="${entry.lineNumber}"
+          title="Jump to line ${entry.lineNumber}"
+        >
+          <span class="outline-entry-label">${escapeHtml(entry.title)}</span>
+        </button>
+      `).join("")
+      : `<div class="outline-empty">No section headings yet. Add <code>= Title</code> or <code>== Section</code> headings to build an outline.</div>`;
+  }
 
   updateActiveOutlineEntry();
+}
+
+function scheduleOutlineUpdate() {
+  clearTimeout(appState.outlineTimer);
+  appState.outlineTimer = setTimeout(renderOutlinePanel, 300);
 }
 
 function buildEditorSearchQuery() {
@@ -2039,7 +2060,6 @@ function createEditor() {
     search(),
     highlightActiveLine(),
     highlightSelectionMatches(),
-    autocompletion(),
     keymap.of([
       {
         key: "Mod-f",
@@ -2102,8 +2122,7 @@ function createEditor() {
           activeDocument.previewInSync = false;
         }
         updateDocumentChrome();
-        renderOutlinePanel();
-        renderDocumentTabs();
+        scheduleOutlineUpdate();
         scheduleSessionPersistence();
         schedulePreviewRender();
       }
@@ -2125,11 +2144,33 @@ function createEditor() {
   });
 }
 
+function setInputElementValue(input, value) {
+  // Reassigning .value even with an identical string resets the caret in
+  // Chromium, which breaks mid-string editing in mirrored search fields.
+  if (input && input.value !== value) {
+    input.value = value;
+  }
+}
+
+function updateDocumentMetrics() {
+  if (!elements.wordCount || !elements.lineCount) {
+    return;
+  }
+
+  const doc = editorView?.state.doc;
+  const content = doc ? doc.sliceString(0) : appState.currentContent;
+  const trimmedContent = content.trim();
+  elements.wordCount.textContent = String(trimmedContent ? trimmedContent.split(/\s+/).length : 0);
+  elements.lineCount.textContent = String(doc ? doc.lines : content.split("\n").length);
+}
+
+function scheduleDocumentMetrics() {
+  clearTimeout(appState.metricsTimer);
+  appState.metricsTimer = setTimeout(updateDocumentMetrics, 250);
+}
+
 function updateDocumentChrome() {
   const fileName = getCurrentDocumentName();
-  const trimmedContent = appState.currentContent.trim();
-  const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
-  const lineCount = appState.currentContent.split("\n").length;
   const activeDocument = getDocumentSession();
 
   elements.documentName.textContent = appState.isDirty ? `${fileName} *` : fileName;
@@ -2165,8 +2206,6 @@ function updateDocumentChrome() {
   elements.settingsPdfStylesheetStatus.textContent = appState.pdfStylesheetPath
     ? appState.pdfStylesheetPath.split(/[\\/]/).pop()
     : "No custom PDF CSS selected.";
-  elements.wordCount.textContent = String(wordCount);
-  elements.lineCount.textContent = String(lineCount);
   elements.focusButtonLabel.textContent = appState.distractionFree ? "Exit Focus" : "Enter Focus";
   elements.shell.classList.toggle("focus-mode", appState.distractionFree);
   elements.shell.classList.toggle("workspace-collapsed", appState.workspaceCollapsed);
@@ -2186,8 +2225,8 @@ function updateDocumentChrome() {
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
   elements.editorReplaceScopeRow.hidden = !appState.editorReplaceOpen;
   elements.editorReplaceNoteRow.hidden = !(appState.editorReplaceOpen && appState.editorReplaceAllOpenFiles);
-  elements.editorSearchInput.value = appState.editorSearchQuery;
-  elements.editorReplaceInput.value = appState.editorReplaceQuery;
+  setInputElementValue(elements.editorSearchInput, appState.editorSearchQuery);
+  setInputElementValue(elements.editorReplaceInput, appState.editorReplaceQuery);
   elements.editorReplaceScopeOpenFiles.checked = appState.editorReplaceAllOpenFiles;
   elements.toggleEditorSearch.classList.toggle("is-active", appState.editorSearchOpen);
   elements.toggleEditorSearch.setAttribute("aria-pressed", String(appState.editorSearchOpen));
@@ -2210,13 +2249,13 @@ function updateDocumentChrome() {
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
   elements.aboutOverlay.hidden = !appState.aboutOpen;
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
-  elements.workspaceContentQuery.value = appState.workspaceContentQuery;
-  elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);
-  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
+  setInputElementValue(elements.workspaceContentQuery, appState.workspaceContentQuery);
+  elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
   elements.workspaceContentRegex.classList.toggle("is-active", appState.workspaceContentRegex);
   elements.workspaceContentSummary.textContent = appState.workspaceContentSummary;
   elements.workspaceContentRunSearch.disabled = appState.workspaceContentBusy;
   renderDocumentTabs();
+  scheduleDocumentMetrics();
 }
 
 function setSplitRatio(nextRatio) {
@@ -2262,6 +2301,7 @@ function closeReferenceOverlay() {
 function openPreviewOverlay() {
   appState.previewOverlayOpen = true;
   updateDocumentChrome();
+  void hydrateExpandedPreviewFrame();
 }
 
 function closePreviewOverlay() {
@@ -2357,7 +2397,14 @@ function applyEditorTheme(theme) {
   });
 }
 
+let lastAppliedShellTheme = null;
+
 function applyShellTheme(theme) {
+  if (theme === lastAppliedShellTheme) {
+    return;
+  }
+
+  lastAppliedShellTheme = theme;
   const themeVars = APP_THEME_VARS[theme] ?? APP_THEME_VARS.nocturne;
   Object.entries(themeVars).forEach(([name, value]) => {
     elements.shell.style.setProperty(name, value);
@@ -2471,12 +2518,22 @@ function waitForPreviewFrameReady(frame) {
     return Promise.resolve(frame.contentDocument);
   }
 
-  return new Promise((resolve) => {
-    frame.addEventListener("load", () => {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      frame.removeEventListener("load", handleLoad);
+      reject(new Error("Preview frame did not finish loading"));
+    }, 5000);
+
+    const handleLoad = () => {
+      clearTimeout(timeoutId);
       resolve(frame.contentDocument);
-    }, { once: true });
+    };
+
+    frame.addEventListener("load", handleLoad, { once: true });
   });
 }
+
+const previewAnchorCache = new WeakMap();
 
 function applyPreviewDocument(frame, previewDocument) {
   const frameDocument = frame.contentDocument;
@@ -2489,6 +2546,7 @@ function applyPreviewDocument(frame, previewDocument) {
   frameDocument.title = previewDocument.title ?? "AsciiDoc Preview";
   styleHost.textContent = previewDocument.styles ?? "";
   root.innerHTML = previewDocument.body ?? "";
+  previewAnchorCache.delete(frame);
   return true;
 }
 
@@ -2620,10 +2678,10 @@ async function renderPreviewNow() {
   updateDocumentChrome();
 
   try {
-    await Promise.all([
-      waitForPreviewFrameReady(elements.previewFrame),
-      waitForPreviewFrameReady(elements.previewFrameExpanded)
-    ]);
+    await waitForPreviewFrameReady(elements.previewFrame);
+    if (appState.previewOverlayOpen) {
+      await waitForPreviewFrameReady(elements.previewFrameExpanded);
+    }
 
     const previewDocument = currentDocumentHasPreview()
       ? await window.desktop.renderPreview(buildPreviewPayload())
@@ -2632,12 +2690,22 @@ async function renderPreviewNow() {
       return;
     }
 
+    appState.lastPreviewDocument = previewDocument;
     applyPreviewDocument(elements.previewFrame, previewDocument);
-    applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
     applyPreviewSyncPoints(elements.previewFrame, previewDocument.syncPoints);
-    applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
     installPreviewInteractions(elements.previewFrame);
-    installPreviewInteractions(elements.previewFrameExpanded);
+
+    // The expanded overlay is usually closed; only mirror the render into it
+    // when it is visible and mark it stale otherwise, halving the DOM work.
+    if (appState.previewOverlayOpen) {
+      applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
+      applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
+      installPreviewInteractions(elements.previewFrameExpanded);
+      appState.expandedPreviewStale = false;
+    } else {
+      appState.expandedPreviewStale = true;
+    }
+
     appState.previewInSync = true;
     const activeDocument = getDocumentSession();
     if (activeDocument) {
@@ -2675,10 +2743,9 @@ async function renderPreviewNow() {
       `,
       body: `<h2>Preview failed</h2><pre>${escapeHtml(message)}</pre>`
     };
+    appState.lastPreviewDocument = fallbackPreviewDocument;
     applyPreviewDocument(elements.previewFrame, fallbackPreviewDocument);
-    applyPreviewDocument(elements.previewFrameExpanded, fallbackPreviewDocument);
     installPreviewInteractions(elements.previewFrame);
-    installPreviewInteractions(elements.previewFrameExpanded);
     appState.previewInSync = false;
     const activeDocument = getDocumentSession();
     if (activeDocument) {
@@ -2686,7 +2753,25 @@ async function renderPreviewNow() {
     }
   }
 
+  consumePendingPreviewAnchor();
   updateDocumentChrome();
+}
+
+async function hydrateExpandedPreviewFrame() {
+  if (!appState.expandedPreviewStale) {
+    return;
+  }
+
+  const previewDocument = appState.lastPreviewDocument;
+  if (!previewDocument) {
+    return;
+  }
+
+  await waitForPreviewFrameReady(elements.previewFrameExpanded);
+  applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
+  applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
+  installPreviewInteractions(elements.previewFrameExpanded);
+  appState.expandedPreviewStale = false;
 }
 
 function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame, behavior = "smooth") {
@@ -2706,8 +2791,14 @@ function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame, behavior
   });
 }
 
+let sourceSectionsCache = { content: null, sections: [] };
+
 function getSourceSections() {
-  return appState.currentContent
+  if (sourceSectionsCache.content === appState.currentContent) {
+    return sourceSectionsCache.sections;
+  }
+
+  const sections = appState.currentContent
     .split("\n")
     .map((line, index) => {
       const match = line.match(/^(={2,6})\s+(.+)$/);
@@ -2722,6 +2813,9 @@ function getSourceSections() {
       };
     })
     .filter(Boolean);
+
+  sourceSectionsCache = { content: appState.currentContent, sections };
+  return sections;
 }
 
 function getPreviewSectionHeadings(frame = elements.previewFrame) {
@@ -2731,13 +2825,20 @@ function getPreviewSectionHeadings(frame = elements.previewFrame) {
 }
 
 function getPreviewSyncAnchors(frame = elements.previewFrame) {
-  return Array.from(frame.contentDocument?.querySelectorAll("[data-source-line]") ?? [])
+  const cachedAnchors = previewAnchorCache.get(frame);
+  if (cachedAnchors) {
+    return cachedAnchors;
+  }
+
+  const anchors = Array.from(frame.contentDocument?.querySelectorAll("[data-source-line]") ?? [])
     .map((element) => ({
       element,
       lineNumber: Number.parseInt(element.dataset.sourceLine ?? "", 10)
     }))
     .filter((anchor) => Number.isFinite(anchor.lineNumber))
     .sort((left, right) => left.lineNumber - right.lineNumber);
+  previewAnchorCache.set(frame, anchors);
+  return anchors;
 }
 
 function findNearestSectionIndex(lineNumber) {
@@ -2995,13 +3096,6 @@ async function handlePreviewLinkClick(event, frame) {
 function installPreviewInteractions(frame) {
   const previewDocument = frame.contentDocument;
   if (!previewDocument?.body || previewDocument.body.dataset.previewBound === "true") {
-    if (appState.pendingPreviewAnchor) {
-      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame, "auto");
-      scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded, "auto");
-      appState.pendingPreviewAnchor = null;
-    } else {
-      syncPreviewToEditorPosition();
-    }
     return;
   }
 
@@ -3009,14 +3103,18 @@ function installPreviewInteractions(frame) {
     void handlePreviewLinkClick(event, frame);
   });
   previewDocument.body.dataset.previewBound = "true";
+}
 
+function consumePendingPreviewAnchor() {
   if (appState.pendingPreviewAnchor) {
-    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrame, "auto");
-    scrollPreviewToAnchor(appState.pendingPreviewAnchor, elements.previewFrameExpanded, "auto");
+    const anchorId = appState.pendingPreviewAnchor;
     appState.pendingPreviewAnchor = null;
-  } else {
-    syncPreviewToEditorPosition();
+    scrollPreviewToAnchor(anchorId, elements.previewFrame, "auto");
+    scrollPreviewToAnchor(anchorId, elements.previewFrameExpanded, "auto");
+    return;
   }
+
+  syncPreviewToEditorPosition();
 }
 
 function schedulePreviewRender() {
