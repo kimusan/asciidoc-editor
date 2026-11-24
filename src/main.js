@@ -2020,9 +2020,14 @@ function runEditorReplaceAll() {
 }
 
 function createEditorState(doc) {
+  const themeConfig = THEME_STYLES[appState.theme] ?? THEME_STYLES.nocturne;
   return EditorState.create({
     doc,
-    extensions: editorExtensions
+    extensions: [
+      ...editorExtensions,
+      themeCompartment.of(themeConfig.syntax),
+      editorThemeCompartment.of(themeConfig.editor)
+    ]
   });
 }
 
@@ -2076,8 +2081,6 @@ function createEditor() {
       }
     ]),
     asciidocLanguage(),
-    themeCompartment.of(THEME_STYLES.nocturne.syntax),
-    editorThemeCompartment.of(THEME_STYLES.nocturne.editor),
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
       const activeDocument = getDocumentSession();
@@ -3402,7 +3405,6 @@ async function exportCurrentDocument(format) {
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
   });
-  appState.previewInSync = true;
   elements.documentStatus.textContent = `Exported ${format.toUpperCase()}`;
 }
 
@@ -3919,12 +3921,18 @@ async function bindEvents() {
     }
 
     appState.isHandlingCloseRequest = true;
-    const allowClose = await confirmApplicationClose();
-    if (allowClose) {
-      await persistWindowState();
+    let allowClose = false;
+    try {
+      allowClose = await confirmApplicationClose();
+      if (allowClose) {
+        await persistWindowState();
+      }
+    } finally {
+      // Always clear the flag and answer the request; a thrown error in the
+      // save flow must never leave the app unclosable.
+      appState.isHandlingCloseRequest = false;
+      await window.desktop.respondToAppCloseRequest({ requestId, allowClose });
     }
-    appState.isHandlingCloseRequest = false;
-    await window.desktop.respondToAppCloseRequest({ requestId, allowClose });
   });
 
   window.desktop.onExternalFileChanged(async ({ filePath, exists, lastModifiedMs }) => {
