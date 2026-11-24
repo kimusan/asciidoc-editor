@@ -1868,8 +1868,12 @@ function syncEditorSearchQuery() {
 }
 
 function openEditorSearch({ prefillSelection = false, showReplace = false } = {}) {
+  if (!editorView) {
+    return;
+  }
+
   appState.editorSearchOpen = true;
-  appState.editorReplaceOpen = true;
+  appState.editorReplaceOpen = showReplace;
 
   if (prefillSelection) {
     const selection = editorView.state.selection.main;
@@ -1898,6 +1902,10 @@ function toggleEditorSearch(options = {}) {
 }
 
 function closeEditorSearch() {
+  if (!editorView) {
+    return;
+  }
+
   appState.editorSearchOpen = false;
   appState.editorReplaceOpen = false;
   appState.editorSearchQuery = "";
@@ -3129,7 +3137,7 @@ function renderTreeNodes(items, depth = 0) {
     if (item.type === "directory") {
       const isOpen = appState.directoryCache.get(item.path)?.open ?? depth < 1;
       return `
-        <details class="tree-node" data-path="${item.path}" ${isOpen ? "open" : ""}>
+        <details class="tree-node" data-path="${escapeHtml(item.path)}" ${isOpen ? "open" : ""}>
           <summary class="tree-entry tree-entry-directory" data-path="${escapeHtml(item.path)}" data-type="directory">
             <span class="tree-entry-content">
               <span class="tree-entry-icon">${ICONS.folder}</span>
@@ -3983,7 +3991,13 @@ async function bindEvents() {
       return;
     }
 
-    const internalPaths = JSON.parse(event.dataTransfer?.getData("application/x-asciidoc-editor-paths") || "[]");
+    let internalPaths = [];
+    try {
+      internalPaths = JSON.parse(event.dataTransfer?.getData("application/x-asciidoc-editor-paths") || "[]");
+    } catch {
+      internalPaths = [];
+    }
+
     if (Array.isArray(internalPaths) && internalPaths.length > 0) {
       void importDroppedAssets(internalPaths.map((filePath) => ({ path: filePath })));
     }
@@ -4101,7 +4115,7 @@ async function bindEvents() {
       openReferenceOverlay();
     }
 
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
       event.preventDefault();
       void createUntitledDocument();
     }
