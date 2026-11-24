@@ -977,13 +977,21 @@ input:focus-visible,
 
 .preview-frame {
   border: 0;
-  background: #ffffff;
+  background: var(--preview-shell-bg, #ffffff);
 }
 
 .splitter {
   position: relative;
   cursor: col-resize;
   background: transparent;
+}
+
+.splitter:focus-visible {
+  outline: none;
+}
+
+.splitter:focus-visible::before {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 55%, transparent);
 }
 
 .splitter::before {

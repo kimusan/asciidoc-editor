@@ -377,7 +377,7 @@ function createLayout() {
                 </div>
                 <div id="editor-root" class="editor-root"></div>
               </section>
-              <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview"></div>
+              <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview" tabindex="0" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
               <section class="split-panel split-panel-preview">
                 <div class="split-panel-header">
                   <div class="panel-header-main panel-header-compact">
@@ -1660,6 +1660,7 @@ function updateDocumentChrome() {
 function setSplitRatio(nextRatio) {
   appState.splitRatio = Math.min(0.75, Math.max(0.25, nextRatio));
   elements.shell.style.setProperty("--split-ratio", String(appState.splitRatio));
+  elements.splitter?.setAttribute("aria-valuenow", String(Math.round(appState.splitRatio * 100)));
 }
 
 async function setWorkspaceCollapsed(nextValue) {
@@ -1783,6 +1784,24 @@ function bindSplitter() {
     elements.shell.classList.add("is-resizing");
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+  });
+
+  // Keyboard equivalent of dragging for the focusable separator.
+  elements.splitter.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 0.1 : 0.03;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSplitRatio(appState.splitRatio - step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSplitRatio(appState.splitRatio + step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setSplitRatio(0.25);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setSplitRatio(0.75);
+    }
   });
 }
 
