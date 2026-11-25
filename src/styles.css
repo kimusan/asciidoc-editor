@@ -327,6 +327,13 @@ input:focus-visible,
   background: var(--text-tertiary);
 }
 
+/* Enlarge the dot's hover target so its tooltip is reachable. */
+.sync-dot::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+
 @keyframes sync-pulse {
   50% {
     opacity: 0.45;
@@ -468,7 +475,8 @@ input:focus-visible,
   justify-content: center;
   align-items: flex-start;
   padding: 12vh 24px 24px;
-  background: rgba(4, 8, 12, 0.55);
+  background: rgba(3, 6, 10, 0.82);
+  backdrop-filter: blur(6px);
 }
 
 .command-palette-overlay.is-open {
@@ -479,7 +487,7 @@ input:focus-visible,
   width: min(640px, 100%);
   max-height: 62vh;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: var(--panel-bg-strong);
@@ -580,6 +588,26 @@ input:focus-visible,
   text-align: center;
   color: var(--text-tertiary);
   font-size: 0.85rem;
+}
+
+.command-palette-footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--panel-border);
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+}
+
+.command-palette-footer kbd {
+  padding: 1px 5px;
+  margin-right: 3px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  background: var(--control-bg);
+  font-family: inherit;
+  font-size: 0.7rem;
 }
 
 /* One-time hint teaching palette + Alt menu after the chrome slim-down. */

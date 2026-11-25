@@ -140,21 +140,27 @@ test("command palette finds and runs actions", async () => {
     await expect(window.locator("#command-palette-overlay")).not.toHaveClass(/is-open/);
     await window.keyboard.press("Escape");
 
-    // Outline headings are jumpable from the palette.
+    // Outline headings are jumpable from the palette — with the keyboard
+    // alone: type, ArrowDown to the second match, Enter jumps to it.
     await window.locator(".cm-content").click();
     await window.keyboard.press("ControlOrMeta+Home");
-    await window.keyboard.insertText("= Top\n\nIntro\n\n== Deep Section\n\nMore text");
+    await window.keyboard.insertText("= Top\n\nIntro\n\n== Deep Section\n\nMore text\n\n=== Deep Subsection\n\nTail");
     await window.waitForTimeout(1_500);
     await window.keyboard.press("Control+K");
+    await expect(window.locator(".command-palette-footer")).toBeVisible();
     await window.keyboard.insertText("deep");
     await expect(window.locator(".command-palette-item").first()).toContainText("Deep Section");
+    await window.keyboard.press("ArrowDown");
+    await expect(window.locator(".command-palette-item.is-selected")).toContainText("Deep Subsection");
     await window.keyboard.press("Enter");
     const cursorLine = await window.evaluate(() => {
       const cm = document.querySelector(".cm-content");
       const line = cm.querySelector(".cm-activeLine");
       return line ? Array.from(cm.querySelectorAll(".cm-line")).indexOf(line) + 1 : -1;
     });
-    expect(cursorLine).toBeGreaterThan(1);
+    // The cursor must sit on the "=== Deep Subsection" line, past the
+    // "Deep Section" heading (line 5).
+    expect(cursorLine).toBeGreaterThan(5);
   } finally {
     await stopApp(app);
   }

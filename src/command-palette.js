@@ -241,6 +241,11 @@ export function initCommandPalette(deps) {
         <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Type a command, tab, heading, or file…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="command-palette-results" />
       </div>
       <div id="command-palette-results" class="command-palette-results" role="listbox" aria-label="Palette results"></div>
+      <div class="command-palette-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>Enter</kbd> select</span>
+        <span><kbd>Esc</kbd> close</span>
+      </div>
     </section>
   `;
   document.body.appendChild(paletteState.overlay);
@@ -248,11 +253,20 @@ export function initCommandPalette(deps) {
   paletteState.input = paletteState.overlay.querySelector("#command-palette-input");
   paletteState.results = paletteState.overlay.querySelector("#command-palette-results");
 
-  paletteState.input.addEventListener("keydown", handleInputKeydown);
+  // Keydown lives on the overlay, not the input: the arrows must work no
+  // matter which element inside the dialog currently holds focus.
+  paletteState.overlay.addEventListener("keydown", handleInputKeydown);
   paletteState.input.addEventListener("input", handleInput);
   paletteState.overlay.addEventListener("mousedown", (event) => {
     if (event.target === paletteState.overlay) {
       closeCommandPalette();
+      return;
+    }
+
+    // Clicking any dead space inside the dialog returns focus to the input
+    // so typing and arrow keys keep working.
+    if (!(event.target instanceof Element && event.target.closest("button, input"))) {
+      paletteState.input.focus();
     }
   });
   paletteState.results.addEventListener("click", (event) => {

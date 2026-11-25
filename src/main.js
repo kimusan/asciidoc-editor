@@ -458,7 +458,7 @@ function createLayout() {
       <div id="chrome-hint" class="chrome-hint" role="status">
         <div class="chrome-hint-body">
           <strong>A slimmer toolbar</strong>
-          <span>Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for the command palette, or <kbd>Alt</kbd> for the classic menu bar. Everything still lives in the <strong>⋯</strong> menu too.</span>
+          <span>Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for the command palette, or <kbd>Alt</kbd> for the classic menu bar. Everything also lives in the three-dot menu (⋮) in the top-right corner.</span>
         </div>
         <div class="chrome-hint-actions">
           <button id="chrome-hint-shortcuts" class="toolbar-button" type="button">Show shortcuts</button>
@@ -666,7 +666,7 @@ function createLayout() {
             <button id="close-help" class="toolbar-button ghost-button"><span>Close</span></button>
           </div>
           <div class="shortcuts-content">
-            <p class="shortcuts-note">Use <strong>Ctrl</strong> on Windows and Linux. The same shortcuts use <strong>Cmd</strong> on macOS where shown. Looking for a button that moved? Try the <strong>Ctrl+K</strong> command palette, the <strong>⋯</strong> menu in the top-right corner, or press <strong>Alt</strong> for the classic menu bar.</p>
+            <p class="shortcuts-note">Use <strong>Ctrl</strong> on Windows and Linux. The same shortcuts use <strong>Cmd</strong> on macOS where shown. Looking for a button that moved? Try the <strong>Ctrl+K</strong> command palette, the three-dot menu (⋮) in the top-right corner, or press <strong>Alt</strong> for the classic menu bar.</p>
             <div class="shortcut-grid">
               ${renderShortcutSections()}
             </div>
@@ -1097,6 +1097,7 @@ function buildNativeMenuPayload() {
 function setPreviewStatus(state, text) {
   elements.documentStatus.dataset.state = state;
   elements.documentStatus.setAttribute("aria-label", text);
+  elements.documentStatus.setAttribute("data-tip", `Preview status: ${text}`);
   elements.statusbarSync.textContent = text;
 }
 
