@@ -37,6 +37,25 @@ test("renderPreview includes the document header title", async () => {
   assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });
 
+test("renderPreviewDocument extracts source-mapped sync points for scroll sync", async () => {
+  const { renderPreviewDocument } = await import("../electron/asciidoc.js");
+  const result = await renderPreviewDocument(
+    "= Title\n\npara one\n\npara two\n\n== S1\n\npara three\n",
+    null,
+    {}
+  );
+
+  // sourcemap: true must stay in the Asciidoctor load options; without it
+  // every block loses its source location and preview scroll sync dies.
+  assert.deepEqual(result.syncPoints, [
+    { context: "section", lineNumber: 1 },
+    { context: "paragraph", lineNumber: 3 },
+    { context: "paragraph", lineNumber: 5 },
+    { context: "section", lineNumber: 7 },
+    { context: "paragraph", lineNumber: 9 }
+  ]);
+});
+
 test("renderPreview resolves relative image paths from an explicit base directory for unsaved project documents", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-images-"));
   const imagePath = path.join(tempRoot, "images", "cover.png");

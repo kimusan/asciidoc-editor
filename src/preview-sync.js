@@ -6,6 +6,7 @@
 import { appState, editorRef, elements } from "./app-state.js";
 
 export const PREVIEW_SYNC_SELECTOR = [
+  "#header h1",
   "#content h1",
   "#content h2",
   "#content h3",
@@ -119,16 +120,25 @@ export function applyPreviewSyncPoints(frame, syncPoints = []) {
   let candidateIndex = 0;
 
   for (const syncPoint of syncPoints) {
-    for (; candidateIndex < candidates.length; candidateIndex += 1) {
-      const candidate = candidates[candidateIndex];
-      if (!elementMatchesSyncPoint(candidate, syncPoint)) {
-        continue;
+    // Find the first unclaimed candidate that matches this block. Skipping
+    // non-matching candidates is correct (rendered blocks without a sync
+    // point, e.g. msc pass blocks, sit between matching ones), but a sync
+    // point with no rendered candidate must not consume the pointer or every
+    // later anchor would be silently dropped.
+    let matchedIndex = -1;
+    for (let index = candidateIndex; index < candidates.length; index += 1) {
+      if (elementMatchesSyncPoint(candidates[index], syncPoint)) {
+        matchedIndex = index;
+        break;
       }
-
-      candidate.dataset.sourceLine = String(syncPoint.lineNumber);
-      candidateIndex += 1;
-      break;
     }
+
+    if (matchedIndex < 0) {
+      continue;
+    }
+
+    candidates[matchedIndex].dataset.sourceLine = String(syncPoint.lineNumber);
+    candidateIndex = matchedIndex + 1;
   }
 }
 
@@ -255,8 +265,9 @@ export function getEditorSectionSyncPosition() {
 
 export function getEditorSyncLineNumber() {
   const selectionLine = editorRef.view.state.doc.lineAt(editorRef.view.state.selection.main.head).number;
-  const viewportStartLine = editorRef.view.state.doc.lineAt(editorRef.view.state.viewport.from).number;
-  const viewportEndLine = editorRef.view.state.doc.lineAt(editorRef.view.state.viewport.to).number;
+  // The viewport is a property of the EditorView, not the EditorState.
+  const viewportStartLine = editorRef.view.state.doc.lineAt(editorRef.view.viewport.from).number;
+  const viewportEndLine = editorRef.view.state.doc.lineAt(editorRef.view.viewport.to).number;
 
   if (selectionLine >= viewportStartLine && selectionLine <= viewportEndLine) {
     return selectionLine;

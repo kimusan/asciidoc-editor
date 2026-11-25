@@ -103,6 +103,60 @@ test("edits flow into the preview and the outline", async () => {
   }
 });
 
+test("preview scroll sync tracks the editor cursor", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+
+    // A long document so the preview has real scroll range. insertText is
+    // atomic against CodeMirror (keyboard.type can drop characters here).
+    let source = "";
+    for (let i = 1; i <= 30; i += 1) {
+      source += `== Section ${i}\n\nPara ${i} first lorem ipsum paragraph.\n\nPara ${i} second lorem ipsum paragraph.\n\n`;
+    }
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("ControlOrMeta+A");
+    await window.keyboard.insertText(source);
+
+    // The renderer tags preview blocks with data-source-line anchors built
+    // from the Asciidoctor sourcemap; without them scroll sync is dead.
+    await expect(async () => {
+      const anchorCount = await window.evaluate(() => {
+        const frame = document.querySelector("#preview-frame");
+        return frame?.contentDocument?.querySelectorAll("[data-source-line]").length ?? 0;
+      });
+      expect(anchorCount).toBeGreaterThan(50);
+    }).toPass({ timeout: 15_000 });
+
+    const readScrollTop = () => window.evaluate(() => {
+      const frame = document.querySelector("#preview-frame");
+      return Math.round(frame?.contentDocument?.scrollingElement?.scrollTop ?? -1);
+    });
+
+    const maxScrollTop = await window.evaluate(() => {
+      const frame = document.querySelector("#preview-frame");
+      const el = frame?.contentDocument?.scrollingElement;
+      return el ? el.scrollHeight - el.clientHeight : 0;
+    });
+    expect(maxScrollTop).toBeGreaterThan(500);
+
+    // Cursor to the document end must scroll the preview near the bottom.
+    await window.keyboard.press("ControlOrMeta+End");
+    await expect(async () => {
+      expect(await readScrollTop()).toBeGreaterThan(maxScrollTop * 0.6);
+    }).toPass({ timeout: 5_000 });
+
+    // And back to the top.
+    await window.keyboard.press("ControlOrMeta+Home");
+    await expect(async () => {
+      expect(await readScrollTop()).toBeLessThan(maxScrollTop * 0.2);
+    }).toPass({ timeout: 5_000 });
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("render worker handles source highlighting and msc diagrams", async () => {
   const { app, window } = await launchApp();
 

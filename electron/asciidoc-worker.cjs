@@ -182,6 +182,9 @@ function buildLoadOptions(filePath, options = {}) {
     base_dir: resolveBaseDir(filePath, options.baseDir),
     standalone: options.standalone ?? true,
     backend: options.backend ?? "html5",
+    // Track line numbers on every block so the renderer can tag preview
+    // elements with data-source-line for editor<->preview scroll sync.
+    sourcemap: true,
     attributes: buildAttributes()
   };
 }
@@ -265,14 +268,14 @@ function extractSyncPoints(document) {
     "stem"
   ]);
 
-  const nodes = [
-    document,
-    ...(document.findBy?.(() => true) ?? [])
-  ];
+  // findBy() includes the Document node itself; its line is represented by
+  // the implicit header section, so skip the duplicate to avoid two sync
+  // points competing for the document title element.
+  const nodes = (document.findBy?.(() => true) ?? []).filter((node) => node !== document);
 
   return nodes
     .map((node) => {
-      const context = node === document ? "document" : node.getContext?.();
+      const context = node.getContext?.();
       const lineNumber = getNodeLineNumber(node);
       if (!context || !lineNumber || !supportedContexts.has(context)) {
         return null;
