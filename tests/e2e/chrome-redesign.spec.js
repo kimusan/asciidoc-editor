@@ -166,6 +166,61 @@ test("command palette finds and runs actions", async () => {
   }
 });
 
+test("preview color scheme overrides the app theme and persists", async () => {
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-preview-scheme-"));
+  let lightFromFirstRun = null;
+
+  const first = await launchApp(profileDir);
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Default: the dark app theme drives a dark preview.
+    const darkBg = await first.window.evaluate(() => {
+      const doc = document.querySelector("#preview-frame").contentDocument;
+      return doc.body ? getComputedStyle(doc.body).backgroundColor : null;
+    });
+
+    // Override: force a light preview from Settings.
+    await first.window.locator("#open-settings").click();
+    await first.window.locator("#settings-overlay").waitFor();
+    await first.window.locator("#settings-preview-color-scheme").selectOption("light");
+    await first.window.locator("#close-settings").click();
+    await first.window.waitForTimeout(1_500);
+
+    lightFromFirstRun = await first.window.evaluate(() => {
+      const doc = document.querySelector("#preview-frame").contentDocument;
+      return doc.body ? getComputedStyle(doc.body).backgroundColor : null;
+    });
+
+    expect(darkBg).toBeTruthy();
+    expect(lightFromFirstRun).toBeTruthy();
+    expect(lightFromFirstRun).not.toEqual(darkBg);
+
+    // Quit through the real window-close path so state.json is written.
+    await first.window.close();
+    await first.app.close().catch(() => {});
+  } finally {
+    await stopApp(first.app);
+  }
+
+  // The override survives the restart: same setting selected, same light
+  // preview background, even though the app chrome stays dark.
+  const second = await launchApp(profileDir);
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(second.window.locator("#settings-preview-color-scheme")).toHaveValue("light", { timeout: 10_000 });
+
+    await second.window.waitForTimeout(1_000);
+    const bgAfterRestart = await second.window.evaluate(() => {
+      const doc = document.querySelector("#preview-frame").contentDocument;
+      return doc.body ? getComputedStyle(doc.body).backgroundColor : null;
+    });
+    expect(bgAfterRestart).toEqual(lightFromFirstRun);
+  } finally {
+    await stopApp(second.app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

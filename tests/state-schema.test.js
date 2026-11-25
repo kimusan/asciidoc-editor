@@ -22,6 +22,15 @@ test("sanitizePartialState keeps known keys with matching types", () => {
   });
 });
 
+test("sanitizePartialState persists the preview color scheme override", () => {
+  assert.deepEqual(
+    sanitizePartialState({ previewColorScheme: "dark" }),
+    { previewColorScheme: "dark" }
+  );
+  // Wrong type must be dropped, not coerced.
+  assert.deepEqual(Object.keys(sanitizePartialState({ previewColorScheme: true })), []);
+});
+
 test("sanitizePartialState drops unknown keys", () => {
   const sanitized = sanitizePartialState({
     theme: "nord",

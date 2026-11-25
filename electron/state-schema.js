@@ -16,6 +16,7 @@ const STATE_SCHEMA = {
   projectSessions: "object",
   theme: "string",
   previewFontFamily: "string",
+  previewColorScheme: "string",
   pdfPaperSize: "string",
   autoCheckUpdates: "boolean",
   distractionFree: "boolean",

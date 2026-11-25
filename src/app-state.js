@@ -19,6 +19,7 @@ export const appState = {
   previewStylesheetPath: null,
   pdfStylesheetPath: null,
   previewFontFamily: "serif",
+  previewColorScheme: "auto",
   pdfPaperSize: "A4",
   autoCheckUpdates: true,
   // Latest update event pushed from the main process; shape:

@@ -19,9 +19,11 @@ import {
   APP_THEME_OPTIONS,
   APP_THEME_VARS,
   normalizePdfPaperSize,
+  normalizePreviewColorSchemeValue,
   normalizePreviewFontValue,
   normalizeThemeValue,
   PDF_PAPER_OPTIONS,
+  PREVIEW_COLOR_SCHEME_OPTIONS,
   PREVIEW_FONT_OPTIONS,
   THEME_STYLES
 } from "./themes.js";
@@ -547,6 +549,12 @@ function createLayout() {
                   ${renderOptionMarkup(PREVIEW_FONT_OPTIONS)}
                 </select>
               </label>
+              <label class="settings-field" title="Overrides the app theme for the preview pane.">
+                <span>Preview color scheme</span>
+                <select id="settings-preview-color-scheme">
+                  ${renderOptionMarkup(PREVIEW_COLOR_SCHEME_OPTIONS)}
+                </select>
+              </label>
             </article>
             <article class="settings-card settings-card-wide">
               <div class="settings-card-header">
@@ -742,6 +750,7 @@ function createLayout() {
   elements.closeSettings = document.querySelector("#close-settings");
   elements.settingsAppTheme = document.querySelector("#settings-app-theme");
   elements.settingsPreviewFont = document.querySelector("#settings-preview-font");
+  elements.settingsPreviewColorScheme = document.querySelector("#settings-preview-color-scheme");
   elements.settingsPdfPaperSize = document.querySelector("#settings-pdf-paper-size");
   elements.settingsStylesheetStatus = document.querySelector("#settings-stylesheet-status");
   elements.chooseStylesheet = document.querySelector("#choose-stylesheet");
@@ -2063,6 +2072,7 @@ function updateDocumentChrome() {
   applyShellTheme(appState.theme);
   elements.settingsAppTheme.value = appState.theme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
+  elements.settingsPreviewColorScheme.value = normalizePreviewColorSchemeValue(appState.previewColorScheme);
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
   elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
@@ -2356,9 +2366,16 @@ function currentDocumentHasPreview() {
   return canPreviewFileName(getCurrentDocumentName());
 }
 
-// Dark app themes drive a dark preview document; light themes stay light.
-// Keep in sync with the colorScheme logic in applyShellTheme.
+// The preview pane follows the app theme by default: dark app themes render
+// a dark preview document, light themes stay light. An explicit
+// previewColorScheme setting ("light"/"dark") overrides that. Keep the auto
+// branch in sync with the colorScheme logic in applyShellTheme.
 function getPreviewColorScheme() {
+  const override = normalizePreviewColorSchemeValue(appState.previewColorScheme);
+  if (override !== "auto") {
+    return override;
+  }
+
   return ["porcelain", "solarized", "material"].includes(appState.theme) ? "light" : "dark";
 }
 
@@ -2960,6 +2977,7 @@ async function persistWindowState() {
     projectSessions: appState.projectSessions,
     theme: appState.theme,
     previewFontFamily: appState.previewFontFamily,
+    previewColorScheme: appState.previewColorScheme,
     pdfPaperSize: appState.pdfPaperSize,
     distractionFree: appState.distractionFree,
     workspaceCollapsed: appState.workspaceCollapsed,
@@ -3184,6 +3202,13 @@ async function bindEvents() {
     await renderPreviewNow();
     await window.desktop.updateState({ previewFontFamily: appState.previewFontFamily });
     await persistProjectScopedSettings();
+  });
+
+  elements.settingsPreviewColorScheme.addEventListener("change", async (event) => {
+    appState.previewColorScheme = normalizePreviewColorSchemeValue(event.target.value);
+    updateDocumentChrome();
+    await renderPreviewNow();
+    await window.desktop.updateState({ previewColorScheme: appState.previewColorScheme });
   });
 
   elements.settingsPdfPaperSize.addEventListener("change", async (event) => {
@@ -3758,6 +3783,7 @@ function registerBootSequence() {
     Object.assign(appState, state, {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
+      previewColorScheme: normalizePreviewColorSchemeValue(state?.previewColorScheme),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       autoCheckUpdates: state?.autoCheckUpdates !== false,
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),

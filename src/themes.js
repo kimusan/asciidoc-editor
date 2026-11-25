@@ -311,6 +311,14 @@ export const PDF_PAPER_OPTIONS = [
   { value: "Tabloid", label: "Tabloid" }
 ];
 
+// "auto" follows the app theme (light app themes render a light preview,
+// dark themes a dark one); the explicit values override it.
+export const PREVIEW_COLOR_SCHEME_OPTIONS = [
+  { value: "auto", label: "Match app theme" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" }
+];
+
 export const APP_THEME_OPTIONS = [
   { value: "nocturne", label: "Nocturne" },
   { value: "porcelain", label: "Porcelain" },
@@ -340,4 +348,9 @@ export function normalizePreviewFontValue(value) {
 export function normalizePdfPaperSize(value) {
   const allowed = new Set(PDF_PAPER_OPTIONS.map((option) => option.value));
   return allowed.has(value) ? value : "A4";
+}
+
+export function normalizePreviewColorSchemeValue(value) {
+  const allowed = new Set(PREVIEW_COLOR_SCHEME_OPTIONS.map((option) => option.value));
+  return allowed.has(value) ? value : "auto";
 }
