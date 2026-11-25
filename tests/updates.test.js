@@ -188,6 +188,11 @@ test("check failures surface as error status with the message", async () => {
       }
     },
     autoUpdater: null,
+    // Pin the capability: the default resolveUpdateCapability() is
+    // platform-dependent ("auto" on win32, "manual" on this Linux dev
+    // box), and in auto mode the service would call the null
+    // autoUpdater instead of walking the fetch path under test.
+    capability: { mode: "manual", canSelfUpdate: false },
     sendStatus: (payload) => events.push(payload),
     getState: async () => ({}),
     allowQuitForUpdate: () => {}
@@ -196,6 +201,25 @@ test("check failures surface as error status with the message", async () => {
   await failing.checkNow();
   assert.equal(events.at(-1).status, "error");
   assert.equal(events.at(-1).message, "offline");
+});
+
+test("auto mode with a broken updater surfaces an error instead of crashing", async () => {
+  // Regression guard for the Windows CI failure: a service constructed in
+  // auto mode whose autoUpdater is unavailable must report an error status,
+  // not throw out of checkNow.
+  const events = [];
+  const broken = createUpdateService({
+    app: { getVersion: () => "1.0.0", isPackaged: true },
+    net: { fetch: async () => { throw new Error("unreachable"); } },
+    autoUpdater: null,
+    capability: { mode: "auto", canSelfUpdate: true },
+    sendStatus: (payload) => events.push(payload),
+    getState: async () => ({}),
+    allowQuitForUpdate: () => {}
+  });
+
+  await assert.doesNotReject(() => broken.checkNow());
+  assert.equal(events.at(-1).status, "error");
 });
 
 test("applyUpdate reports download failures instead of quitting", async () => {
