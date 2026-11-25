@@ -22,6 +22,11 @@
       "buildResources": "build",
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "kimusan",
+      "repo": "asciidoc-editor"
+    },
     "files": [
       "electron/**/*",
       "dist/**/*",
@@ -46,6 +51,7 @@
     "icon": "build/icon.png",
     "linux": {
       "icon": "build/icon.png",
+      "artifactName": "AsciiDoc.Editor-${version}.${ext}",
       "target": [
         "AppImage",
         "deb",
@@ -54,8 +60,24 @@
       ],
       "category": "Office"
     },
+    "deb": {
+      "artifactName": "asciidoc-editor-${version}_${arch}.${ext}"
+    },
+    "rpm": {
+      "artifactName": "asciidoc-editor-${version}.${arch}.${ext}"
+    },
+    "pacman": {
+      "artifactName": "asciidoc-editor-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "AsciiDoc.Editor.Setup.${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "AsciiDoc.Editor.${version}.${ext}"
+    },
     "win": {
       "icon": "build/icon.ico",
+      "artifactName": "AsciiDoc.Editor-${version}-win.${ext}",
       "target": [
         {
           "target": "portable",
@@ -79,25 +101,6 @@
     }
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.1",
-    "electron": "^45.4.1",
-    "electron-builder": "^26.8.1",
-    "vite": "^8.0.10"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.65.1",
-    "electron": "^45.4.1",
-    "electron-builder": "^26.8.1",
-    "vite": "^8.0.10"
-  },
-  "dependencies": {
-    "@asciidoctor/core": "^3.0.4",
-    "@asciidoctor/docbook-converter": "^3.0.0",
-    "highlight.js": "^11.11.1",
-    "linkedom": "^0.18.15",
-    "mscgenjs": "^8.0.0"
-  },
-  "devDependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/language": "^6.12.3",
@@ -109,5 +112,13 @@
     "electron": "^45.4.1",
     "electron-builder": "^26.8.1",
     "vite": "^8.0.10"
+  },
+  "dependencies": {
+    "@asciidoctor/core": "^3.0.4",
+    "@asciidoctor/docbook-converter": "^3.0.0",
+    "electron-updater": "^6.8.11",
+    "highlight.js": "^11.11.1",
+    "linkedom": "^0.18.15",
+    "mscgenjs": "^8.0.0"
   }
 }

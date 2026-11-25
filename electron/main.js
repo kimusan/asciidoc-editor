@@ -2,12 +2,14 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { watchFile, unwatchFile } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, shell } from "electron";
+import electronUpdater from "electron-updater";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState, flushStateWrites } from "./store.js";
+import { createUpdateService } from "./update-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -19,6 +21,9 @@ const watchedPathsByWebContents = new Map();
 const fileWatchRegistrations = new Map();
 let mainWindow = null;
 let pendingOpenPath = null;
+// Set right before an auto-update restarts the app so the window close
+// handshake (unsaved changes dialog) cannot block or cancel the install.
+let closeAllowedForUpdate = false;
 
 function applyLinuxAppImageSandboxWorkaround() {
   const isLinuxAppImage = process.platform === "linux" && Boolean(process.env.APPIMAGE);
@@ -814,7 +819,7 @@ async function createWindow() {
   });
 
   window.on("close", async (event) => {
-    if (allowWindowClose) {
+    if (allowWindowClose || closeAllowedForUpdate) {
       return;
     }
 
@@ -1325,7 +1330,34 @@ app.whenReady().then(async () => {
     return loadState();
   });
 
+  const sendUpdateStatus = (payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", payload);
+    }
+  };
+  const updateService = createUpdateService({
+    app,
+    net,
+    autoUpdater: electronUpdater.autoUpdater,
+    sendStatus: sendUpdateStatus,
+    getState: loadState,
+    allowQuitForUpdate: () => {
+      closeAllowedForUpdate = true;
+    }
+  });
+  ipcMain.handle("update:check", async (event) => {
+    assertTrustedSender(event);
+    await updateService.checkNow({ manual: true });
+    return null;
+  });
+  ipcMain.handle("update:apply", async (event) => {
+    assertTrustedSender(event);
+    await updateService.applyUpdate();
+    return null;
+  });
+
   await createWindow();
+  void updateService.scheduleStartupCheck();
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {

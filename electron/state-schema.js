@@ -17,6 +17,7 @@ const STATE_SCHEMA = {
   theme: "string",
   previewFontFamily: "string",
   pdfPaperSize: "string",
+  autoCheckUpdates: "boolean",
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
   outlineCollapsed: "boolean",

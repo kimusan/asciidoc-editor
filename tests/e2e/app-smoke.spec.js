@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-async function launchApp(profileDir) {
+async function launchApp(profileDir, env) {
   // The app loads dist/index.html; without a renderer build the window
   // comes up blank and every visibility assertion times out confusingly.
   try {
@@ -25,7 +25,8 @@ async function launchApp(profileDir) {
     args: [
       ...(packagedExecutable ? [] : [PROJECT_ROOT]),
       `--user-data-dir=${profile}`
-    ]
+    ],
+    ...(env ? { env: { ...process.env, ...env } } : {})
   });
   const window = await app.firstWindow();
   return { app, window };
@@ -318,6 +319,56 @@ test("preview settings survive an app restart", async () => {
     await expect(second.window.locator("#settings-preview-font")).toHaveValue("sans");
   } finally {
     await stopApp(second.app);
+  }
+});
+
+test("update notification offers and applies a release update", async () => {
+  // ASCIIDOC_UPDATE_SIMULATE makes the main process report a synthetic
+  // 99.0.0 release instead of touching the network, so the whole update
+  // UX can be verified without a published release.
+  const { app, window } = await launchApp(null, { ASCIIDOC_UPDATE_SIMULATE: "auto" });
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+
+    // The startup check (simulated, ~800ms) must surface the toast.
+    const toast = window.locator("#update-toast");
+    await expect(toast).toHaveClass(/is-open/, { timeout: 10_000 });
+    await expect(window.locator("#update-toast-title")).toHaveText("Version 99.0.0 is available");
+    await expect(window.locator("#update-accept")).toHaveText("Update & restart");
+
+    // "Later" dismisses the toast without breaking later checks.
+    await window.locator("#update-dismiss").click();
+    await expect(toast).not.toHaveClass(/is-open/);
+
+    // The Settings card can re-run the check on demand.
+    await window.locator("#open-settings").click();
+    await window.locator("#settings-overlay").waitFor();
+    await window.locator("#check-updates").click();
+    await expect(window.locator("#update-check-status")).toHaveText(/Version 99\.0\.0 is available/, { timeout: 5_000 });
+    await expect(toast).toHaveClass(/is-open/);
+    await window.keyboard.press("Escape");
+
+    // Accepting drives the download progress UI; the simulated updater
+    // stops at "ready" without actually restarting the app.
+    await window.locator("#update-accept").click();
+    await expect(window.locator("#update-progress")).toHaveClass(/is-visible/);
+    await expect(window.locator("#update-toast-title")).toHaveText("Restarting…", { timeout: 5_000 });
+    await expect(window.locator(".cm-content")).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("update notification offers a download link for non-self-updating builds", async () => {
+  const { app, window } = await launchApp(null, { ASCIIDOC_UPDATE_SIMULATE: "manual" });
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+    await expect(window.locator("#update-toast")).toHaveClass(/is-open/, { timeout: 10_000 });
+    await expect(window.locator("#update-accept")).toHaveText("Get the download");
+  } finally {
+    await stopApp(app);
   }
 });
 

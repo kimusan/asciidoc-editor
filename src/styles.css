@@ -1018,6 +1018,97 @@ input:focus-visible,
   transform: scaleX(1.15);
 }
 
+.update-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  max-width: 420px;
+  padding: 0.95rem 1.1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--panel-bg-strong);
+  box-shadow: 0 18px 44px rgba(3, 8, 14, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity 200ms ease, transform 200ms ease, visibility 200ms allow-discrete;
+}
+
+.update-toast.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.update-toast-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-strong);
+}
+
+.update-toast-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.update-toast-body {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.update-toast-body strong {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.update-toast-body span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.update-progress {
+  display: none;
+  height: 5px;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-tertiary) 24%, transparent);
+  overflow: hidden;
+}
+
+.update-progress.is-visible {
+  display: block;
+}
+
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  transition: width 160ms ease;
+}
+
+.update-toast-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.update-toast.is-progressing .update-toast-actions {
+  display: none;
+}
+
 .reference-overlay {
   position: fixed;
   inset: 0;

@@ -211,6 +211,81 @@ async function persistProjectScopedSettings() {
   await window.desktop.saveProjectFile(buildProjectPayload());
 }
 
+function describeUpdateStatus(status) {
+  switch (status?.status) {
+    case "checking":
+      return "Checking GitHub for a newer release…";
+    case "available":
+      return status.mode === "manual"
+        ? `Version ${status.version} is available — this build updates via download.`
+        : `Version ${status.version} is available.`;
+    case "downloading":
+      return `Downloading update… ${status.percent ?? 0}%`;
+    case "ready":
+      return "Update downloaded — restarting…";
+    case "up-to-date":
+      return "You are running the latest release.";
+    case "error":
+      return status.manual === false
+        ? "Startup update check failed (offline?). Use Check now to retry."
+        : `Update check failed: ${status.message ?? "unknown error"}`;
+    default:
+      return "No update check has run in this session.";
+  }
+}
+
+function renderUpdateStatus() {
+  const status = appState.updateStatus;
+  const isAvailable = status?.status === "available";
+  const showProgress = status?.status === "downloading" || status?.status === "ready";
+
+  elements.updateToast.classList.toggle("is-open", Boolean(isAvailable || showProgress));
+  if (isAvailable) {
+    elements.updateToastTitle.textContent = `Version ${status.version} is available`;
+    elements.updateToastMessage.textContent = status.mode === "manual"
+      ? "This build cannot update itself in place — grab the download from the release page."
+      : "Install the update and restart, or keep editing and do it later.";
+    elements.updateAccept.textContent = status.mode === "manual"
+      ? "Get the download"
+      : "Update & restart";
+  } else if (showProgress) {
+    elements.updateToastTitle.textContent = status.status === "ready"
+      ? "Restarting…"
+      : "Downloading update…";
+    elements.updateToastMessage.textContent = status.status === "ready"
+      ? "The new version is starting."
+      : `${status.percent ?? 0}% downloaded`;
+  }
+
+  elements.updateProgress.classList.toggle("is-visible", showProgress);
+  elements.updateProgressFill.style.width = `${showProgress ? (status.percent ?? 100) : 0}%`;
+  elements.updateToast.classList.toggle("is-progressing", showProgress);
+  elements.updateCheckStatus.textContent = describeUpdateStatus(status);
+}
+
+async function handleUpdateAccept() {
+  const status = appState.updateStatus;
+  if (status?.status !== "available") {
+    return;
+  }
+
+  if (status.mode === "manual") {
+    await window.desktop.openExternal(status.releaseUrl);
+    return;
+  }
+
+  // Restarting installs the update; give dirty documents the same
+  // save-or-discard choice as quitting the app before proceeding.
+  const proceed = await confirmApplicationClose();
+  if (!proceed) {
+    return;
+  }
+
+  appState.updateStatus = { status: "downloading", percent: 0 };
+  renderUpdateStatus();
+  await window.desktop.applyUpdate();
+}
+
 function getWatchedDocumentPaths() {
   return appState.openDocuments
     .map((document) => document.path)
@@ -541,6 +616,22 @@ function createLayout() {
                 </div>
               </div>
             </article>
+            <article class="settings-card">
+              <div class="settings-card-header">
+                <h3>Updates</h3>
+                <p>Check GitHub for new app releases.</p>
+              </div>
+              <label class="scope-toggle" title="Look for a newer release shortly after the app starts.">
+                <input id="settings-auto-update" type="checkbox" />
+                <span>Check for new releases on startup</span>
+              </label>
+              <div class="settings-css-row">
+                <div id="update-check-status" class="settings-note">No update check has run in this session.</div>
+                <div class="command-group">
+                  <button id="check-updates" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.update}</span><span>Check now</span></button>
+                </div>
+              </div>
+            </article>
           </div>
         </section>
       </div>
@@ -660,6 +751,18 @@ function createLayout() {
           </div>
         </section>
       </div>
+      <div id="update-toast" class="update-toast" role="status" aria-live="polite">
+        <div class="update-toast-icon">${ICONS.update}</div>
+        <div class="update-toast-body">
+          <strong id="update-toast-title"></strong>
+          <span id="update-toast-message"></span>
+          <div id="update-progress" class="update-progress"><div id="update-progress-fill" class="update-progress-fill"></div></div>
+        </div>
+        <div class="update-toast-actions">
+          <button id="update-accept" class="toolbar-button" type="button"></button>
+          <button id="update-dismiss" class="toolbar-button ghost-button" type="button">Later</button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -677,6 +780,16 @@ function createLayout() {
   elements.settingsPdfStylesheetStatus = document.querySelector("#settings-pdf-stylesheet-status");
   elements.choosePdfStylesheet = document.querySelector("#choose-pdf-stylesheet");
   elements.clearPdfStylesheet = document.querySelector("#clear-pdf-stylesheet");
+  elements.settingsAutoUpdate = document.querySelector("#settings-auto-update");
+  elements.updateCheckStatus = document.querySelector("#update-check-status");
+  elements.checkUpdates = document.querySelector("#check-updates");
+  elements.updateToast = document.querySelector("#update-toast");
+  elements.updateToastTitle = document.querySelector("#update-toast-title");
+  elements.updateToastMessage = document.querySelector("#update-toast-message");
+  elements.updateProgress = document.querySelector("#update-progress");
+  elements.updateProgressFill = document.querySelector("#update-progress-fill");
+  elements.updateAccept = document.querySelector("#update-accept");
+  elements.updateDismiss = document.querySelector("#update-dismiss");
   elements.openHelp = document.querySelector("#open-help");
   elements.helpOverlay = document.querySelector("#help-overlay");
   elements.helpBackdrop = document.querySelector("#help-backdrop");
@@ -1641,6 +1754,8 @@ function updateDocumentChrome() {
   elements.settingsAppTheme.value = appState.theme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
+  elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
+  elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
   elements.editorReplaceScopeRow.hidden = !appState.editorReplaceOpen;
@@ -2733,6 +2848,25 @@ async function bindEvents() {
     await persistProjectScopedSettings();
   });
 
+  elements.settingsAutoUpdate.addEventListener("change", async (event) => {
+    appState.autoCheckUpdates = event.target.checked;
+    await window.desktop.updateState({ autoCheckUpdates: appState.autoCheckUpdates });
+  });
+
+  elements.checkUpdates.addEventListener("click", async () => {
+    appState.updateStatus = { status: "checking" };
+    renderUpdateStatus();
+    await window.desktop.checkForUpdates();
+  });
+
+  elements.updateAccept.addEventListener("click", () => {
+    void handleUpdateAccept();
+  });
+
+  elements.updateDismiss.addEventListener("click", () => {
+    elements.updateToast.classList.remove("is-open");
+  });
+
   elements.chooseStylesheet.addEventListener("click", async () => {
     const selectedStylesheet = await window.desktop.chooseStylesheet("preview");
     if (!selectedStylesheet) {
@@ -3115,6 +3249,11 @@ async function bindEvents() {
     void handleIncomingPath(path);
   });
 
+  window.desktop.onUpdateStatus((status) => {
+    appState.updateStatus = status;
+    renderUpdateStatus();
+  });
+
   window.desktop.onAppCloseRequested(async ({ requestId }) => {
     if (appState.isHandlingCloseRequest) {
       await window.desktop.respondToAppCloseRequest({ requestId, allowClose: false });
@@ -3261,6 +3400,7 @@ function registerBootSequence() {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
+      autoCheckUpdates: state?.autoCheckUpdates !== false,
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
       currentProjectPath: project?.projectPath ?? null,

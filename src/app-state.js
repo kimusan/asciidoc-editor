@@ -20,6 +20,11 @@ export const appState = {
   pdfStylesheetPath: null,
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
+  autoCheckUpdates: true,
+  // Latest update event pushed from the main process; shape:
+  // { status: "checking"|"available"|"up-to-date"|"error"|"downloading"|"ready",
+  //   version?, mode?, releaseUrl?, percent?, message? }
+  updateStatus: null,
   theme: "nord",
   distractionFree: false,
   workspaceCollapsed: false,

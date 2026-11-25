@@ -16,6 +16,7 @@ const defaultState = {
   theme: "nord",
   previewFontFamily: "serif",
   pdfPaperSize: "A4",
+  autoCheckUpdates: true,
   distractionFree: false,
   workspaceCollapsed: false,
   outlineCollapsed: false,

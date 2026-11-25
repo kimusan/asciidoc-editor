@@ -70,6 +70,8 @@ jobs:
             release/*.pacman
             release/*.exe
             release/*.zip
+            release/*.yml
+            release/*.blockmap
           if-no-files-found: error
 
   publish-release:
@@ -107,6 +109,8 @@ jobs:
             release-artifacts/linux-packages/*.pacman
             release-artifacts/windows-packages/*.exe
             release-artifacts/windows-packages/*.zip
+            release-artifacts/linux-packages/latest-linux.yml
+            release-artifacts/windows-packages/latest.yml
             release-artifacts/checksums.sha256
             tools/linux/register-adp-file-association.sh
             tools/windows/register-adp-file-association.reg

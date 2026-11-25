@@ -39,5 +39,11 @@ contextBridge.exposeInMainWorld("desktop", {
   },
   respondToAppCloseRequest: (payload) => ipcRenderer.invoke("app:close-response", payload),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
-  loadState: () => ipcRenderer.invoke("state:load")
+  loadState: () => ipcRenderer.invoke("state:load"),
+  checkForUpdates: () => ipcRenderer.invoke("update:check"),
+  applyUpdate: () => ipcRenderer.invoke("update:apply"),
+  onUpdateStatus: (callback) => {
+    ipcRenderer.removeAllListeners("update:status");
+    ipcRenderer.on("update:status", (_, payload) => callback(payload));
+  }
 });
