@@ -14,7 +14,11 @@ It is built with Electron and Vite, and uses `asciidoctor.js` for standards-base
 
 ## Highlights
 
-- Live source + preview editing workflow with resizable split view
+- Live source + preview editing with resizable split view and two-way scroll sync
+- AsciiDoc autocomplete: block templates, source languages, document attributes, and macros
+- Command palette (Ctrl+K / Ctrl+Shift+P) for actions, open tabs, the outline, and workspace files
+- Compact interface with a slim toolbar, status bar, and optional classic menu bar (Alt)
+- Built-in themes for the app and editor; the preview can be kept light or dark independently of the app theme
 - AsciiDoc rendering via `asciidoctor.js` (includes, attributes, xrefs, tables, footnotes, conditionals, and more)
 - Syntax-highlighted editor with AsciiDoc-aware coloring
 - In-document find and replace with match navigation
@@ -23,7 +27,8 @@ It is built with Electron and Vite, and uses `asciidoctor.js` for standards-base
 - Built-in searchable markup reference with snippet insertion
 - Export to HTML, PDF, and DocBook 5
 - Portable `.adp` project files with project/session restore
-- Linux AppImage and Windows portable packaging support
+- Automatic update checks, with in-app self-updates on supported platforms
+- Packaging: Linux AppImage, `.deb`, `.rpm`, and `.pacman`; Windows installer, portable `.exe`, and `.zip`
 
 ## Project Structure
 
@@ -58,13 +63,13 @@ Build renderer assets:
 npm run build
 ```
 
-Package Linux AppImage:
+Package Linux builds (AppImage, `.deb`, `.rpm`, `.pacman`):
 
 ```bash
 npm run package:linux
 ```
 
-Package Windows portable build:
+Package Windows builds (installer, portable `.exe`, `.zip`):
 
 ```bash
 npm run package:win
@@ -76,8 +81,8 @@ GitHub Actions workflow: `.github/workflows/release.yml`
 
 Build targets:
 
-- Linux AppImage (`ubuntu-latest`)
-- Windows portable `.exe` (`windows-latest`)
+- Linux AppImage, `.deb`, `.rpm`, `.pacman` (`ubuntu-latest`)
+- Windows installer, portable `.exe`, and `.zip` (`windows-latest`)
 
 Typical release flow:
 
