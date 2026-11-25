@@ -56,8 +56,29 @@ test("renderPreviewDocument extracts source-mapped sync points for scroll sync",
   ]);
 });
 
-test("rendered preview HTML carries exact src-line roles and DocBook stays clean", async () => {
-  const { renderPreviewDocument } = await import("../electron/asciidoc.js");
+test("source highlighting preserves callout markers as conum elements", async () => {
+  const html = await renderPreview([
+    "[,ruby]",
+    "----",
+    "require \"prawn\" # <1>",
+    "text \"hi\" # <2>",
+    "----",
+    "<1> Imports Prawn.",
+    "<2> Writes text."
+  ].join("\n"));
+
+  // Callouts must survive as real elements, not escape into visible HTML.
+  // The app sets :icons: font, so Asciidoctor emits the composite form.
+  assert.match(html, /<i class="conum" data-value="1"><\/i><b>\(1\)<\/b>/);
+  assert.match(html, /<i class="conum" data-value="2"><\/i><b>\(2\)<\/b>/);
+  assert.doesNotMatch(html, /&lt;i class="conum"/);
+  assert.doesNotMatch(html, /&lt;b class="conum"/);
+  assert.doesNotMatch(html, /&lt;b&gt;\(\d+\)/);
+  // The highlighting itself still runs alongside the restored callouts.
+  assert.match(html, /hljs-string/);
+});
+
+test("rendered preview HTML carries exact src-line roles and DocBook stays clean", async () => {  const { renderPreviewDocument } = await import("../electron/asciidoc.js");
   // [abstract] renders as a .quoteblock while its AST context is "open";
   // the role must land on the actual rendered element at its true line.
   const source = [

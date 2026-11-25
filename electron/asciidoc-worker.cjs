@@ -203,11 +203,28 @@ function decodeHtmlEntities(value) {
     .replaceAll("&#39;", "'");
 }
 
+// Asciidoctor renders callout markers as inline conum elements inside the
+// <code> block: a plain <b class="conum">(1)</b>, or with :icons: font a
+// composite <i class="conum" data-value="1"></i><b>(1)</b>. The highlighting
+// pass below decodes and re-escapes the code text, which would turn those
+// elements into visible raw HTML, so they are swapped for sentinels first
+// and restored afterwards.
+const CONUM_ELEMENT_PATTERN = /<i class="conum"[^>]*><\/i><b>(?:\(\d+\)|\d+)<\/b>|<b class="conum">\(\d+\)<\/b>/g;
+
 function highlightCodeBlocks(html) {
   return html.replace(
     /<code([^>]*)data-lang="([^"]+)"([^>]*)>([\s\S]*?)<\/code>/g,
     (_, beforeAttrs, language, afterAttrs, code) => {
-      const source = decodeHtmlEntities(code);
+      const callouts = [];
+      const source = decodeHtmlEntities(
+        code.replace(CONUM_ELEMENT_PATTERN, (match) => {
+          callouts.push(match);
+          // A word-char marker lexes as a single identifier token in any
+          // grammar, so hljs passes it through verbatim (private-use
+          // unicode sentinels get stripped instead).
+          return `ConUmPlAcEhOlDeR${callouts.length - 1}eNdMaRkEr`;
+        })
+      );
 
       let highlighted;
       try {
@@ -215,6 +232,11 @@ function highlightCodeBlocks(html) {
       } catch {
         highlighted = hljs.highlightAuto(source).value;
       }
+
+      highlighted = highlighted.replaceAll(
+        /ConUmPlAcEhOlDeR(\d+)eNdMaRkEr/g,
+        (_, index) => callouts[Number(index)] ?? ""
+      );
 
       return `<code${beforeAttrs}data-lang="${language}"${afterAttrs}>${highlighted}</code>`;
     }
