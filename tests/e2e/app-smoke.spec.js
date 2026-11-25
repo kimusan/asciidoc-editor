@@ -337,6 +337,12 @@ test("update notification offers and applies a release update", async () => {
     await expect(window.locator("#update-toast-title")).toHaveText("Version 99.0.0 is available");
     await expect(window.locator("#update-accept")).toHaveText("Update & restart");
 
+    // The chrome hint's 1600ms timer must not open the hint on top of the
+    // update toast: the toast owns the bottom-right corner and the hint
+    // would swallow the toast's buttons.
+    await window.waitForTimeout(1_800);
+    await expect(window.locator("#chrome-hint")).not.toHaveClass(/is-open/);
+
     // "Later" dismisses the toast without breaking later checks.
     await window.locator("#update-dismiss").click();
     await expect(toast).not.toHaveClass(/is-open/);

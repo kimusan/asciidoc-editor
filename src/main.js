@@ -1190,9 +1190,16 @@ function maybeShowChromeHint() {
   }
 
   setTimeout(() => {
-    if (!localStorage.getItem(CHROME_HINT_STORAGE_KEY)) {
-      elements.chromeHint.classList.add("is-open");
+    if (localStorage.getItem(CHROME_HINT_STORAGE_KEY)) {
+      return;
     }
+    // The update toast owns the bottom-right corner. The simulated
+    // startup check can beat this timer to the screen, so re-check here
+    // or the hint opens on top of the toast and swallows its clicks.
+    if (elements.updateToast?.classList.contains("is-open")) {
+      return;
+    }
+    elements.chromeHint.classList.add("is-open");
   }, 1600);
 }
 
