@@ -248,7 +248,12 @@ export function initCommandPalette(deps) {
       </div>
     </section>
   `;
-  document.body.appendChild(paletteState.overlay);
+  // The overlay must live INSIDE .shell: every CSS custom property
+  // (colors, theme overrides) is defined on .shell, so anything appended
+  // to document.body silently loses them - backgrounds go transparent and
+  // accent-dependent declarations drop.
+  const host = document.querySelector(".shell") ?? document.body;
+  host.appendChild(paletteState.overlay);
 
   paletteState.input = paletteState.overlay.querySelector("#command-palette-input");
   paletteState.results = paletteState.overlay.querySelector("#command-palette-results");

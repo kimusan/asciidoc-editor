@@ -551,10 +551,15 @@ input:focus-visible,
   border-radius: var(--radius-sm);
 }
 
-.command-palette-item.is-selected,
 .command-palette-item:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--control-bg-hover);
   color: var(--text-primary);
+}
+
+.command-palette-item.is-selected {
+  background: color-mix(in srgb, var(--accent-strong) 24%, var(--panel-bg-strong));
+  color: var(--text-primary);
+  box-shadow: inset 3px 0 0 var(--accent-strong);
 }
 
 .command-palette-item svg {
