@@ -1,6 +1,6 @@
 {
   "name": "asciidoc-editor",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "A portable cross-platform AsciiDoc editor with live preview.",
   "author": "Kim Schulz <kim@schulz.dk>",
   "license": "MIT",
