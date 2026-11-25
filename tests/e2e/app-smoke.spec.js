@@ -216,6 +216,71 @@ test("autocomplete completes AsciiDoc syntax while typing", async () => {
   }
 });
 
+test("editor follows preview scrolling", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+
+    let source = "";
+    for (let i = 1; i <= 30; i += 1) {
+      source += `== Section ${i}\n\nPara ${i} first lorem ipsum paragraph.\n\nPara ${i} second lorem ipsum paragraph.\n\n`;
+    }
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("ControlOrMeta+A");
+    await window.keyboard.insertText(source);
+
+    await expect(async () => {
+      const anchorCount = await window.evaluate(() => {
+        const frame = document.querySelector("#preview-frame");
+        return frame?.contentDocument?.querySelectorAll("[data-source-line]").length ?? 0;
+      });
+      expect(anchorCount).toBeGreaterThan(50);
+    }).toPass({ timeout: 15_000 });
+
+    const readState = () => window.evaluate(() => {
+      const frame = document.querySelector("#preview-frame");
+      const scroller = frame.contentDocument.scrollingElement;
+      return {
+        editorTop: Math.round(document.querySelector(".cm-scroller").scrollTop),
+        previewTop: Math.round(scroller.scrollTop),
+        previewMax: Math.round(scroller.scrollHeight - scroller.clientHeight)
+      };
+    });
+    const scrollPreviewTo = (top) => window.evaluate((target) => {
+      document.querySelector("#preview-frame").contentWindow.scrollTo(0, target);
+    }, top);
+
+    // The cursor sits at the document end, so both panes start at the
+    // bottom. Scrolling the preview to the top must pull the editor up.
+    // Wait out the forward-sync lock first: scrolling the preview within
+    // the echo-suppression window after the typing-driven sync is — by
+    // design — ignored, so the test would race the lock.
+    await window.waitForTimeout(700);
+    await scrollPreviewTo(0);
+    await expect(async () => {
+      expect((await readState()).editorTop).toBeLessThan(150);
+    }).toPass({ timeout: 5_000 });
+
+    // Scrolling partway down must move the editor down with it.
+    const { previewMax } = await readState();
+    const midTarget = Math.round(previewMax * 0.65);
+    await scrollPreviewTo(midTarget);
+    await expect(async () => {
+      expect((await readState()).editorTop).toBeGreaterThan(400);
+    }).toPass({ timeout: 5_000 });
+
+    // Stability: after the sync settles, the preview must still be where
+    // the user left it — the forward sync must not drag it back to the
+    // (off-screen) cursor position.
+    await window.waitForTimeout(1_200);
+    const settled = await readState();
+    expect(Math.abs(settled.previewTop - midTarget)).toBeLessThan(150);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("render worker handles source highlighting and msc diagrams", async () => {
   const { app, window } = await launchApp();
 

@@ -65,6 +65,10 @@ export const appState = {
   metricsTimer: null,
   lastPreviewDocument: null,
   expandedPreviewStale: true,
+  // Guards two-way scroll sync against feedback loops: the side currently
+  // driving scrolling owns the lock until "until" (ms epoch); the other
+  // side must not scroll while the lock is live.
+  scrollSyncLock: { owner: null, until: 0 },
   directoryCache: new Map()
 };
 

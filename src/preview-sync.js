@@ -3,7 +3,24 @@
 // orchestration (renderPreviewNow, link handling, scheduling) stays in
 // main.js.
 
+import { EditorView } from "@codemirror/view";
 import { appState, editorRef, elements } from "./app-state.js";
+
+export function isScrollSyncLockedBy(owner) {
+  return appState.scrollSyncLock.owner === owner && appState.scrollSyncLock.until > Date.now();
+}
+
+export function acquireScrollSyncLock(owner, durationMs = 450) {
+  const lock = appState.scrollSyncLock;
+  const now = Date.now();
+  if (lock.owner && lock.owner !== owner && lock.until > now) {
+    return false;
+  }
+
+  lock.owner = owner;
+  lock.until = now + durationMs;
+  return true;
+}
 
 // The render worker stamps every sync-able block with a src-line-N role
 // that survives into the rendered HTML, so anchor assignment is exact and
@@ -328,4 +345,120 @@ export function scrollPreviewToLineNumber(lineNumber, frame = elements.previewFr
     top: targetTop,
     behavior
   });
+}
+
+// Reverse of the interpolation above: given a document offset (the preview
+// viewport center), find the source line that maps to it. anchorPoints are
+// { lineNumber, top } pairs sorted by document position; the edge mappings
+// mirror scrollPreviewToLineNumber exactly (line 1 at the document top, the
+// last line at maxScrollTop when no anchor reaches that far).
+export function interpolateLineNumberAtOffset(centerTop, anchorPoints, totalLines, maxScrollTop) {
+  if (!Number.isFinite(centerTop) || totalLines < 1) {
+    return null;
+  }
+
+  let clamp = (line) => Math.max(1, Math.min(totalLines, Math.round(line)));
+
+  if (anchorPoints.length === 0) {
+    const ratio = maxScrollTop > 0 ? Math.max(0, Math.min(1, centerTop / maxScrollTop)) : 0;
+    return clamp(1 + (ratio * (totalLines - 1)));
+  }
+
+  let previousPoint = null;
+  let nextPoint = null;
+  for (const point of anchorPoints) {
+    if (point.top <= centerTop) {
+      previousPoint = point;
+      continue;
+    }
+    nextPoint = point;
+    break;
+  }
+
+  if (previousPoint && nextPoint) {
+    const span = nextPoint.top - previousPoint.top;
+    const ratio = span > 0 ? Math.max(0, Math.min(1, (centerTop - previousPoint.top) / span)) : 0;
+    return clamp(previousPoint.lineNumber + (ratio * (nextPoint.lineNumber - previousPoint.lineNumber)));
+  }
+
+  if (previousPoint) {
+    const span = Math.max(1, maxScrollTop - previousPoint.top);
+    const ratio = Math.max(0, Math.min(1, (centerTop - previousPoint.top) / span));
+    return clamp(previousPoint.lineNumber + (ratio * (totalLines - previousPoint.lineNumber)));
+  }
+
+  if (nextPoint) {
+    const ratio = nextPoint.top > 0 ? Math.max(0, Math.min(1, centerTop / nextPoint.top)) : 0;
+    return clamp(1 + (ratio * (nextPoint.lineNumber - 1)));
+  }
+
+  return 1;
+}
+
+export function getPreviewLineNumberAtOffset(frame = elements.previewFrame, offsetTop) {
+  const frameDocument = frame.contentDocument;
+  if (!frameDocument) {
+    return null;
+  }
+
+  const { scrollingElement, viewportHeight, maxScrollTop } = getPreviewScrollMetrics(frame, frameDocument);
+  if (!scrollingElement) {
+    return null;
+  }
+
+  const centerTop = Math.max(0, Math.min(maxScrollTop, offsetTop)) + (viewportHeight * 0.5);
+  const anchorPoints = getPreviewSyncAnchors(frame).map((anchor) => ({
+    lineNumber: anchor.lineNumber,
+    top: getElementDocumentTop(anchor.element, scrollingElement)
+  }));
+
+  return interpolateLineNumberAtOffset(
+    centerTop,
+    anchorPoints,
+    editorRef.view?.state.doc.lines ?? 1,
+    maxScrollTop
+  );
+}
+
+export function scrollEditorToLineNumber(lineNumber) {
+  const view = editorRef.view;
+  if (!view || !Number.isFinite(lineNumber)) {
+    return;
+  }
+
+  const totalLines = view.state.doc.lines;
+  const clampedLine = Math.max(1, Math.min(totalLines, Math.round(lineNumber)));
+  const position = view.state.doc.line(clampedLine).from;
+  // Scrolling only: the selection is deliberately left alone so that
+  // following the preview never disturbs the cursor or typing.
+  view.dispatch({
+    effects: EditorView.scrollIntoView(position, { y: "center" })
+  });
+}
+
+const reverseSyncBoundWindows = new WeakSet();
+let reverseSyncTimer = null;
+
+// Two-way sync: when the user scrolls the preview, scroll the editor to the
+// matching source line. The lock prevents the two directions from fighting:
+// preview scroll events caused by editor-driven sync are ignored, and
+// editor-driven sync stays off while the preview is the one scrolling.
+export function installReversePreviewSync(frame) {
+  const frameWindow = frame?.contentWindow;
+  if (!frameWindow || reverseSyncBoundWindows.has(frameWindow)) {
+    return;
+  }
+
+  reverseSyncBoundWindows.add(frameWindow);
+  frameWindow.addEventListener("scroll", () => {
+    if (!acquireScrollSyncLock("preview")) {
+      return;
+    }
+
+    clearTimeout(reverseSyncTimer);
+    reverseSyncTimer = setTimeout(() => {
+      const lineNumber = getPreviewLineNumberAtOffset(frame, frame.contentDocument?.scrollingElement?.scrollTop ?? 0);
+      scrollEditorToLineNumber(lineNumber);
+    }, 100);
+  }, { passive: true });
 }

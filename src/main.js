@@ -34,9 +34,12 @@ import {
 } from "./help-content.js";
 import { appState, editorRef, elements } from "./app-state.js";
 import {
+  acquireScrollSyncLock,
   applyPreviewDocument,
   applyPreviewSyncPoints,
   getEditorSyncLineNumber,
+  installReversePreviewSync,
+  isScrollSyncLockedBy,
   scrollPreviewToAnchor,
   scrollPreviewToLineNumber,
   waitForPreviewFrameReady
@@ -2100,6 +2103,14 @@ function syncPreviewToEditorPosition() {
     return;
   }
 
+  // The preview is currently driving the editor (user scrolled it); do not
+  // fight it by scrolling the preview back to the cursor.
+  if (isScrollSyncLockedBy("preview")) {
+    return;
+  }
+
+  acquireScrollSyncLock("editor");
+
   const syncLine = getEditorSyncLineNumber();
   scrollPreviewToLineNumber(syncLine, elements.previewFrame, "auto");
   scrollPreviewToLineNumber(syncLine, elements.previewFrameExpanded, "auto");
@@ -2923,6 +2934,7 @@ async function bindEvents() {
 
   elements.previewFrame.addEventListener("load", () => {
     installPreviewInteractions(elements.previewFrame);
+    installReversePreviewSync(elements.previewFrame);
   });
 
   elements.previewFrameExpanded.addEventListener("load", () => {
