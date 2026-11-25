@@ -436,11 +436,38 @@ let nextJobId = 1;
 const pendingJobs = new Map();
 let workerReapTimer = null;
 
-function failPendingJobs(error) {
-  for (const job of pendingJobs.values()) {
+// A pathological document (or an Asciidoctor bug) can leave a render job
+// hung with its IPC promise never settling. Without a timeout the worker
+// stays wedged forever - the reaper refuses to run while jobs are pending -
+// so one bad document would kill the preview until the app restarts. Time
+// the job out, terminate the worker, and let the next render respawn it.
+// The env override exists so tests can exercise the path in milliseconds.
+function renderJobTimeoutMs() {
+  const parsed = Number.parseInt(process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 25_000;
+}
+
+function clearJobTimer(job) {
+  if (job.timer) {
+    clearTimeout(job.timer);
+    job.timer = null;
+  }
+}
+
+// Reject every pending job owned by `worker` (or all jobs when worker is
+// null). Filtering matters: a terminated worker's exit event can land
+// AFTER a fresh worker already took over the pendingJobs map, and the
+// dead worker must not reject the new worker's in-flight jobs.
+function failPendingJobs(error, worker = null) {
+  for (const [id, job] of pendingJobs) {
+    if (worker && job.worker !== worker) {
+      continue;
+    }
+
+    pendingJobs.delete(id);
+    clearJobTimer(job);
     job.reject(error);
   }
-  pendingJobs.clear();
 }
 
 function getRenderWorker() {
@@ -460,6 +487,7 @@ function getRenderWorker() {
     }
 
     pendingJobs.delete(id);
+    clearJobTimer(job);
     if (error) {
       job.reject(new Error(error.message));
     } else {
@@ -472,14 +500,14 @@ function getRenderWorker() {
     if (renderWorker === worker) {
       renderWorker = null;
     }
-    failPendingJobs(error instanceof Error ? error : new Error(String(error)));
+    failPendingJobs(error instanceof Error ? error : new Error(String(error)), worker);
   });
 
   worker.on("exit", () => {
     if (renderWorker === worker) {
       renderWorker = null;
     }
-    failPendingJobs(new Error("AsciiDoc render worker exited unexpectedly"));
+    failPendingJobs(new Error("AsciiDoc render worker exited unexpectedly"), worker);
   });
 
   return worker;
@@ -506,9 +534,37 @@ function runRenderJob(op, ...args) {
   const id = nextJobId++;
 
   return new Promise((resolve, reject) => {
-    pendingJobs.set(id, { resolve, reject });
+    const job = { resolve, reject, timer: null, worker };
+    pendingJobs.set(id, job);
+
+    job.timer = setTimeout(() => {
+      if (pendingJobs.get(id) !== job) {
+        return;
+      }
+
+      // Every other in-flight job on this worker is hung too: fail them
+      // all, drop the worker reference, and terminate it. The exit
+      // handler is a no-op backstop (failPendingJobs already ran).
+      pendingJobs.delete(id);
+      const stalledWorker = renderWorker;
+      renderWorker = null;
+      const timeoutMs = renderJobTimeoutMs();
+      failPendingJobs(new Error("AsciiDoc render worker timed out"), stalledWorker);
+      void stalledWorker?.terminate().catch(() => {});
+      reject(new Error(`AsciiDoc render job "${op}" timed out after ${timeoutMs / 1000}s`));
+    }, renderJobTimeoutMs());
+    // Never let a timeout timer hold the process open on its own.
+    job.timer.unref?.();
+
     worker.postMessage({ id, op, args });
   });
+}
+
+// Test-only backdoor for the job-timeout path: posts an arbitrary
+// operation to the live worker. The worker only hangs on ops that never
+// reply, which the ASCIIDOC_TEST_HANG guard in the worker provides.
+export async function runRenderJobForTests(op, ...args) {
+  return runRenderJob(op, ...args);
 }
 
 // Test/shutdown hook: an unref()ed worker still leaves a live MessagePort
@@ -529,7 +585,7 @@ export async function convertDocument(source, filePath, options = {}) {
 }
 
 export async function renderPreviewDocument(source, filePath, options = {}) {
-  const { title, body, syncPoints } = await runRenderJob(
+  const { title, body } = await runRenderJob(
     "renderPreviewBody",
     source,
     filePath,
@@ -564,8 +620,7 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
   return {
     title,
     styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEMES[colorScheme]}${baseStyles}${highlightThemeCss}${customStyles}`,
-    body,
-    syncPoints
+    body
   };
 }
 

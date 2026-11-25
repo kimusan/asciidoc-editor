@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { convertDocument, disposeRenderWorker, exportDocument, renderPreview } from "../electron/asciidoc.js";
+import {
+  convertDocument,
+  disposeRenderWorker,
+  exportDocument,
+  renderPreview,
+  renderPreviewDocument,
+  runRenderJobForTests
+} from "../electron/asciidoc.js";
 
 test.after(() => disposeRenderWorker());
 
@@ -37,7 +44,7 @@ test("renderPreview includes the document header title", async () => {
   assert.match(html, /<h2[^>]*>Section<\/h2>/);
 });
 
-test("renderPreviewDocument extracts source-mapped sync points for scroll sync", async () => {
+test("preview body carries source-mapped line roles for scroll sync", async () => {
   const { renderPreviewDocument } = await import("../electron/asciidoc.js");
   const result = await renderPreviewDocument(
     "= Title\n\npara one\n\npara two\n\n== S1\n\npara three\n",
@@ -47,13 +54,14 @@ test("renderPreviewDocument extracts source-mapped sync points for scroll sync",
 
   // sourcemap: true must stay in the Asciidoctor load options; without it
   // every block loses its source location and preview scroll sync dies.
-  assert.deepEqual(result.syncPoints, [
-    { context: "section", lineNumber: 1 },
-    { context: "paragraph", lineNumber: 3 },
-    { context: "paragraph", lineNumber: 5 },
-    { context: "section", lineNumber: 7 },
-    { context: "paragraph", lineNumber: 9 }
-  ]);
+  // The renderer consumes the stamped src-line-N roles straight from the
+  // rendered DOM (the old syncPoints payload was dead weight - shipped on
+  // every render, never read outside this test's ancestor). The doctitle
+  // is the one exception: the implicit header section's role does not
+  // land on the rendered #header div, so preview-sync anchors it via the
+  // dedicated "#header h1" selector instead.
+  const lineNumbers = [...result.body.matchAll(/src-line-(\d+)/g)].map((match) => Number(match[1]));
+  assert.deepEqual(lineNumbers, [3, 5, 7, 9]);
 });
 
 test("source highlighting preserves callout markers as conum elements", async () => {
@@ -209,4 +217,32 @@ test("exportDocument writes a standalone HTML document", async () => {
   const html = await fs.readFile(destinationPath, "utf8");
   assert.match(html, /<title>Demo<\/title>/);
   assert.match(html, /A paragraph\./);
+});
+
+test("a hung render job times out and the worker recovers on the next render", async () => {
+  // Drop any worker earlier tests spawned so the probe runs against a
+  // fresh worker that picked up the test-only hang op.
+  await disposeRenderWorker();
+  process.env.ASCIIDOC_TEST_HANG = "1";
+  process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS = "250";
+
+  try {
+    await renderPreviewDocument("= Warmup\n\nparagraph.", null, {});
+    const outcome = await runRenderJobForTests("__testHang").then(
+      () => null,
+      (error) => error
+    );
+
+    assert.ok(outcome instanceof Error, "the hung job must reject, not hang forever");
+    assert.match(outcome.message, /timed out/);
+
+    // The stalled worker was terminated; the next render must respawn a
+    // healthy one and succeed.
+    const recovered = await renderPreviewDocument("= Recovered\n\nparagraph.", null, {});
+    assert.match(recovered.body, /Recovered/);
+  } finally {
+    await disposeRenderWorker();
+    delete process.env.ASCIIDOC_TEST_HANG;
+    delete process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS;
+  }
 });

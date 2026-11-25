@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld("desktop", {
   loadState: () => ipcRenderer.invoke("state:load"),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
   applyUpdate: () => ipcRenderer.invoke("update:apply"),
+  getUpdateStatus: () => ipcRenderer.invoke("update:get-status"),
   onUpdateStatus: (callback) => {
     ipcRenderer.removeAllListeners("update:status");
     ipcRenderer.on("update:status", (_, payload) => callback(payload));

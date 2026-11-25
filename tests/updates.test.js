@@ -222,6 +222,82 @@ test("auto mode with a broken updater surfaces an error instead of crashing", as
   assert.equal(events.at(-1).status, "error");
 });
 
+test("applyUpdate flushes the renderer session before quitting to install", async () => {
+  // The renderer's beforeunload flush is fire-and-forget, so the update
+  // restart must await an explicit session flush BEFORE quitAndInstall or
+  // unsaved buffers can be lost to the window teardown race.
+  const order = [];
+  const autoUpdater = {
+    autoDownload: null,
+    listeners: new Map(),
+    on(name, handler) {
+      this.listeners.set(name, handler);
+    },
+    async checkForUpdates() {
+      return { updateInfo: { version: "1.1.0" } };
+    },
+    async downloadUpdate() {},
+    quitAndInstall() {
+      order.push("quit");
+    }
+  };
+
+  const service = createUpdateService({
+    app: { getVersion: () => "1.0.0", isPackaged: true },
+    net: { fetch: async () => { throw new Error("unreachable"); } },
+    autoUpdater,
+    capability: { mode: "auto", canSelfUpdate: true },
+    sendStatus: () => {},
+    getState: async () => ({}),
+    allowQuitForUpdate: () => {},
+    flushRendererSession: async () => {
+      order.push("flush");
+    }
+  });
+
+  await service.applyUpdate();
+
+  assert.deepEqual(order, ["flush", "quit"]);
+});
+
+test("concurrent checks share the in-flight check instead of no-oping", async () => {
+  let fetchCount = 0;
+  const service = createUpdateService({
+    app: { getVersion: () => "1.0.0", isPackaged: true },
+    net: {
+      async fetch() {
+        fetchCount += 1;
+        await new Promise((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        return {
+          ok: true,
+          json: async () => ({ tag_name: "1.1.0", html_url: RELEASES_PAGE_URL })
+        };
+      }
+    },
+    autoUpdater: null,
+    capability: { mode: "manual", canSelfUpdate: false },
+    sendStatus: () => {},
+    getState: async () => ({}),
+    allowQuitForUpdate: () => {}
+  });
+
+  const [first, second] = [service.checkNow({ manual: true }), service.checkNow({ manual: true })];
+  await Promise.all([first, second]);
+
+  assert.equal(fetchCount, 1);
+});
+
+test("getStatus returns the last emitted status for the renderer pull", async () => {
+  const { service, events } = buildFakeService({ latestVersion: "1.1.0" });
+
+  await service.checkNow();
+
+  assert.equal(service.getStatus(), events.at(-1));
+  assert.equal(service.getStatus().status, "available");
+});
+
 test("applyUpdate reports download failures instead of quitting", async () => {
   const { service, events, calls } = buildFakeService({
     downloadError: new Error("checksum mismatch")

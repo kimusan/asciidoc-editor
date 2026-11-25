@@ -21,6 +21,12 @@ const watchedPathsByWebContents = new Map();
 const fileWatchRegistrations = new Map();
 let mainWindow = null;
 let pendingOpenPath = null;
+// True once the renderer has consumed its boot payload. After that point a
+// live renderer receives incoming files through the app:open-path send, and
+// staging pendingOpenPath anyway would let a dropped send resurface much
+// later - macOS activate creates a new window whose boot payload would open
+// a long-forgotten file.
+let bootPayloadDelivered = false;
 // Set right before an auto-update restarts the app so the window close
 // handshake (unsaved changes dialog) cannot block or cancel the install.
 let closeAllowedForUpdate = false;
@@ -116,27 +122,46 @@ function requireString(value, name) {
   return value;
 }
 
-async function directoryContainsBrowsableFiles(dirPath) {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+// Each workspace scan decides which directories are worth listing by
+// recursively checking for browsable descendants. A naive recursive check
+// re-walks whole subtrees for every visited directory (O(dirs x depth)
+// readdir syscalls on the main process, which also serves preview
+// rendering). A per-scan memo turns that into one visit per directory.
+function createBrowsableFileLookup() {
+  const memo = new Map();
 
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) {
-      continue;
+  async function containsBrowsableFiles(dirPath) {
+    if (memo.has(dirPath)) {
+      return memo.get(dirPath);
     }
 
-    if (entry.isFile() && isWorkspaceBrowsableFile(entry.name)) {
-      return true;
-    }
+    // Reserve the slot before recursing so a directory graph can never
+    // revisit a node mid-computation.
+    memo.set(dirPath, false);
+    let result = false;
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
-    if (entry.isDirectory()) {
-      const hasBrowsableDescendants = await directoryContainsBrowsableFiles(path.join(dirPath, entry.name));
-      if (hasBrowsableDescendants) {
-        return true;
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+
+      if (entry.isFile() && isWorkspaceBrowsableFile(entry.name)) {
+        result = true;
+        break;
+      }
+
+      if (entry.isDirectory() && await containsBrowsableFiles(path.join(dirPath, entry.name))) {
+        result = true;
+        break;
       }
     }
+
+    memo.set(dirPath, result);
+    return result;
   }
 
-  return false;
+  return containsBrowsableFiles;
 }
 
 function normalizeRecentFiles(recentFiles, filePath) {
@@ -467,8 +492,25 @@ async function loadProjectFile(projectPath) {
 
 async function saveProjectFile(projectPath, projectPayload = {}) {
   const projectDir = path.dirname(projectPath);
+
+  // Preserve fields this build does not know about: a project file written
+  // by a newer version (auto-update, a colleague, a temporary downgrade)
+  // may carry extra keys, and rewriting the file from this build's own
+  // template would strip them. Keep the file's declared version too, so a
+  // newer format's version number survives a save from an older binary.
+  let previousProject = null;
+  try {
+    const parsed = JSON.parse(await fs.readFile(projectPath, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      previousProject = parsed;
+    }
+  } catch {
+    // Missing or unreadable file: write a fresh one.
+  }
+
   const serialized = {
-    version: 1,
+    ...(previousProject ?? {}),
+    version: typeof previousProject?.version === "number" ? previousProject.version : 1,
     name: projectPayload.name ?? path.basename(projectPath, PROJECT_FILE_EXTENSION),
     workspace: toProjectRelativePath(projectDir, projectPayload.workspacePath, "."),
     previewStylesheet: toProjectRelativePath(projectDir, projectPayload.previewStylesheetPath, null),
@@ -477,8 +519,13 @@ async function saveProjectFile(projectPath, projectPayload = {}) {
     pdfPaperSize: projectPayload.pdfPaperSize ?? "A4"
   };
 
+  // Write via temp file and rename, exactly like state.json: rename is
+  // atomic on the same filesystem, so a crash mid-write can never truncate
+  // the user's project file.
   await fs.mkdir(projectDir, { recursive: true });
-  await fs.writeFile(projectPath, JSON.stringify(serialized, null, 2), "utf8");
+  const tempPath = `${projectPath}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(serialized, null, 2), "utf8");
+  await fs.rename(tempPath, projectPath);
   return loadProjectFile(projectPath);
 }
 
@@ -527,6 +574,7 @@ async function hydrateStoredDocuments(sessionState, workspacePath = null) {
 }
 
 async function listDirectory(rootPath) {
+  const containsBrowsableFiles = createBrowsableFileLookup();
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
   const children = [];
 
@@ -548,7 +596,7 @@ async function listDirectory(rootPath) {
       continue;
     }
 
-    if (entry.isDirectory() && !await directoryContainsBrowsableFiles(fullPath)) {
+    if (entry.isDirectory() && !await containsBrowsableFiles(fullPath)) {
       continue;
     }
 
@@ -569,6 +617,7 @@ async function searchWorkspace(rootPath, query, limit = 200) {
   }
 
   const results = [];
+  const containsBrowsableFiles = createBrowsableFileLookup();
 
   async function visitDirectory(currentPath) {
     if (results.length >= limit) {
@@ -583,7 +632,7 @@ async function searchWorkspace(rootPath, query, limit = 200) {
 
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
-        if (await directoryContainsBrowsableFiles(fullPath)) {
+        if (await containsBrowsableFiles(fullPath)) {
           await visitDirectory(fullPath);
         }
         continue;
@@ -613,6 +662,7 @@ async function searchWorkspace(rootPath, query, limit = 200) {
 }
 
 async function searchWorkspaceContent(rootPath, query, options = {}, limit = 250) {
+  const containsBrowsableFiles = createBrowsableFileLookup();
   const pattern = buildWorkspaceSearchRegExp(query, options);
   if (!rootPath || !pattern) {
     return {
@@ -638,7 +688,7 @@ async function searchWorkspaceContent(rootPath, query, options = {}, limit = 250
 
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
-        if (await directoryContainsBrowsableFiles(fullPath)) {
+        if (await containsBrowsableFiles(fullPath)) {
           await visitDirectory(fullPath);
         }
         continue;
@@ -702,6 +752,7 @@ async function replaceWorkspaceContent(rootPath, query, replaceText, options = {
 
   const changedPaths = [];
   let replacementCount = 0;
+  const containsBrowsableFiles = createBrowsableFileLookup();
 
   async function visitDirectory(currentPath) {
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
@@ -713,7 +764,7 @@ async function replaceWorkspaceContent(rootPath, query, replaceText, options = {
 
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
-        if (await directoryContainsBrowsableFiles(fullPath)) {
+        if (await containsBrowsableFiles(fullPath)) {
           await visitDirectory(fullPath);
         }
         continue;
@@ -869,7 +920,9 @@ if (!singleInstanceLock) {
   app.on("second-instance", (_event, argv) => {
     const launchPath = extractLaunchPath(argv);
     if (launchPath) {
-      pendingOpenPath = launchPath;
+      if (!bootPayloadDelivered) {
+        pendingOpenPath = launchPath;
+      }
       getMainWindowWebContents()?.send("app:open-path", { path: launchPath });
     }
 
@@ -883,7 +936,9 @@ if (!singleInstanceLock) {
 
   app.on("open-file", (event, filePath) => {
     event.preventDefault();
-    pendingOpenPath = filePath;
+    if (!bootPayloadDelivered) {
+      pendingOpenPath = filePath;
+    }
     getMainWindowWebContents()?.send("app:open-path", { path: filePath });
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) {
@@ -1310,6 +1365,7 @@ app.whenReady().then(async () => {
     const state = await loadState();
     const launchPath = pendingOpenPath;
     pendingOpenPath = null;
+    bootPayloadDelivered = true;
     const launchProjectPath = isProjectFilePath(launchPath ?? "") ? launchPath : null;
     const launchDocumentPath = launchPath && !launchProjectPath ? launchPath : null;
     const activeProjectPath = launchProjectPath ?? state.currentProjectPath ?? null;
@@ -1382,6 +1438,20 @@ app.whenReady().then(async () => {
     getState: loadState,
     allowQuitForUpdate: () => {
       closeAllowedForUpdate = true;
+    },
+    // Ask the live renderer to persist its session (unsaved buffers) and
+    // await the state:update round trip before an update restart. Returns
+    // silently when no window exists.
+    flushRendererSession: async () => {
+      const webContents = getMainWindowWebContents();
+      if (!webContents) {
+        return;
+      }
+
+      await webContents.executeJavaScript(
+        "typeof window.__adocFlushSession === 'function' ? window.__adocFlushSession() : null",
+        true
+      );
     }
   });
   ipcMain.handle("update:check", async (event) => {
@@ -1393,6 +1463,13 @@ app.whenReady().then(async () => {
     assertTrustedSender(event);
     await updateService.applyUpdate();
     return null;
+  });
+  // Pull counterpart to the update:status push: the renderer requests the
+  // last known status at init so an event emitted before its listener was
+  // attached is not lost.
+  ipcMain.handle("update:get-status", (event) => {
+    assertTrustedSender(event);
+    return updateService.getStatus() ?? null;
   });
 
   await createWindow();

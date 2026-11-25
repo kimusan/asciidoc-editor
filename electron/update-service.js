@@ -16,9 +16,10 @@ export function createUpdateService({
   app,
   net,
   autoUpdater,
-  sendStatus,
   getState,
   allowQuitForUpdate,
+  flushRendererSession,
+  sendStatus: emitStatus = () => {},
   capability = resolveUpdateCapability()
 }) {
   // E2E hook: ASCIIDOC_UPDATE_SIMULATE=auto|manual replaces every network
@@ -28,7 +29,17 @@ export function createUpdateService({
   const simulatedMode = process.env.ASCIIDOC_UPDATE_SIMULATE === "manual"
     ? "manual"
     : process.env.ASCIIDOC_UPDATE_SIMULATE === "auto" ? "auto" : null;
-  let checking = false;
+  // The renderer can pull the last status at init (update:get-status) so a
+  // status emitted before its listener attached is not lost forever.
+  let lastStatus = null;
+  const sendStatus = (payload) => {
+    lastStatus = payload;
+    emitStatus(payload);
+  };
+  // A second check while one is in flight shares the running check instead
+  // of silently doing nothing (a manual click during a startup check used
+  // to be a no-op with no feedback).
+  let checkingPromise = null;
 
   if (autoUpdater) {
     autoUpdater.autoDownload = false;
@@ -55,13 +66,20 @@ export function createUpdateService({
     };
   }
 
-  async function checkNow({ manual = false } = {}) {
-    if (checking) {
-      return;
+  function checkNow(options = {}) {
+    if (checkingPromise) {
+      return checkingPromise;
     }
 
-    checking = true;
+    checkingPromise = runCheck(options).finally(() => {
+      checkingPromise = null;
+    });
+    return checkingPromise;
+  }
+
+  async function runCheck({ manual = false } = {}) {
     sendStatus({ status: "checking" });
+    void manual;
 
     try {
       if (simulatedMode) {
@@ -109,8 +127,6 @@ export function createUpdateService({
         message: error instanceof Error ? error.message : String(error),
         manual
       });
-    } finally {
-      checking = false;
     }
   }
 
@@ -138,6 +154,17 @@ export function createUpdateService({
       await autoUpdater.downloadUpdate();
       sendStatus({ status: "ready" });
       allowQuitForUpdate();
+      // Persist the renderer session BEFORE quitting: unsaved buffers live
+      // in state.json, and the renderer's beforeunload flush is
+      // fire-and-forget, so it can race window destruction. The main
+      // process asks the renderer to persist now and awaits the round
+      // trip; the before-quit flush remains as the backstop if the window
+      // is already gone.
+      try {
+        await flushRendererSession?.();
+      } catch {
+        // A missing or destroyed window is fine - nothing left to flush.
+      }
       // quitAndInstall(silent, forceRunAfter): install without wizard and
       // relaunch the app once the installer finishes.
       autoUpdater.quitAndInstall(true, true);
@@ -176,6 +203,7 @@ export function createUpdateService({
     capability,
     checkNow,
     applyUpdate,
-    scheduleStartupCheck
+    scheduleStartupCheck,
+    getStatus: () => lastStatus
   };
 }

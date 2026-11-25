@@ -2450,8 +2450,7 @@ function buildUnavailablePreviewDocument() {
         <h2>No preview available</h2>
         <p>${escapeHtml(label)} can be edited here, but only AsciiDoc documents render in the preview pane.</p>
       </div>
-    `,
-    syncPoints: []
+    `
   };
 }
 
@@ -3535,9 +3534,16 @@ async function bindEvents() {
     }
   }, true);
 
+  // The filename filter triggers a full workspace tree walk per change (an
+  // IPC round-trip into a recursive directory scan), so debounce it like
+  // the other scheduled jobs instead of firing on every keystroke.
+  let workspaceSearchRefreshTimer = null;
   elements.workspaceSearch.addEventListener("input", () => {
     appState.workspaceQuery = elements.workspaceSearch.value;
-    void refreshFileTree();
+    clearTimeout(workspaceSearchRefreshTimer);
+    workspaceSearchRefreshTimer = setTimeout(() => {
+      void refreshFileTree();
+    }, 250);
   });
 
   const setEditorDropTarget = (nextValue) => {
@@ -3614,6 +3620,12 @@ async function bindEvents() {
     setEditorDropTarget(false);
   });
 
+  // The main process calls this right before an update restart (via
+  // executeJavaScript) and awaits the state:update round trip: unsaved
+  // buffers live in state.json and the normal beforeunload flush below is
+  // fire-and-forget, which can race window destruction.
+  window.__adocFlushSession = () => persistWindowState();
+
   window.addEventListener("beforeunload", () => {
     void persistWindowState();
   });
@@ -3626,6 +3638,18 @@ async function bindEvents() {
     appState.updateStatus = status;
     renderUpdateStatus();
   });
+
+  // Pull the last known update status at init: the push channel drops any
+  // status emitted before the listener above was attached (a slow disk can
+  // beat renderer init), and without this the toast would never appear.
+  window.desktop.getUpdateStatus?.()
+    .then((status) => {
+      if (status) {
+        appState.updateStatus = status;
+        renderUpdateStatus();
+      }
+    })
+    .catch(() => {});
 
   window.desktop.onAppCloseRequested(async ({ requestId }) => {
     if (appState.isHandlingCloseRequest) {

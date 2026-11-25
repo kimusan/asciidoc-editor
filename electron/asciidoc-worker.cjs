@@ -306,21 +306,14 @@ function collectSyncNodes(document) {
     .filter((entry) => entry.context && entry.lineNumber && SYNC_BLOCK_CONTEXTS.has(entry.context));
 }
 
-function extractSyncPoints(document) {
-  return collectSyncNodes(document).map(({ context, lineNumber }) => ({
-    context,
-    lineNumber
-  }));
-}
-
 // Stamp each block's source line as a role so the rendered HTML carries the
 // line number wherever the block actually renders. The renderer then reads
 // src-line-N classes directly instead of guessing which DOM element maps to
 // which AST block — context-based matching breaks whenever a block style
 // renders into a different element (e.g. [abstract] -> .quoteblock), which
 // derailed the whole anchor assignment on real documents.
-function annotateSourceLineRoles(document) {
-  for (const { node, lineNumber } of collectSyncNodes(document)) {
+function annotateSourceLineRoles(syncNodes) {
+  for (const { node, lineNumber } of syncNodes) {
     node.addRole?.(`src-line-${lineNumber}`);
   }
 }
@@ -330,31 +323,40 @@ function renderDocument(source, filePath, options = {}) {
   // as well would parse the whole source a second time on every render.
   const document = asciidoctor.load(source, buildLoadOptions(filePath, options));
   // The roles exist only for preview scroll sync; DocBook exports must not
-  // carry them.
+  // carry them. This is the single AST traversal for sync data: the
+  // renderer consumes the stamped src-line-N roles straight from the DOM.
   if ((options.backend ?? "html5") === "html5") {
-    annotateSourceLineRoles(document);
+    annotateSourceLineRoles(collectSyncNodes(document));
   }
   return {
     title: resolveDocumentTitle(document, filePath),
-    content: document.convert(),
-    syncPoints: extractSyncPoints(document)
+    content: document.convert()
   };
 }
 
 const operations = {
   renderDocument: (source, filePath, options) => renderDocument(source, filePath, options),
   renderPreviewBody: (source, filePath, options) => {
-    const { title, content, syncPoints } = renderDocument(source, filePath, {
+    const { title, content } = renderDocument(source, filePath, {
       ...options,
       standalone: true
     });
     return {
       title,
-      body: highlightCodeBlocks(extractBodyContents(content)),
-      syncPoints
+      body: highlightCodeBlocks(extractBodyContents(content))
     };
   }
 };
+
+// Test-only (ASCIIDOC_TEST_HANG=1): blocks the worker thread without
+// spinning CPU so the main process's job timeout can be exercised end to
+// end. Never registered in production.
+if (process.env.ASCIIDOC_TEST_HANG === "1") {
+  operations.__testHang = () => {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60_000);
+    return {};
+  };
+}
 
 parentPort.on("message", (job) => {
   try {
