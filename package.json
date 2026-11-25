@@ -25,8 +25,16 @@
     "files": [
       "electron/**/*",
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/highlight.js/es/**",
+      "!node_modules/highlight.js/scss/**",
+      "!node_modules/highlight.js/styles/**",
+      "node_modules/highlight.js/styles/github.css",
+      "node_modules/highlight.js/styles/github-dark.css",
+      "!node_modules/linkedom/esm/**",
+      "!node_modules/linkedom/types/**"
     ],
+    "compression": "maximum",
     "asar": true,
     "asarUnpack": [
       "electron/asciidoc-worker.cjs"
@@ -76,9 +84,20 @@
     "electron-builder": "^26.8.1",
     "vite": "^8.0.10"
   },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.10"
+  },
   "dependencies": {
     "@asciidoctor/core": "^3.0.4",
     "@asciidoctor/docbook-converter": "^3.0.0",
+    "highlight.js": "^11.11.1",
+    "linkedom": "^0.18.15",
+    "mscgenjs": "^8.0.0"
+  },
+  "devDependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/language": "^6.12.3",
@@ -86,8 +105,9 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.41.1",
     "@lezer/highlight": "^1.2.3",
-    "highlight.js": "^11.11.1",
-    "jsdom": "^29.0.2",
-    "mscgenjs": "^8.0.0"
+    "@playwright/test": "^1.65.1",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.10"
   }
 }

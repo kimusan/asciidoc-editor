@@ -12,7 +12,7 @@ const { parentPort } = require("node:worker_threads");
 const Asciidoctor = require("@asciidoctor/core");
 const docbookConverter = require("@asciidoctor/docbook-converter");
 const hljs = require("highlight.js/lib/common");
-const { JSDOM } = require("jsdom");
+const { parseHTML } = require("linkedom");
 const mscgenjs = require("mscgenjs");
 
 const asciidoctor = Asciidoctor();
@@ -60,12 +60,17 @@ function renderMscSvg(source, options = {}) {
     return mscSvgCache.get(cacheKey);
   }
 
-  const dom = new JSDOM("<div id=\"mscgen-root\"></div>");
+  // mscgenjs renders SVG through a browser-style DOM. linkedom provides the
+  // small API surface it needs (createElement(NS), getElementById,
+  // setAttribute, appendChild, innerHTML serialization) at ~1MB; neither it
+  // nor jsdom before it can do text layout, so mscgenjs already falls back
+  // to its fixed-size bbox estimation either way.
+  const dom = parseHTML("<div id=\"mscgen-root\"></div>");
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
 
-  globalThis.window = dom.window;
-  globalThis.document = dom.window.document;
+  globalThis.window = dom;
+  globalThis.document = dom.document;
 
   try {
     let renderedSvg;
@@ -82,7 +87,7 @@ function renderMscSvg(source, options = {}) {
         renderError = error;
         renderedSvg = typeof svg === "string"
           ? svg
-          : dom.window.document.getElementById("mscgen-root")?.innerHTML ?? "";
+          : dom.document.getElementById("mscgen-root")?.innerHTML ?? "";
       }
     );
 
@@ -108,8 +113,6 @@ function renderMscSvg(source, options = {}) {
     } else {
       globalThis.document = previousDocument;
     }
-
-    dom.window.close();
   }
 }
 
