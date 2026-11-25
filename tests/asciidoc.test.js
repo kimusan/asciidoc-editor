@@ -221,17 +221,23 @@ test("exportDocument writes a standalone HTML document", async () => {
 
 test("a hung render job times out and the worker recovers on the next render", async () => {
   // Drop any worker earlier tests spawned so the probe runs against a
-  // fresh worker that picked up the test-only hang op.
+  // fresh worker that picked up the test-only hang op. The hang op is
+  // registered at worker load, so ASCIIDOC_TEST_HANG must be set before
+  // the warmup - but the shortened job timeout must NOT: on CI the cold
+  // worker spawn alone takes ~270ms, so only the probe pays the 250ms
+  // timeout and the warmup/recovery renders keep the real default.
   await disposeRenderWorker();
   process.env.ASCIIDOC_TEST_HANG = "1";
-  process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS = "250";
 
   try {
     await renderPreviewDocument("= Warmup\n\nparagraph.", null, {});
+
+    process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS = "250";
     const outcome = await runRenderJobForTests("__testHang").then(
       () => null,
       (error) => error
     );
+    delete process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS;
 
     assert.ok(outcome instanceof Error, "the hung job must reject, not hang forever");
     assert.match(outcome.message, /timed out/);
