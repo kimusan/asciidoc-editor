@@ -199,6 +199,18 @@ function buildProjectPayload() {
   };
 }
 
+// Preview/PDF settings are project-scoped: when a project is open, the
+// project file is the source of truth and re-applies its values on every
+// boot, so changes must also be written there or they are silently reset
+// the next time the app starts.
+async function persistProjectScopedSettings() {
+  if (!appState.currentProjectPath) {
+    return;
+  }
+
+  await window.desktop.saveProjectFile(buildProjectPayload());
+}
+
 function getWatchedDocumentPaths() {
   return appState.openDocuments
     .map((document) => document.path)
@@ -2711,12 +2723,14 @@ async function bindEvents() {
     updateDocumentChrome();
     await renderPreviewNow();
     await window.desktop.updateState({ previewFontFamily: appState.previewFontFamily });
+    await persistProjectScopedSettings();
   });
 
   elements.settingsPdfPaperSize.addEventListener("change", async (event) => {
     appState.pdfPaperSize = normalizePdfPaperSize(event.target.value);
     updateDocumentChrome();
     await window.desktop.updateState({ pdfPaperSize: appState.pdfPaperSize });
+    await persistProjectScopedSettings();
   });
 
   elements.chooseStylesheet.addEventListener("click", async () => {
@@ -2729,6 +2743,7 @@ async function bindEvents() {
     updateDocumentChrome();
     await renderPreviewNow();
     await window.desktop.updateState({ previewStylesheetPath: appState.previewStylesheetPath });
+    await persistProjectScopedSettings();
   });
 
   elements.clearStylesheet.addEventListener("click", async () => {
@@ -2736,6 +2751,7 @@ async function bindEvents() {
     updateDocumentChrome();
     await renderPreviewNow();
     await window.desktop.updateState({ previewStylesheetPath: null });
+    await persistProjectScopedSettings();
   });
 
   elements.choosePdfStylesheet.addEventListener("click", async () => {
@@ -2747,12 +2763,14 @@ async function bindEvents() {
     appState.pdfStylesheetPath = selectedStylesheet;
     updateDocumentChrome();
     await window.desktop.updateState({ pdfStylesheetPath: appState.pdfStylesheetPath });
+    await persistProjectScopedSettings();
   });
 
   elements.clearPdfStylesheet.addEventListener("click", async () => {
     appState.pdfStylesheetPath = null;
     updateDocumentChrome();
     await window.desktop.updateState({ pdfStylesheetPath: null });
+    await persistProjectScopedSettings();
   });
 
   elements.editorSearchInput.addEventListener("input", () => {

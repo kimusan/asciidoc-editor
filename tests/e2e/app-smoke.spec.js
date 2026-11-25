@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-async function launchApp() {
+async function launchApp(profileDir) {
   // The app loads dist/index.html; without a renderer build the window
   // comes up blank and every visibility assertion times out confusingly.
   try {
@@ -15,7 +15,7 @@ async function launchApp() {
     throw new Error("dist/index.html not found - run `npm run build` before the e2e suite");
   }
 
-  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-profile-"));
+  const profile = profileDir ?? (await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-profile-")));
   // ASCIIDOC_E2E_EXECUTABLE points the suite at a packaged binary
   // (e.g. release/linux-unpacked/asciidoc-editor) to verify the shipped
   // layout instead of the dev tree.
@@ -24,7 +24,7 @@ async function launchApp() {
     ...(packagedExecutable ? { executablePath: packagedExecutable } : {}),
     args: [
       ...(packagedExecutable ? [] : [PROJECT_ROOT]),
-      `--user-data-dir=${profileDir}`
+      `--user-data-dir=${profile}`
     ]
   });
   const window = await app.firstWindow();
@@ -278,6 +278,46 @@ test("editor follows preview scrolling", async () => {
     expect(Math.abs(settled.previewTop - midTarget)).toBeLessThan(150);
   } finally {
     await stopApp(app);
+  }
+});
+
+test("preview settings survive an app restart", async () => {
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-persist-"));
+  const quitGracefully = async (app, window) => {
+    // Close through the window, not app.exit: the untitled document is not
+    // dirty so the close handshake allows it immediately, and the real quit
+    // path (window-all-closed -> app.quit) is exactly what used to truncate
+    // state.json mid-write.
+    await window.close();
+    await app.close().catch(() => {});
+  };
+
+  const first = await launchApp(profileDir);
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible();
+    await first.window.locator("#open-settings").click();
+    await first.window.locator("#settings-overlay").waitFor();
+    await first.window.locator("#settings-preview-font").selectOption("sans");
+    await first.window.waitForTimeout(400);
+    await first.window.keyboard.press("Escape");
+  } finally {
+    await quitGracefully(first.app, first.window);
+  }
+
+  // The persisted state must be intact JSON: the quit-time save used to
+  // leave state.json truncated to zero bytes, resetting every setting on
+  // the next launch.
+  const rawState = await fs.readFile(path.join(profileDir, "state.json"), "utf8");
+  expect(JSON.parse(rawState).previewFontFamily).toBe("sans");
+
+  const second = await launchApp(profileDir);
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible();
+    await second.window.locator("#open-settings").click();
+    await second.window.locator("#settings-overlay").waitFor();
+    await expect(second.window.locator("#settings-preview-font")).toHaveValue("sans");
+  } finally {
+    await stopApp(second.app);
   }
 });
 

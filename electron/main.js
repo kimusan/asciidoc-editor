@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { sanitizePartialState } from "./state-schema.js";
-import { loadState, saveState } from "./store.js";
+import { loadState, saveState, flushStateWrites } from "./store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -1338,4 +1338,26 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+// The renderer fires a last fire-and-forget state save during beforeunload,
+// which races app.quit() and used to leave state.json truncated. Hold the
+// quit open just long enough for queued writes to settle (bounded, so a
+// stuck write can never block quitting).
+let stateWritesFlushed = false;
+app.on("before-quit", (event) => {
+  if (stateWritesFlushed) {
+    return;
+  }
+
+  event.preventDefault();
+  stateWritesFlushed = true;
+  Promise.race([
+    flushStateWrites(),
+    new Promise((resolve) => {
+      setTimeout(resolve, 1500);
+    })
+  ]).finally(() => {
+    app.quit();
+  });
 });

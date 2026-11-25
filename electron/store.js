@@ -37,6 +37,19 @@ function getStatePath() {
   return path.join(app.getPath("userData"), "state.json");
 }
 
+// Write via a temp file and rename: rename is atomic on the same filesystem,
+// so state.json can never be left truncated if the process dies mid-write
+// (fs.writeFile truncates the target file first, which is how a quit-time
+// save used to zero out the whole persisted state).
+async function writeStateFile(nextState) {
+  const statePath = getStatePath();
+  const tempPath = `${statePath}.tmp`;
+
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.writeFile(tempPath, JSON.stringify(nextState, null, 2), "utf8");
+  await fs.rename(tempPath, statePath);
+}
+
 export async function loadState() {
   await writeQueue;
 
@@ -61,8 +74,7 @@ export async function saveState(partialState) {
       ...partialState
     };
 
-    await fs.mkdir(path.dirname(getStatePath()), { recursive: true });
-    await fs.writeFile(getStatePath(), JSON.stringify(nextState, null, 2), "utf8");
+    await writeStateFile(nextState);
     return nextState;
   });
 
@@ -74,4 +86,10 @@ export async function saveState(partialState) {
   });
 
   return write;
+}
+
+// Resolves once every queued state write has settled. The quit path uses
+// this to let the final session snapshot land before the process exits.
+export function flushStateWrites() {
+  return Promise.resolve(writeQueue);
 }
