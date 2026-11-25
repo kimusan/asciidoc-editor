@@ -56,6 +56,34 @@ test("renderPreviewDocument extracts source-mapped sync points for scroll sync",
   ]);
 });
 
+test("rendered preview HTML carries exact src-line roles and DocBook stays clean", async () => {
+  const { renderPreviewDocument } = await import("../electron/asciidoc.js");
+  // [abstract] renders as a .quoteblock while its AST context is "open";
+  // the role must land on the actual rendered element at its true line.
+  const source = [
+    "= Demo",
+    ":doctype: book",
+    "",
+    "[%notitle]",
+    "--",
+    "[abstract]",
+    "Abstract body.",
+    "--",
+    "",
+    "== Section",
+    "",
+    "Paragraph."
+  ].join("\n");
+  const result = await renderPreviewDocument(source, null, {});
+
+  assert.match(result.body, /class="quoteblock abstract src-line-7"/);
+  assert.match(result.body, /src-line-12"/);
+  assert.match(result.body, /class="sect1 src-line-10"/);
+
+  const docbook = await convertDocument(source, null, { backend: "docbook5", standalone: false });
+  assert.doesNotMatch(docbook, /src-line-/);
+});
+
 test("renderPreview resolves relative image paths from an explicit base directory for unsaved project documents", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-images-"));
   const imagePath = path.join(tempRoot, "images", "cover.png");

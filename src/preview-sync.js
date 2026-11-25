@@ -5,30 +5,37 @@
 
 import { appState, editorRef, elements } from "./app-state.js";
 
-export const PREVIEW_SYNC_SELECTOR = [
-  "#header h1",
-  "#content h1",
-  "#content h2",
-  "#content h3",
-  "#content h4",
-  "#content h5",
-  "#content h6",
-  "#content .paragraph",
-  "#content .listingblock",
-  "#content .literalblock",
-  "#content .ulist",
-  "#content .olist",
-  "#content .dlist",
-  "#content .imageblock",
-  "#content .tableblock",
-  "#content .admonitionblock",
-  "#content .quoteblock",
-  "#content .verseblock",
-  "#content .sidebarblock",
-  "#content .exampleblock",
-  "#content .openblock",
-  "#content .stemblock"
-].join(", ");
+// The render worker stamps every sync-able block with a src-line-N role
+// that survives into the rendered HTML, so anchor assignment is exact and
+// independent of DOM/AST ordering. Matching AST contexts to CSS classes
+// here (the previous approach) silently misaligned anchors whenever a
+// block style rendered into a different element, e.g. [abstract] -> a
+// .quoteblock instead of an .openblock.
+const SOURCE_LINE_ROLE = /(?:^|\s)src-line-(\d+)(?=\s|$)/;
+
+export function applyPreviewSyncPoints(frame) {
+  const frameDocument = frame.contentDocument;
+  if (!frameDocument) {
+    return;
+  }
+
+  // The document title is rendered by the header template and carries no
+  // block role; the header always starts at the top of the source.
+  const titleHeading = frameDocument.querySelector("#header h1");
+  if (titleHeading) {
+    titleHeading.dataset.sourceLine = "1";
+  }
+
+  for (const element of frameDocument.querySelectorAll('[class*="src-line-"]')) {
+    // className is an SVGAnimatedString on SVG elements; only HTML block
+    // elements carry our roles.
+    const className = typeof element.className === "string" ? element.className : "";
+    const match = className.match(SOURCE_LINE_ROLE);
+    if (match) {
+      element.dataset.sourceLine = match[1];
+    }
+  }
+}
 
 export function waitForPreviewFrameReady(frame) {
   if (frame.contentDocument?.body?.dataset.previewShell === "true") {
@@ -65,81 +72,6 @@ export function applyPreviewDocument(frame, previewDocument) {
   root.innerHTML = previewDocument.body ?? "";
   previewAnchorCache.delete(frame);
   return true;
-}
-
-function elementMatchesSyncPoint(element, syncPoint) {
-  const tagName = element.tagName;
-
-  switch (syncPoint.context) {
-    case "document":
-      return tagName === "H1";
-    case "section":
-      return /^H[1-6]$/.test(tagName);
-    case "paragraph":
-      return element.classList.contains("paragraph");
-    case "listing":
-      return element.classList.contains("listingblock");
-    case "literal":
-      return element.classList.contains("literalblock");
-    case "ulist":
-      return element.classList.contains("ulist");
-    case "olist":
-      return element.classList.contains("olist");
-    case "dlist":
-      return element.classList.contains("dlist");
-    case "image":
-      return element.classList.contains("imageblock");
-    case "table":
-      return element.classList.contains("tableblock");
-    case "admonition":
-      return element.classList.contains("admonitionblock");
-    case "quote":
-      return element.classList.contains("quoteblock");
-    case "verse":
-      return element.classList.contains("verseblock");
-    case "sidebar":
-      return element.classList.contains("sidebarblock");
-    case "example":
-      return element.classList.contains("exampleblock");
-    case "open":
-      return element.classList.contains("openblock");
-    case "stem":
-      return element.classList.contains("stemblock");
-    default:
-      return false;
-  }
-}
-
-export function applyPreviewSyncPoints(frame, syncPoints = []) {
-  const frameDocument = frame.contentDocument;
-  if (!frameDocument) {
-    return;
-  }
-
-  const candidates = Array.from(frameDocument.querySelectorAll(PREVIEW_SYNC_SELECTOR));
-  let candidateIndex = 0;
-
-  for (const syncPoint of syncPoints) {
-    // Find the first unclaimed candidate that matches this block. Skipping
-    // non-matching candidates is correct (rendered blocks without a sync
-    // point, e.g. msc pass blocks, sit between matching ones), but a sync
-    // point with no rendered candidate must not consume the pointer or every
-    // later anchor would be silently dropped.
-    let matchedIndex = -1;
-    for (let index = candidateIndex; index < candidates.length; index += 1) {
-      if (elementMatchesSyncPoint(candidates[index], syncPoint)) {
-        matchedIndex = index;
-        break;
-      }
-    }
-
-    if (matchedIndex < 0) {
-      continue;
-    }
-
-    candidates[matchedIndex].dataset.sourceLine = String(syncPoint.lineNumber);
-    candidateIndex = matchedIndex + 1;
-  }
 }
 
 export function scrollPreviewToAnchor(anchorId, frame = elements.previewFrame, behavior = "smooth") {

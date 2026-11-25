@@ -2007,14 +2007,14 @@ async function renderPreviewNow() {
 
     appState.lastPreviewDocument = previewDocument;
     applyPreviewDocument(elements.previewFrame, previewDocument);
-    applyPreviewSyncPoints(elements.previewFrame, previewDocument.syncPoints);
+    applyPreviewSyncPoints(elements.previewFrame);
     installPreviewInteractions(elements.previewFrame);
 
     // The expanded overlay is usually closed; only mirror the render into it
     // when it is visible and mark it stale otherwise, halving the DOM work.
     if (appState.previewOverlayOpen) {
       applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
-      applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
+      applyPreviewSyncPoints(elements.previewFrameExpanded);
       installPreviewInteractions(elements.previewFrameExpanded);
       appState.expandedPreviewStale = false;
     } else {
@@ -2084,7 +2084,7 @@ async function hydrateExpandedPreviewFrame() {
 
   await waitForPreviewFrameReady(elements.previewFrameExpanded);
   applyPreviewDocument(elements.previewFrameExpanded, previewDocument);
-  applyPreviewSyncPoints(elements.previewFrameExpanded, previewDocument.syncPoints);
+  applyPreviewSyncPoints(elements.previewFrameExpanded);
   installPreviewInteractions(elements.previewFrameExpanded);
   appState.expandedPreviewStale = false;
 }

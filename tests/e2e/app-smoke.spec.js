@@ -129,6 +129,17 @@ test("preview scroll sync tracks the editor cursor", async () => {
       expect(anchorCount).toBeGreaterThan(50);
     }).toPass({ timeout: 15_000 });
 
+    // Anchors must be correctly aligned with the rendered blocks: in DOM
+    // order their source lines never decrease. A misaligned anchor set pins
+    // the preview to the wrong spot no matter where the cursor goes.
+    const anchorLines = await window.evaluate(() =>
+      Array.from(document.querySelector("#preview-frame")
+        ?.contentDocument?.querySelectorAll("[data-source-line]") ?? [])
+        .map((element) => Number.parseInt(element.dataset.sourceLine, 10))
+    );
+    expect(anchorLines.length).toBeGreaterThan(50);
+    expect(anchorLines.every((line, index) => index === 0 || line >= anchorLines[index - 1])).toBe(true);
+
     const readScrollTop = () => window.evaluate(() => {
       const frame = document.querySelector("#preview-frame");
       return Math.round(frame?.contentDocument?.scrollingElement?.scrollTop ?? -1);

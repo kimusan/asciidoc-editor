@@ -247,52 +247,68 @@ function getNodeLineNumber(node) {
   return sourceLocation.lineno ?? null;
 }
 
+const SYNC_BLOCK_CONTEXTS = new Set([
+  "document",
+  "section",
+  "paragraph",
+  "listing",
+  "literal",
+  "ulist",
+  "olist",
+  "dlist",
+  "image",
+  "table",
+  "admonition",
+  "quote",
+  "verse",
+  "sidebar",
+  "example",
+  "open",
+  "stem"
+]);
+
+// findBy() includes the Document node itself; its line is represented by
+// the implicit header section, so skip the duplicate to avoid two sync
+// points competing for the document title element.
+function collectSyncNodes(document) {
+  return (document.findBy?.(() => true) ?? [])
+    .filter((node) => node !== document)
+    .map((node) => ({
+      node,
+      context: node.getContext?.(),
+      lineNumber: getNodeLineNumber(node)
+    }))
+    .filter((entry) => entry.context && entry.lineNumber && SYNC_BLOCK_CONTEXTS.has(entry.context));
+}
+
 function extractSyncPoints(document) {
-  const supportedContexts = new Set([
-    "document",
-    "section",
-    "paragraph",
-    "listing",
-    "literal",
-    "ulist",
-    "olist",
-    "dlist",
-    "image",
-    "table",
-    "admonition",
-    "quote",
-    "verse",
-    "sidebar",
-    "example",
-    "open",
-    "stem"
-  ]);
+  return collectSyncNodes(document).map(({ context, lineNumber }) => ({
+    context,
+    lineNumber
+  }));
+}
 
-  // findBy() includes the Document node itself; its line is represented by
-  // the implicit header section, so skip the duplicate to avoid two sync
-  // points competing for the document title element.
-  const nodes = (document.findBy?.(() => true) ?? []).filter((node) => node !== document);
-
-  return nodes
-    .map((node) => {
-      const context = node.getContext?.();
-      const lineNumber = getNodeLineNumber(node);
-      if (!context || !lineNumber || !supportedContexts.has(context)) {
-        return null;
-      }
-
-      return {
-        context,
-        lineNumber
-      };
-    })
-    .filter(Boolean);
+// Stamp each block's source line as a role so the rendered HTML carries the
+// line number wherever the block actually renders. The renderer then reads
+// src-line-N classes directly instead of guessing which DOM element maps to
+// which AST block — context-based matching breaks whenever a block style
+// renders into a different element (e.g. [abstract] -> .quoteblock), which
+// derailed the whole anchor assignment on real documents.
+function annotateSourceLineRoles(document) {
+  for (const { node, lineNumber } of collectSyncNodes(document)) {
+    node.addRole?.(`src-line-${lineNumber}`);
+  }
 }
 
 function renderDocument(source, filePath, options = {}) {
   // Load once and convert the parsed document; calling asciidoctor.convert
   // as well would parse the whole source a second time on every render.
   const document = asciidoctor.load(source, buildLoadOptions(filePath, options));
+  // The roles exist only for preview scroll sync; DocBook exports must not
+  // carry them.
+  if ((options.backend ?? "html5") === "html5") {
+    annotateSourceLineRoles(document);
+  }
   return {
     title: resolveDocumentTitle(document, filePath),
     content: document.convert(),
