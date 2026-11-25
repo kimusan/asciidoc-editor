@@ -113,6 +113,26 @@ export const SHORTCUT_SECTIONS = [
         shortcuts: [["Ctrl", "Shift", "K"], ["Cmd", "Shift", "K"]]
       }
     ]
+  },
+  {
+    title: "Command Palette and Menu",
+    items: [
+      {
+        title: "Open the command palette",
+        detail: "Fuzzy-search every action, open tab, outline heading, and workspace file.",
+        shortcuts: [["Ctrl", "K"], ["Cmd", "K"], ["Ctrl", "Shift", "P"]]
+      },
+      {
+        title: "Open a file",
+        detail: "Pick any AsciiDoc document through the native menu dialog.",
+        shortcuts: [["Ctrl", "O"], ["Cmd", "O"]]
+      },
+      {
+        title: "Reveal the classic menu bar",
+        detail: "Press Alt to show File / Edit / View / Help at the top of the window. Every relocated button also lives in the ⋯ menu and the palette.",
+        shortcuts: [["Alt"]]
+      }
+    ]
   }
 ];
 

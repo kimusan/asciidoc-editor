@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld("desktop", {
   openProjectFile: (projectPath) => ipcRenderer.invoke("project:open-file", projectPath),
   saveProjectFile: (payload) => ipcRenderer.invoke("project:save-file", payload),
   setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),
+  defineMenu: (payload) => ipcRenderer.invoke("app:define-menu", payload),
+  onMenuAction: (callback) => {
+    ipcRenderer.removeAllListeners("app:menu-action");
+    ipcRenderer.on("app:menu-action", (_, payload) => callback(payload));
+  },
   onExternalFileChanged: (callback) => {
     ipcRenderer.removeAllListeners("fs:file-changed");
     ipcRenderer.on("fs:file-changed", (_, payload) => callback(payload));

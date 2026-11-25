@@ -55,6 +55,13 @@ import {
   setInputElementValue,
   stripExtension
 } from "./utils.js";
+import { KEBAB_LAYOUT, MENU_LAYOUT } from "./app-menu.js";
+import {
+  closeCommandPalette,
+  initCommandPalette,
+  isCommandPaletteOpen,
+  openCommandPalette
+} from "./command-palette.js";
 import "./styles.css";
 
 const themeCompartment = new Compartment();
@@ -240,6 +247,11 @@ function renderUpdateStatus() {
   const showProgress = status?.status === "downloading" || status?.status === "ready";
 
   elements.updateToast.classList.toggle("is-open", Boolean(isAvailable || showProgress));
+  if (isAvailable || showProgress) {
+    // The update toast owns the bottom-right corner; the chrome hint
+    // must never sit on top of it.
+    elements.chromeHint?.classList.remove("is-open");
+  }
   if (isAvailable) {
     elements.updateToastTitle.textContent = `Version ${status.version} is available`;
     elements.updateToastMessage.textContent = status.mode === "manual"
@@ -325,30 +337,19 @@ function createLayout() {
   const app = document.querySelector("#app");
   app.innerHTML = `
     <div class="shell">
-      <header class="topbar">
-        <div class="topbar-brand">
-          <div class="brand-mark">${ICONS.brand}</div>
-          <div>
-            <p class="eyebrow">2026 Writing Studio</p>
-            <h1>AsciiDoc Editor</h1>
-          </div>
-        </div>
-        <div class="topbar-toolbar">
-          <div class="topbar-actions topbar-actions-primary" aria-label="Document actions">
-            <button id="new-document" class="toolbar-button"><span class="button-icon">${ICONS.newDocument}</span><span>New</span></button>
-            <button id="open-file" class="toolbar-button"><span class="button-icon">${ICONS.open}</span><span>Open</span></button>
-            <button id="open-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.folder}</span><span>Open Project</span></button>
-            <button id="save-file" class="toolbar-button"><span class="button-icon">${ICONS.save}</span><span>Save</span></button>
-            <button id="save-file-as" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Save As</span></button>
-            <button id="save-project" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.save}</span><span>Save Project</span></button>
-          </div>
-          <span class="topbar-toolbar-divider" aria-hidden="true"></span>
-          <div class="topbar-actions topbar-actions-secondary" aria-label="Application actions">
-            <button id="open-settings" class="toolbar-button ghost-button" aria-label="Settings"><span class="button-icon">${ICONS.settings}</span><span>Settings</span></button>
-            <button id="open-help" class="toolbar-button ghost-button" aria-label="Keyboard shortcuts"><span class="button-icon">${ICONS.shortcuts}</span><span>Help</span></button>
-            <button id="open-about" class="toolbar-button ghost-button" aria-label="About AsciiDoc Editor"><span class="button-icon">${ICONS.info}</span><span>About</span></button>
-          </div>
-        </div>
+      <header class="app-strip">
+        <button id="open-about" class="strip-brand" type="button" aria-label="About AsciiDoc Editor" data-tip="About AsciiDoc Editor">
+          <span class="brand-mark brand-mark-strip">${ICONS.brand}</span>
+        </button>
+        <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
+        <button id="new-document" class="strip-button strip-plus" type="button" aria-label="New document" data-tip="New document (Ctrl+N)">${ICONS.newDocument}</button>
+        <div class="strip-spacer"></div>
+        <button id="save-file" class="strip-button" type="button" aria-label="Save document" data-tip="Save document (Ctrl+S)">${ICONS.save}</button>
+        <button id="toggle-outline" class="strip-button" type="button" aria-label="Toggle outline panel" aria-pressed="true" data-tip="Outline panel">${ICONS.outlineList}</button>
+        <button id="open-reference" class="strip-button" type="button" aria-label="Markup reference" data-tip="Markup reference (Ctrl+Shift+K)">${ICONS.reference}</button>
+        <span id="document-status" class="sync-dot" role="status" data-state="synced" aria-label="Preview synced"></span>
+        <button id="open-kebab" class="strip-button" type="button" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-tip="More actions" data-tip-align="left">${ICONS.kebab}</button>
+        <button id="open-settings" class="strip-button" type="button" aria-label="Settings" data-tip="Settings (Ctrl+,)" data-tip-align="left">${ICONS.settings}</button>
       </header>
       <main class="layout-grid">
         <aside class="workspace-panel">
@@ -381,55 +382,9 @@ function createLayout() {
           <span class="button-icon">${ICONS.expandSidebar}</span>
         </button>
         <section class="editor-stage panel">
-          <div class="editor-stage-header">
-            <button id="exit-focus-mode" class="toolbar-button ghost-button focus-exit-button" type="button" aria-label="Exit focus mode">
-              <span class="button-icon">${ICONS.close}</span>
-            </button>
-            <div class="editor-stage-bar">
-              <div class="editor-title-stack">
-                <div class="document-meta-row">
-                  <div class="document-kicker">Active Draft</div>
-                  <div id="document-status" class="document-status">Preview synced</div>
-                </div>
-                <div id="document-name" class="document-name">Untitled.adoc</div>
-              </div>
-                <div class="editor-commandbar">
-                  <div class="command-group">
-                    <button id="toggle-outline" class="toolbar-button ghost-button" type="button"><span class="button-icon">${ICONS.reference}</span><span>Outline</span></button>
-                    <button id="open-reference" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.reference}</span><span>Reference</span></button>
-                  </div>
-                  <div class="command-group">
-                  <button id="open-export" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.export}</span><span>Export</span></button>
-                </div>
-              </div>
-            </div>
-            <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
-          </div>
           <div class="editor-surface">
             <div id="split-layout" class="split-layout">
               <section class="split-panel split-panel-editor">
-                <div class="split-panel-header">
-                  <div class="panel-header-main panel-header-compact">
-                    <span class="panel-icon">${ICONS.brand}</span>
-                    <div class="panel-title">Editor</div>
-                  </div>
-                  <div class="editor-panel-meta">
-                    <button id="toggle-editor-search" class="toolbar-button ghost-button panel-chip panel-chip-compact panel-chip-button panel-chip-icon-button" type="button" aria-label="Toggle document search">
-                      <span class="button-icon">${ICONS.search}</span>
-                    </button>
-                    <span id="stylesheet-chip" class="panel-chip panel-chip-compact">No custom preview CSS</span>
-                    <div class="document-metrics document-metrics-compact">
-                      <div class="metric-pill metric-pill-compact">
-                        <span class="metric-label">Words</span>
-                        <strong id="word-count">0</strong>
-                      </div>
-                      <div class="metric-pill metric-pill-compact">
-                        <span class="metric-label">Lines</span>
-                        <strong id="line-count">1</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
                 <div id="editor-searchbar" class="editor-searchbar" hidden>
                   <div class="editor-search-row editor-search-row-primary">
                     <label class="editor-search-shell">
@@ -470,16 +425,6 @@ function createLayout() {
               </section>
               <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview" tabindex="0" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
               <section class="split-panel split-panel-preview">
-                <div class="split-panel-header">
-                  <div class="panel-header-main panel-header-compact">
-                    <span class="panel-icon">${ICONS.preview}</span>
-                  <div class="panel-title">Live Preview</div>
-                  </div>
-                  <div class="split-panel-actions">
-                    <button id="toggle-focus" class="toolbar-button ghost-button focus-button"><span class="button-icon">${ICONS.focus}</span><span id="focus-button-label">Enter Focus</span></button>
-                    <button id="open-preview-overlay" class="toolbar-button ghost-button"><span class="button-icon">${ICONS.expand}</span><span>Expand</span></button>
-                  </div>
-                </div>
                 <iframe id="preview-frame" class="preview-frame" title="AsciiDoc preview" sandbox="allow-same-origin"></iframe>
               </section>
             </div>
@@ -501,6 +446,25 @@ function createLayout() {
           </div>
         </section>
       </main>
+      <button id="exit-focus-mode" class="strip-button focus-exit-button" type="button" aria-label="Exit focus mode" data-tip="Exit focus mode">${ICONS.close}</button>
+      <footer class="statusbar" aria-label="Document status">
+        <span id="statusbar-sync" class="statusbar-item statusbar-sync" aria-live="polite">Preview synced</span>
+        <span id="document-name" class="statusbar-item statusbar-path" title="">Untitled.adoc</span>
+        <div class="statusbar-spacer"></div>
+        <span class="statusbar-item statusbar-metrics"><span id="word-count">0</span> words · <span id="line-count">1</span> lines</span>
+        <button id="stylesheet-chip" class="statusbar-item statusbar-chip" type="button" title="Preview stylesheet — click to open settings">No custom preview CSS</button>
+      </footer>
+      <div id="kebab-menu" class="kebab-menu" role="menu" aria-label="More actions" hidden></div>
+      <div id="chrome-hint" class="chrome-hint" role="status">
+        <div class="chrome-hint-body">
+          <strong>A slimmer toolbar</strong>
+          <span>Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for the command palette, or <kbd>Alt</kbd> for the classic menu bar. Everything still lives in the <strong>⋯</strong> menu too.</span>
+        </div>
+        <div class="chrome-hint-actions">
+          <button id="chrome-hint-shortcuts" class="toolbar-button" type="button">Show shortcuts</button>
+          <button id="chrome-hint-dismiss" class="toolbar-button ghost-button" type="button">Got it</button>
+        </div>
+      </div>
       <div id="preview-overlay" class="reference-overlay">
         <div id="preview-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog preview-dialog panel" role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title">
@@ -702,7 +666,7 @@ function createLayout() {
             <button id="close-help" class="toolbar-button ghost-button"><span>Close</span></button>
           </div>
           <div class="shortcuts-content">
-            <p class="shortcuts-note">Use <strong>Ctrl</strong> on Windows and Linux. The same shortcuts use <strong>Cmd</strong> on macOS where shown.</p>
+            <p class="shortcuts-note">Use <strong>Ctrl</strong> on Windows and Linux. The same shortcuts use <strong>Cmd</strong> on macOS where shown. Looking for a button that moved? Try the <strong>Ctrl+K</strong> command palette, the <strong>⋯</strong> menu in the top-right corner, or press <strong>Alt</strong> for the classic menu bar.</p>
             <div class="shortcut-grid">
               ${renderShortcutSections()}
             </div>
@@ -766,6 +730,11 @@ function createLayout() {
     </div>
   `;
 
+  // The kebab must exist before the element refs below: entries like
+  // #open-project and #save-project live inside it and updateDocumentChrome
+  // writes their tooltips.
+  renderKebabMenu();
+
   elements.shell = document.querySelector(".shell");
   elements.openSettings = document.querySelector("#open-settings");
   elements.settingsOverlay = document.querySelector("#settings-overlay");
@@ -790,7 +759,6 @@ function createLayout() {
   elements.updateProgressFill = document.querySelector("#update-progress-fill");
   elements.updateAccept = document.querySelector("#update-accept");
   elements.updateDismiss = document.querySelector("#update-dismiss");
-  elements.openHelp = document.querySelector("#open-help");
   elements.helpOverlay = document.querySelector("#help-overlay");
   elements.helpBackdrop = document.querySelector("#help-backdrop");
   elements.closeHelp = document.querySelector("#close-help");
@@ -803,12 +771,10 @@ function createLayout() {
   elements.closeAbout = document.querySelector("#close-about");
   elements.previewOverlay = document.querySelector("#preview-overlay");
   elements.previewBackdrop = document.querySelector("#preview-backdrop");
-  elements.openPreviewOverlay = document.querySelector("#open-preview-overlay");
   elements.closePreviewOverlay = document.querySelector("#close-preview-overlay");
   elements.previewFrameExpanded = document.querySelector("#preview-frame-expanded");
   elements.exportOverlay = document.querySelector("#export-overlay");
   elements.exportBackdrop = document.querySelector("#export-backdrop");
-  elements.openExport = document.querySelector("#open-export");
   elements.closeExport = document.querySelector("#close-export");
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
   elements.exportPdfDescription = document.querySelector("#export-pdf-description");
@@ -833,7 +799,6 @@ function createLayout() {
   elements.previewFrame = document.querySelector("#preview-frame");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
-  elements.toggleEditorSearch = document.querySelector("#toggle-editor-search");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
   elements.editorReplaceScopeRow = document.querySelector("#editor-replace-scope-row");
@@ -869,8 +834,356 @@ function createLayout() {
   elements.workspaceContentRegex = document.querySelector("#workspace-content-regex");
   elements.workspaceContentSummary = document.querySelector("#workspace-content-summary");
   elements.workspaceContentResults = document.querySelector("#workspace-content-results");
+  elements.openKebab = document.querySelector("#open-kebab");
+  elements.kebabMenu = document.querySelector("#kebab-menu");
+  elements.statusbarSync = document.querySelector("#statusbar-sync");
+  elements.chromeHint = document.querySelector("#chrome-hint");
+  elements.chromeHintShortcuts = document.querySelector("#chrome-hint-shortcuts");
+  elements.chromeHintDismiss = document.querySelector("#chrome-hint-dismiss");
   elements.previewFrame.srcdoc = PREVIEW_SHELL_HTML;
   elements.previewFrameExpanded.srcdoc = PREVIEW_SHELL_HTML;
+}
+
+// The single action registry. The kebab popover, the command palette, and
+// the native menu bar (shipped to the main process over IPC) are all built
+// from these entries, so no action can exist in one surface and miss the
+// others.
+function getAppActions() {
+  return [
+    {
+      id: "newDocument",
+      label: "New document",
+      icon: ICONS.newDocument,
+      hint: "Ctrl+N",
+      run: () => {
+        void createUntitledDocument();
+      }
+    },
+    {
+      id: "openFile",
+      label: "Open file…",
+      icon: ICONS.open,
+      hint: "Ctrl+O",
+      // The only action whose accelerator lives on the native menu: the
+      // renderer has no Ctrl+O handler, so the menu is its single key path.
+      accelerator: "CmdOrCtrl+O",
+      run: async () => {
+        const documentPayload = await window.desktop.openFile();
+        if (documentPayload) {
+          await openDocument(normalizeDocumentPayload(documentPayload));
+        }
+      }
+    },
+    {
+      id: "openProject",
+      label: "Open project…",
+      icon: ICONS.openProject,
+      run: () => {
+        void openProjectDialog();
+      }
+    },
+    {
+      id: "saveFile",
+      label: "Save document",
+      icon: ICONS.save,
+      hint: "Ctrl+S",
+      run: () => {
+        void saveCurrentDocument();
+      }
+    },
+    {
+      id: "saveFileAs",
+      label: "Save as…",
+      icon: ICONS.saveAs,
+      run: () => {
+        void saveAsCurrentDocument();
+      }
+    },
+    {
+      id: "saveProject",
+      label: "Save project",
+      icon: ICONS.saveProject,
+      run: () => {
+        void saveCurrentProject();
+      }
+    },
+    {
+      id: "exportDocument",
+      label: "Export document…",
+      icon: ICONS.export,
+      run: () => {
+        openExportOverlay();
+      }
+    },
+    {
+      id: "toggleOutline",
+      label: "Toggle outline panel",
+      icon: ICONS.outlineList,
+      run: () => {
+        void setOutlineCollapsed(!appState.outlineCollapsed);
+      }
+    },
+    {
+      id: "openReference",
+      label: "Markup reference",
+      icon: ICONS.reference,
+      hint: "Ctrl+Shift+K",
+      run: () => {
+        openReferenceOverlay();
+      }
+    },
+    {
+      id: "findInDocument",
+      label: "Find in document",
+      icon: ICONS.search,
+      hint: "Ctrl+F",
+      run: () => {
+        openEditorSearch({ prefillSelection: true });
+      }
+    },
+    {
+      id: "searchWorkspace",
+      label: "Search workspace contents",
+      icon: ICONS.search,
+      hint: "Ctrl+Shift+F",
+      run: () => {
+        openWorkspaceSearchOverlay();
+      }
+    },
+    {
+      id: "toggleFocusMode",
+      label: "Toggle focus mode",
+      icon: ICONS.focus,
+      run: () => {
+        void setDistractionFree(!appState.distractionFree);
+      }
+    },
+    {
+      id: "expandPreview",
+      label: "Expand preview",
+      icon: ICONS.expand,
+      run: () => {
+        openPreviewOverlay();
+      }
+    },
+    {
+      id: "commandPalette",
+      label: "Command palette",
+      icon: ICONS.command,
+      hint: "Ctrl+K",
+      run: () => {
+        openCommandPalette();
+      }
+    },
+    {
+      id: "openSettings",
+      label: "Open settings",
+      icon: ICONS.settings,
+      hint: "Ctrl+,",
+      run: () => {
+        openSettingsOverlay();
+      }
+    },
+    {
+      id: "openHelp",
+      label: "Keyboard shortcuts",
+      icon: ICONS.shortcuts,
+      hint: "F1",
+      run: () => {
+        openHelpOverlay();
+      }
+    },
+    {
+      id: "about",
+      label: "About AsciiDoc Editor",
+      icon: ICONS.info,
+      run: () => {
+        openAboutOverlay();
+      }
+    }
+  ];
+}
+
+function runActionById(actionId) {
+  const action = getAppActions().find((entry) => entry.id === actionId);
+  if (action) {
+    action.run();
+  }
+}
+
+// Kebab items whose DOM the chrome updater still touches by id: project
+// tooltips and the focus-mode label. Everything else dispatches purely
+// through data-action-id.
+const KEBAB_DOM_IDS = {
+  openProject: "open-project",
+  saveProject: "save-project",
+  toggleFocusMode: "toggle-focus"
+};
+
+function renderKebabMenu() {
+  const menu = document.querySelector("#kebab-menu");
+  if (!menu) {
+    return;
+  }
+
+  elements.kebabMenu = menu;
+  const actions = new Map(getAppActions().map((action) => [action.id, action]));
+  menu.innerHTML = KEBAB_LAYOUT.map((entry) => {
+    if (entry === "separator") {
+      return `<div class="kebab-separator" role="separator"></div>`;
+    }
+
+    const action = actions.get(entry);
+    if (!action) {
+      return "";
+    }
+
+    const domId = KEBAB_DOM_IDS[entry];
+    return `
+      <button class="kebab-item" role="menuitem" type="button" data-action-id="${entry}"${domId ? ` id="${domId}"` : ""}>
+        <span class="kebab-item-icon">${action.icon}</span>
+        <span class="kebab-item-label">${entry === "toggleFocusMode" ? `<span id="focus-button-label">Enter Focus</span>` : escapeHtml(action.label)}</span>
+        ${action.hint ? `<span class="kebab-shortcut">${escapeHtml(action.hint)}</span>` : ""}
+      </button>
+    `;
+  }).join("");
+}
+
+let kebabRestoreFocus = null;
+
+function isKebabMenuOpen() {
+  return !elements.kebabMenu.hidden;
+}
+
+function setKebabMenu(open) {
+  elements.kebabMenu.hidden = !open;
+  elements.openKebab.setAttribute("aria-expanded", String(open));
+  elements.openKebab.classList.toggle("is-active", open);
+  if (open) {
+    kebabRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    elements.kebabMenu.querySelector(".kebab-item")?.focus();
+  } else {
+    if (kebabRestoreFocus?.isConnected) {
+      kebabRestoreFocus.focus();
+    } else {
+      editorRef.view?.focus();
+    }
+    kebabRestoreFocus = null;
+  }
+}
+
+function buildNativeMenuPayload() {
+  const actions = new Map(getAppActions().map((action) => [action.id, action]));
+  return {
+    menu: MENU_LAYOUT.map((section) => ({
+      label: section.label,
+      items: section.items.map((id) => {
+        if (id === "separator") {
+          return "separator";
+        }
+
+        const action = actions.get(id);
+        return {
+          id,
+          label: action?.label ?? id,
+          accelerator: action?.accelerator
+        };
+      })
+    }))
+  };
+}
+
+// Preview state for the strip's sync dot plus the statusbar text.
+function setPreviewStatus(state, text) {
+  elements.documentStatus.dataset.state = state;
+  elements.documentStatus.setAttribute("aria-label", text);
+  elements.statusbarSync.textContent = text;
+}
+
+function jumpToOutlineLine(lineNumber) {
+  if (!editorRef.view) {
+    return;
+  }
+
+  const targetLine = editorRef.view.state.doc.line(Math.min(lineNumber, editorRef.view.state.doc.lines));
+  editorRef.view.dispatch({
+    selection: { anchor: targetLine.from },
+    effects: EditorView.scrollIntoView(targetLine.from, { y: "center" })
+  });
+  editorRef.view.focus();
+}
+
+function initPalette() {
+  initCommandPalette({
+    paletteIcon: ICONS.command,
+    outlineIcon: ICONS.outlineList,
+    getActions: () => getAppActions().map((action) => ({
+      type: "action",
+      label: action.label,
+      hint: action.hint,
+      icon: action.icon,
+      run: action.run
+    })),
+    getTabs: () => appState.openDocuments.map((doc) => ({
+      id: doc.id,
+      name: doc.name,
+      dirty: doc.isDirty,
+      icon: ICONS.fileAsciiDoc
+    })),
+    getOutline: () => appState.outlineEntries,
+    canSearchFiles: () => Boolean(appState.workspacePath),
+    searchFiles: async (query) => {
+      const results = await window.desktop.searchWorkspace({
+        rootPath: appState.workspacePath,
+        query,
+        limit: 25
+      });
+      return results
+        .filter((result) => canOpenFileInEditor(result.name))
+        .map((result) => ({
+          name: result.name,
+          path: result.path,
+          relativePath: result.relativePath,
+          icon: getFileTypeMeta(result.name).icon
+        }));
+    },
+    onTab: (documentId) => {
+      void activateDocument(documentId);
+    },
+    onOutline: (lineNumber) => {
+      jumpToOutlineLine(lineNumber);
+    },
+    onFile: (filePath) => {
+      void (async () => {
+        const documentPayload = await window.desktop.readDocument(filePath);
+        if (documentPayload) {
+          await openDocument(normalizeDocumentPayload(documentPayload));
+        }
+      })();
+    },
+    onClosed: () => {
+      editorRef.view?.focus();
+    }
+  });
+}
+
+const CHROME_HINT_STORAGE_KEY = "adoc-chrome-hint-seen";
+
+function dismissChromeHint() {
+  localStorage.setItem(CHROME_HINT_STORAGE_KEY, "1");
+  elements.chromeHint.classList.remove("is-open");
+}
+
+function maybeShowChromeHint() {
+  if (localStorage.getItem(CHROME_HINT_STORAGE_KEY)) {
+    return;
+  }
+
+  setTimeout(() => {
+    if (!localStorage.getItem(CHROME_HINT_STORAGE_KEY)) {
+      elements.chromeHint.classList.add("is-open");
+    }
+  }, 1600);
 }
 
 function renderReferenceGuide() {
@@ -987,7 +1300,7 @@ async function saveCurrentProject() {
   appState.recentProjects = [savedProject.projectPath, ...(appState.recentProjects ?? []).filter((item) => item !== savedProject.projectPath)].slice(0, 10);
   updateDocumentChrome();
   await persistWindowState();
-  elements.documentStatus.textContent = `Saved project ${savedProject.name}`;
+  setPreviewStatus("synced", `Saved project ${savedProject.name}`);
   return true;
 }
 
@@ -1419,15 +1732,6 @@ function openEditorSearch({ prefillSelection = false, showReplace = false } = {}
   });
 }
 
-function toggleEditorSearch(options = {}) {
-  if (appState.editorSearchOpen) {
-    closeEditorSearch();
-    return;
-  }
-
-  openEditorSearch(options);
-}
-
 function closeEditorSearch() {
   if (!editorRef.view) {
     return;
@@ -1706,17 +2010,22 @@ function updateDocumentChrome() {
   const fileName = getCurrentDocumentName();
   const activeDocument = getDocumentSession();
 
-  elements.documentName.textContent = appState.isDirty ? `${fileName} *` : fileName;
+  const displayName = activeDocument?.path ?? fileName;
+  elements.documentName.textContent = displayName;
+  elements.documentName.title = displayName;
   if (activeDocument?.externalChangePending) {
-    elements.documentStatus.textContent = activeDocument.existsOnDisk
-      ? (activeDocument.isDirty ? "Local changes + newer disk file" : "File changed on disk")
-      : "File removed on disk";
+    setPreviewStatus(
+      "error",
+      activeDocument.existsOnDisk
+        ? (activeDocument.isDirty ? "Local changes + newer disk file" : "File changed on disk")
+        : "File removed on disk"
+    );
   } else if (!currentDocumentHasPreview()) {
-    elements.documentStatus.textContent = "No preview available";
+    setPreviewStatus("none", "No preview available");
   } else if (appState.isDirty) {
-    elements.documentStatus.textContent = appState.previewInSync ? "Unsaved changes" : "Preview updating";
+    setPreviewStatus(appState.previewInSync ? "warn" : "busy", appState.previewInSync ? "Unsaved changes" : "Preview updating");
   } else {
-    elements.documentStatus.textContent = appState.previewInSync ? "Preview synced" : "Rendering preview";
+    setPreviewStatus(appState.previewInSync ? "synced" : "busy", appState.previewInSync ? "Preview synced" : "Rendering preview");
   }
   const workspacePath = appState.workspacePath ?? "No folder selected";
   elements.workspaceLabel.textContent = workspacePath;
@@ -1763,8 +2072,6 @@ function updateDocumentChrome() {
   setInputElementValue(elements.editorSearchInput, appState.editorSearchQuery);
   setInputElementValue(elements.editorReplaceInput, appState.editorReplaceQuery);
   elements.editorReplaceScopeOpenFiles.checked = appState.editorReplaceAllOpenFiles;
-  elements.toggleEditorSearch.classList.toggle("is-active", appState.editorSearchOpen);
-  elements.toggleEditorSearch.setAttribute("aria-pressed", String(appState.editorSearchOpen));
   elements.editorSearchCase.classList.toggle("is-active", appState.editorSearchCaseSensitive);
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
   elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
@@ -2293,7 +2600,7 @@ async function handlePreviewLinkClick(event, frame) {
   }
 
   if (result.type === "missing") {
-    elements.documentStatus.textContent = result.message;
+    setPreviewStatus("error", result.message);
   }
 }
 
@@ -2707,7 +3014,7 @@ async function exportCurrentDocument(format) {
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
   });
-  elements.documentStatus.textContent = `Exported ${format.toUpperCase()}`;
+  setPreviewStatus("synced", `Exported ${format.toUpperCase()}`);
 }
 
 async function bindEvents() {
@@ -2715,16 +3022,77 @@ async function bindEvents() {
     void createUntitledDocument();
   });
 
-  document.querySelector("#open-file").addEventListener("click", async () => {
-    const documentPayload = await window.desktop.openFile();
-    if (documentPayload) {
-      await openDocument(normalizeDocumentPayload(documentPayload));
-    }
+  elements.openKebab.addEventListener("click", () => {
+    setKebabMenu(!isKebabMenuOpen());
   });
 
-  elements.openProject.addEventListener("click", () => {
-    void openProjectDialog();
+  elements.kebabMenu.addEventListener("click", (event) => {
+    const item = event.target instanceof Element ? event.target.closest("[data-action-id]") : null;
+    if (!item) {
+      return;
+    }
+
+    setKebabMenu(false);
+    runActionById(item.dataset.actionId);
   });
+
+  elements.kebabMenu.addEventListener("keydown", (event) => {
+    const items = Array.from(elements.kebabMenu.querySelectorAll(".kebab-item"));
+    if (items.length === 0) {
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setKebabMenu(false);
+      return;
+    }
+
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+      return;
+    }
+
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement);
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const next = items[(currentIndex + delta + items.length) % items.length];
+    next?.focus();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!isKebabMenuOpen()) {
+      return;
+    }
+
+    const target = event.target instanceof Node ? event.target : null;
+    if (target && (elements.kebabMenu.contains(target) || elements.openKebab.contains(target))) {
+      return;
+    }
+
+    setKebabMenu(false);
+  });
+
+  elements.stylesheetChip.addEventListener("click", () => {
+    openSettingsOverlay();
+  });
+
+  elements.chromeHintDismiss.addEventListener("click", () => {
+    dismissChromeHint();
+  });
+
+  elements.chromeHintShortcuts.addEventListener("click", () => {
+    dismissChromeHint();
+    openHelpOverlay();
+  });
+
+  if (window.desktop.onMenuAction) {
+    window.desktop.onMenuAction(({ id }) => {
+      runActionById(id);
+    });
+  }
+
+  initPalette();
 
   document.querySelector("#open-folder").addEventListener("click", async () => {
     const selectedFolder = await window.desktop.openFolder();
@@ -2746,14 +3114,6 @@ async function bindEvents() {
     void saveCurrentDocument();
   });
 
-  document.querySelector("#save-file-as").addEventListener("click", () => {
-    void saveAsCurrentDocument();
-  });
-
-  elements.saveProject.addEventListener("click", () => {
-    void saveCurrentProject();
-  });
-
   elements.collapseWorkspace.addEventListener("click", () => {
     void setWorkspaceCollapsed(true);
   });
@@ -2770,10 +3130,6 @@ async function bindEvents() {
     void setOutlineCollapsed(true);
   });
 
-  document.querySelector("#toggle-focus").addEventListener("click", async () => {
-    await setDistractionFree(!appState.distractionFree);
-  });
-
   elements.exitFocusMode.addEventListener("click", async () => {
     await setDistractionFree(false);
   });
@@ -2782,24 +3138,12 @@ async function bindEvents() {
     openSettingsOverlay();
   });
 
-  elements.openHelp.addEventListener("click", () => {
-    openHelpOverlay();
-  });
-
-  elements.openPreviewOverlay.addEventListener("click", () => {
-    openPreviewOverlay();
-  });
-
   elements.closePreviewOverlay.addEventListener("click", () => {
     closePreviewOverlay();
   });
 
   elements.previewBackdrop.addEventListener("click", () => {
     closePreviewOverlay();
-  });
-
-  elements.openExport.addEventListener("click", () => {
-    openExportOverlay();
   });
 
   elements.closeExport.addEventListener("click", () => {
@@ -2910,10 +3254,6 @@ async function bindEvents() {
   elements.editorSearchInput.addEventListener("input", () => {
     appState.editorSearchQuery = elements.editorSearchInput.value;
     syncEditorSearchQuery();
-  });
-
-  elements.toggleEditorSearch.addEventListener("click", () => {
-    toggleEditorSearch({ prefillSelection: true });
   });
 
   elements.editorSearchInput.addEventListener("keydown", (event) => {
@@ -3100,7 +3440,7 @@ async function bindEvents() {
     }
 
     if (target.dataset.openable !== "true") {
-      elements.documentStatus.textContent = "Drag assets into an AsciiDoc document to insert a reference.";
+      setPreviewStatus("none", "Drag assets into an AsciiDoc document to insert a reference.");
       return;
     }
 
@@ -3305,6 +3645,14 @@ async function bindEvents() {
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (isCommandPaletteOpen()) {
+        closeCommandPalette();
+      }
+
+      if (isKebabMenuOpen()) {
+        setKebabMenu(false);
+      }
+
       if (appState.exportOverlayOpen) {
         closeExportOverlay();
       }
@@ -3341,6 +3689,16 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
       event.preventDefault();
       openReferenceOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      openCommandPalette();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      openCommandPalette();
     }
 
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
@@ -3442,3 +3800,7 @@ bindEvents();
 registerBootSequence();
 renderReferenceGuide();
 updateDocumentChrome();
+if (typeof window.desktop.defineMenu === "function") {
+  window.desktop.defineMenu(buildNativeMenuPayload());
+}
+maybeShowChromeHint();

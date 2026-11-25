@@ -895,9 +895,48 @@ if (!singleInstanceLock) {
 }
 
 app.whenReady().then(async () => {
-  if (process.platform !== "darwin") {
-    Menu.setApplicationMenu(null);
-  }
+  // The menu bar stays hidden (auto-hide is enabled per window) but the
+  // application menu itself must exist: Alt reveals it, its items carry
+  // labels for discoverability, and its accelerators (e.g. Ctrl+O) are
+  // registered even while hidden. The renderer pushes the menu structure
+  // over IPC so the native menu, the kebab popover, and the command
+  // palette are all built from one definition.
+  ipcMain.handle("app:define-menu", (event, payload) => {
+    assertTrustedSender(event);
+    const sections = Array.isArray(payload?.menu) ? payload.menu : [];
+    const template = sections.map((section) => ({
+      label: String(section?.label ?? ""),
+      submenu: (Array.isArray(section?.items) ? section.items : []).map((item) => {
+        if (item === "separator") {
+          return { type: "separator" };
+        }
+
+        return {
+          label: String(item?.label ?? ""),
+          accelerator: item?.accelerator || undefined,
+          click: () => {
+            getMainWindowWebContents()?.send("app:menu-action", { id: item?.id });
+          }
+        };
+      })
+    }));
+
+    // Standard text-editing roles the renderer cannot serve itself.
+    template.splice(Math.min(1, template.length), 0, {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" }
+      ]
+    });
+
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  });
 
   ipcMain.handle("dialog:open-file", async (event) => {
     assertTrustedSender(event);
