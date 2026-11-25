@@ -85,6 +85,21 @@ export const SHORTCUT_SECTIONS = [
     ]
   },
   {
+    title: "Editor",
+    items: [
+      {
+        title: "Trigger AsciiDoc autocomplete",
+        detail: "Complete block attributes, document attributes, section levels, macros, and attribute references. Suggestions also appear while typing AsciiDoc syntax.",
+        shortcuts: [["Ctrl", "Space"], ["Cmd", "Space"]]
+      },
+      {
+        title: "Accept completion",
+        detail: "Insert the highlighted suggestion. Arrow keys move through the list and Esc dismisses it.",
+        shortcuts: [["Enter"]]
+      }
+    ]
+  },
+  {
     title: "Panels",
     items: [
       {

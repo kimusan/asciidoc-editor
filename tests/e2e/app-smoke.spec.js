@@ -168,6 +168,54 @@ test("preview scroll sync tracks the editor cursor", async () => {
   }
 });
 
+test("autocomplete completes AsciiDoc syntax while typing", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible();
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("ControlOrMeta+End");
+
+    // Block attributes: typing [sou offers fenced block templates.
+    await window.keyboard.press("Enter");
+    await window.keyboard.type("[sou", { delay: 60 });
+    // The completion re-query debounces ~100ms after the last keystroke;
+    // accepting inside that window falls through to a plain newline.
+    await window.waitForTimeout(350);
+    await expect(window.locator(".cm-tooltip-autocomplete")).toBeVisible();
+    await expect(window.locator(".cm-tooltip-autocomplete li").first()).toContainText("[source]");
+    await window.keyboard.press("Enter");
+    // CodeMirror renders one .cm-line element per document line; rebuild
+    // the text from them since textContent flattens line breaks away.
+    await expect(async () => {
+      const lines = await window.evaluate(() =>
+        Array.from(document.querySelectorAll(".cm-line")).map((line) => line.textContent)
+      );
+      expect(lines).toContain("[source]");
+      expect(lines.filter((line) => line === "----").length).toBeGreaterThanOrEqual(2);
+    }).toPass({ timeout: 5_000 });
+
+    // Document attributes: :toc completes to :toc:.
+    await window.keyboard.press("ArrowDown");
+    await window.keyboard.press("Enter");
+    await window.keyboard.type(":toc", { delay: 60 });
+    await window.waitForTimeout(350);
+    await expect(window.locator(".cm-tooltip-autocomplete")).toBeVisible();
+    await expect(window.locator(".cm-tooltip-autocomplete li").first()).toContainText(":toc:");
+    await window.keyboard.press("Enter");
+    const withAttr = await window.evaluate(() => document.querySelector(".cm-content").textContent);
+    expect(withAttr).toContain(":toc:");
+
+    // Prose must never open the completion popup.
+    await window.keyboard.press("Enter");
+    await window.keyboard.type("Plain prose with a colon: nothing", { delay: 30 });
+    await window.waitForTimeout(400);
+    await expect(window.locator(".cm-tooltip-autocomplete")).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("render worker handles source highlighting and msc diagrams", async () => {
   const { app, window } = await launchApp();
 

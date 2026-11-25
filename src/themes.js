@@ -28,6 +28,23 @@ function createEditorTheme(palette) {
       },
       ".cm-selectionBackground, .cm-content ::selection": {
         backgroundColor: palette.selection
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete": {
+        backgroundColor: palette.gutter,
+        color: palette.text,
+        border: `1px solid ${palette.gutterBorder}`,
+        borderRadius: "10px",
+        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.3)",
+        fontFamily: "\"IBM Plex Mono\", \"Cascadia Code\", monospace",
+        fontSize: "13px"
+      },
+      ".cm-tooltip-autocomplete ul li[aria-selected]": {
+        backgroundColor: palette.activeLine,
+        color: palette.text
+      },
+      ".cm-tooltip-autocomplete .cm-completionDetail": {
+        color: palette.gutterText,
+        fontStyle: "normal"
       }
     }),
     syntax: syntaxHighlighting(HighlightStyle.define([

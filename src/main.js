@@ -14,6 +14,7 @@ import {
   replaceAll
 } from "@codemirror/search";
 import { asciidocLanguage } from "./syntax/asciidoc-language.js";
+import { asciidocCompletion, startCompletion } from "./asciidoc-completion.js";
 import {
   APP_THEME_OPTIONS,
   APP_THEME_VARS,
@@ -1495,6 +1496,10 @@ function createEditor() {
           return true;
         }
       },
+      {
+        key: "Mod-Space",
+        run: startCompletion
+      },
       ...defaultKeymap,
       ...historyKeymap,
       ...searchKeymap,
@@ -1507,6 +1512,7 @@ function createEditor() {
       }
     ]),
     asciidocLanguage(),
+    asciidocCompletion(),
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
       const activeDocument = getDocumentSession();
