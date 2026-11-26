@@ -12,10 +12,42 @@ AsciiDoc Editor is a standalone desktop app for writing and editing AsciiDoc wit
 
 It is built with Electron and Vite, and uses `asciidoctor.js` for standards-based AsciiDoc rendering.
 
+## Screenshots
+
+The editor in the default dark theme, with the workspace tree showing live git status badges:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot.png" alt="Editor with git status badges in the workspace tree" width="860" />
+</p>
+
+Built-in git integration — stage and commit changes without leaving the editor:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-commit.png" alt="Git commit panel" width="860" />
+</p>
+
+Compare the open document against the version committed in git:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-diff.png" alt="Git diff view" width="860" />
+</p>
+
+Light themes are included too — here is the same document in Porcelain:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-theme-porcelain.png" alt="Editor in the Porcelain light theme" width="860" />
+</p>
+
 ## Highlights
 
 - Live source + preview editing with resizable split view and two-way scroll sync
+- Built-in git integration: status badges in the workspace tree, a diff view against HEAD, and a stage-and-commit panel
 - AsciiDoc autocomplete: block templates, source languages, document attributes, and macros
+- Snippet expansion in the editor for frequently used markup
+- Spell checking with downloadable language packs
+- Typewriter scrolling and paragraph focus dimming for distraction-free writing
+- Mermaid diagram rendering in the preview
+- Paginated PDF export via Paged.js, alongside HTML and DocBook 5
 - Command palette (Ctrl+K / Ctrl+Shift+P) for actions, open tabs, the outline, and workspace files
 - Compact interface with a slim toolbar, status bar, and optional classic menu bar (Alt)
 - Built-in themes for the app and editor; the preview can be kept light or dark independently of the app theme
@@ -25,7 +57,6 @@ It is built with Electron and Vite, and uses `asciidoctor.js` for standards-base
 - Workspace browser with recursive filtering and drag-to-insert assets
 - Workspace-wide search and replace across project files
 - Built-in searchable markup reference with snippet insertion
-- Export to HTML, PDF, and DocBook 5
 - Portable `.adp` project files with project/session restore
 - Automatic update checks, with in-app self-updates on supported platforms
 - Packaging: Linux AppImage, `.deb`, `.rpm`, and `.pacman`; Windows installer, portable `.exe`, and `.zip`
@@ -34,7 +65,7 @@ It is built with Electron and Vite, and uses `asciidoctor.js` for standards-base
 
 - `electron/`: Electron main process, preload bridge, rendering/export helpers, app state
 - `src/`: Renderer UI (Vite), editor integration, syntax support, styles
-- `tests/`: Node-based tests for rendering and preview link handling
+- `tests/`: Unit tests for rendering and services, plus Playwright end-to-end tests driving the packaged layout
 - `tools/`: Windows/Linux helpers for `.adp` file association
 
 ## Development
