@@ -2189,6 +2189,50 @@ input:focus-visible,
   white-space: nowrap;
 }
 
+/* Wave 5: git status badges in the workspace tree. Fixed mid-luminance
+   hues (the convention in git UIs) read on both light and dark themes;
+   the directory dot follows the theme accent. */
+.tree-git-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tree-git-badge.is-modified {
+  color: #d99a3d;
+  background: color-mix(in srgb, #d99a3d 18%, transparent);
+}
+
+.tree-git-badge.is-added,
+.tree-git-badge.is-untracked {
+  color: #5db777;
+  background: color-mix(in srgb, #5db777 18%, transparent);
+}
+
+.tree-git-badge.is-deleted {
+  color: #e06c6c;
+  background: color-mix(in srgb, #e06c6c 18%, transparent);
+}
+
+.tree-git-dot {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+}
+
+
 .tree-entry-search-copy {
   display: grid;
   gap: 2px;

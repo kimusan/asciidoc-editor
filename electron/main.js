@@ -13,6 +13,7 @@ import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage, listD
 import { normalizeSnippets, STARTER_SNIPPETS } from "./snippets.js";
 import { disposeMermaidRenderer } from "./mermaid-renderer.js";
 import { createUpdateService } from "./update-service.js";
+import { getWorkspaceGitStatus, invalidateGitStatusCache } from "./git-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -1284,6 +1285,16 @@ app.whenReady().then(async () => {
     return true;
   });
 
+  // Wave 5: workspace git status for the file tree. The browsable-file
+  // predicate keeps the status matrix scoped to what the tree can show.
+  ipcMain.handle("git:status", async (event, { workspacePath } = {}) => {
+    assertTrustedSender(event);
+    if (typeof workspacePath !== "string" || !workspacePath) {
+      return { isRepo: false, repoRoot: null, files: [] };
+    }
+    return getWorkspaceGitStatus({ workspacePath, isBrowsableFile: isWorkspaceBrowsableFile });
+  });
+
   ipcMain.handle("fs:read-document", async (event, filePath) => {
     assertTrustedSender(event);
     requireString(filePath, "filePath");
@@ -1333,6 +1344,9 @@ app.whenReady().then(async () => {
       }
 
       importedPaths.push(assetPath);
+    }
+    if (importMode === "copy" && importedPaths.length > 0) {
+      invalidateGitStatusCache();
     }
 
     return {
@@ -1387,6 +1401,7 @@ app.whenReady().then(async () => {
     await fs.mkdir(targetDirectory, { recursive: true });
     const targetPath = await resolveUniqueFilePath(path.join(targetDirectory, `${baseName}.png`));
     await fs.writeFile(targetPath, pngBytes);
+    invalidateGitStatusCache();
     return {
       filePath: targetPath,
       snippet: buildAssetSnippet(targetPath, { documentPath, workspacePath })
@@ -1464,6 +1479,7 @@ app.whenReady().then(async () => {
     }
 
     await fs.writeFile(resolvedPath, typeof content === "string" ? content : String(content), "utf8");
+    invalidateGitStatusCache();
     const document = await loadDocument(resolvedPath);
     const currentState = await loadState();
     await saveState({

@@ -1298,3 +1298,46 @@ test("app quits promptly after closing the window once Mermaid has rendered", as
     await stopApp(app);
   }
 });
+
+test("workspace tree shows git status badges and updates after a save", async () => {
+  const git = (await import("isomorphic-git")).default;
+  const nodeFs = await import("node:fs");
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-git-docs-"));
+  await git.init({ fs: nodeFs.default, dir: docsDir });
+  await fs.writeFile(path.join(docsDir, "clean.adoc"), "= Clean\n\nnothing changed\n");
+  await fs.writeFile(path.join(docsDir, "modified.adoc"), "= Modified\n\noriginal\n");
+  await fs.writeFile(path.join(docsDir, "ignored.adoc"), "= Ignored\n");
+  await fs.writeFile(path.join(docsDir, ".gitignore"), "ignored.adoc\n");
+  for (const name of ["clean.adoc", "modified.adoc", "ignored.adoc", ".gitignore"]) {
+    await git.add({ fs: nodeFs.default, dir: docsDir, filepath: name });
+  }
+  await git.commit({ fs: nodeFs.default, dir: docsDir, message: "init", author: { name: "E2E", email: "e2e@example.com" } });
+  // Post-commit edits become the scenarios: modified (tracked, changed),
+  // untracked (never committed), ignored (excluded by .gitignore).
+  await fs.writeFile(path.join(docsDir, "modified.adoc"), "= Modified\n\nchanged\n");
+  await fs.writeFile(path.join(docsDir, "untracked.adoc"), "= Untracked\n");
+
+  const { app, window } = await launchApp(null, null, [path.join(docsDir, "clean.adoc")]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    const fileTree = window.locator("#file-tree");
+    const badgeFor = (name) => fileTree.locator(`.tree-entry-file:has(.tree-entry-label:text-is("${name}")) .tree-git-badge`);
+    await expect(badgeFor("modified.adoc")).toHaveClass(/is-modified/, { timeout: 10_000 });
+    await expect(badgeFor("untracked.adoc")).toHaveClass(/is-untracked/);
+    await expect(badgeFor("ignored.adoc")).toHaveCount(0);
+    await expect(badgeFor("clean.adoc")).toHaveCount(0);
+
+    // Editing and saving clean.adoc from inside the app must flip its badge
+    // to modified (save invalidates the main-process status cache and the
+    // tree refreshes).
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+End");
+    await window.keyboard.type("A change worth committing.\n");
+    await window.keyboard.press("Control+S");
+    await expect(badgeFor("clean.adoc")).toHaveClass(/is-modified/, { timeout: 10_000 });
+  } finally {
+    await stopApp(app);
+    await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});
+  }
+});

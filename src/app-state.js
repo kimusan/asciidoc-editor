@@ -88,7 +88,10 @@ export const appState = {
   // driving scrolling owns the lock until "until" (ms epoch); the other
   // side must not scroll while the lock is live.
   scrollSyncLock: { owner: null, until: 0 },
-  directoryCache: new Map()
+  directoryCache: new Map(),
+  // Wave 5: git status for the workspace tree. Shape mirrors the git:status
+  // IPC payload; { isRepo: false } when the workspace is not a repository.
+  gitStatus: { isRepo: false, repoRoot: null, files: [] }
 };
 
 export const elements = {};

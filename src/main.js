@@ -3560,15 +3560,18 @@ function schedulePreviewRender() {
 }
 
 function renderTreeNodes(items, depth = 0) {
+  const gitByPath = buildGitStatusIndex();
   return items.map((item) => {
     if (item.type === "directory") {
       const isOpen = appState.directoryCache.get(item.path)?.open ?? depth < 1;
+      const hasChanges = hasGitChangesUnder(item.path, gitByPath);
       return `
-        <details class="tree-node" data-path="${escapeHtml(item.path)}" ${isOpen ? "open" : ""}>
-          <summary class="tree-entry tree-entry-directory" data-path="${escapeHtml(item.path)}" data-type="directory">
+        <details class="tree-node${hasChanges ? " is-git-dirty" : ""}" data-path="${escapeHtml(item.path)}" ${isOpen ? "open" : ""}>
+          <summary class="tree-entry tree-entry-directory" data-path="${escapeHtml(item.path)}" data-type="directory"${hasChanges ? ' title="Contains files with git changes"' : ""}>
             <span class="tree-entry-content">
               <span class="tree-entry-icon">${ICONS.folder}</span>
               <span class="tree-entry-label">${escapeHtml(item.name)}</span>
+              ${hasChanges ? '<span class="tree-git-dot" aria-hidden="true"></span>' : ""}
             </span>
           </summary>
           <div class="tree-children"></div>
@@ -3584,6 +3587,7 @@ function renderTreeNodes(items, depth = 0) {
         <span class="tree-entry-content">
           <span class="tree-entry-icon">${fileType.icon}</span>
           <span class="tree-entry-label">${escapeHtml(item.name)}</span>
+          ${renderGitBadge(gitByPath.get(item.path))}
         </span>
       </button>
     `;
@@ -3591,6 +3595,7 @@ function renderTreeNodes(items, depth = 0) {
 }
 
 function renderSearchResults(items) {
+  const gitByPath = buildGitStatusIndex();
   return items.map((item) => {
     const isActive = item.path === appState.openFilePath;
     const fileType = getFileTypeMeta(item.name);
@@ -3603,6 +3608,7 @@ function renderSearchResults(items) {
             <span class="tree-entry-label">${escapeHtml(item.name)}</span>
             <span class="tree-entry-path">${escapeHtml(item.relativePath ?? item.name)}</span>
           </span>
+          ${renderGitBadge(gitByPath.get(item.path))}
         </span>
       </button>
     `;
@@ -3633,11 +3639,76 @@ async function fillDetailsNode(detailsNode, depth) {
   await Promise.all(nestedDetails.map((nestedNode) => fillDetailsNode(nestedNode, depth + 1)));
 }
 
+// Wave 5: git status badges for the workspace tree. appState.gitStatus is
+// refreshed together with the tree (see refreshFileTree) and consulted while
+// rendering; a missing repo, a failed fetch, or a repo without commits all
+// degrade to badge-free rendering.
+const GIT_BADGE_LABELS = {
+  modified: { letter: "M", title: "Modified" },
+  added: { letter: "A", title: "Staged new file" },
+  untracked: { letter: "U", title: "Untracked" },
+  deleted: { letter: "D", title: "Deleted" }
+};
+
+function buildGitStatusIndex() {
+  const byPath = new Map();
+  for (const entry of appState.gitStatus?.files ?? []) {
+    if (GIT_BADGE_LABELS[entry.status]) {
+      byPath.set(entry.path, entry.status);
+    }
+  }
+  return byPath;
+}
+
+function renderGitBadge(status) {
+  const badge = GIT_BADGE_LABELS[status];
+  if (!badge) {
+    return "";
+  }
+  return `<span class="tree-git-badge is-${status}" title="${badge.title}">${badge.letter}</span>`;
+}
+
+// A directory gets a change dot when any repo file with a badge lives
+// inside it, regardless of tree expansion state.
+function hasGitChangesUnder(dirPath, gitByPath) {
+  for (const filePath of gitByPath.keys()) {
+    if (filePath.startsWith(dirPath) && ["/", "\\"].includes(filePath[dirPath.length])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+let gitStatusInFlight = null;
+async function refreshGitStatus() {
+  const emptyStatus = { isRepo: false, repoRoot: null, files: [] };
+  if (!appState.workspacePath || typeof window.desktop.gitStatus !== "function") {
+    appState.gitStatus = emptyStatus;
+    return;
+  }
+  if (gitStatusInFlight) {
+    return gitStatusInFlight;
+  }
+  gitStatusInFlight = window.desktop.gitStatus({ workspacePath: appState.workspacePath })
+    .then((status) => {
+      appState.gitStatus = status && typeof status === "object" ? status : emptyStatus;
+    })
+    .catch(() => {
+      appState.gitStatus = emptyStatus;
+    })
+    .finally(() => {
+      gitStatusInFlight = null;
+    });
+  return gitStatusInFlight;
+}
+
 async function refreshFileTree() {
   if (!appState.workspacePath) {
     elements.fileTree.innerHTML = `<p class="empty-state">Choose a folder to browse your AsciiDoc documents.</p>`;
     return;
   }
+
+  await refreshGitStatus();
 
   if (appState.workspaceQuery.trim()) {
     const results = await window.desktop.searchWorkspace({
