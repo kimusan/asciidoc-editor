@@ -126,6 +126,11 @@ export const SHORTCUT_SECTIONS = [
         title: "Fix a misspelled word",
         detail: "With spell check enabled (Settings > Spell Check), misspelled words are underlined in the editor. Right-click one to replace it with a suggestion, ignore it for this session, or add it to your personal dictionary. Code blocks, comments, attributes, and URLs are never checked.",
         shortcuts: [["Right-click"]]
+      },
+      {
+        title: "Switch spell check language",
+        detail: "The statusbar shows the active spell check language (for example “Spell: Danish”). Click it to switch between the dictionaries already on this machine; “More languages…” opens Settings, where any of the 30 downloadable languages can be fetched once and cached for offline use. Entries marked “— downloaded” are already available.",
+        shortcuts: []
       }
     ]
   },

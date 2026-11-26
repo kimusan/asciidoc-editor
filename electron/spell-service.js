@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { app, net } from "electron";
 import nspell from "nspell";
-import { findSpellLanguage, DEFAULT_SPELL_LANGUAGE } from "./spell-languages.js";
+import { SPELL_LANGUAGES, findSpellLanguage, DEFAULT_SPELL_LANGUAGE } from "./spell-languages.js";
 
 // Words the renderer is allowed to ask about: 2-80 chars of letters with
 // internal apostrophes or hyphens. Anything else is rejected instead of
@@ -100,6 +100,33 @@ async function readCachedDictionary(language) {
     fs.readFile(path.join(directory, "index.dic"))
   ]);
   return { aff, dic };
+}
+
+// Codes whose dictionaries are available offline: the bundled English (US)
+// plus every downloadable entry already cached. The e2e fixture directory
+// (ASCIIDOC_TEST_SPELL_LANG_DIR) stands in for the cache exactly like in
+// installDictionary, so tests exercise the same availability logic.
+export async function listDownloadedSpellLanguages() {
+  const codes = [];
+  for (const language of SPELL_LANGUAGES) {
+    if (language.bundled) {
+      codes.push(language.code);
+      continue;
+    }
+    const directory = process.env.ASCIIDOC_TEST_SPELL_LANG_DIR
+      ? path.join(process.env.ASCIIDOC_TEST_SPELL_LANG_DIR, language.code)
+      : getDictionaryCacheDir(language.code);
+    try {
+      await Promise.all([
+        fs.access(path.join(directory, "index.aff")),
+        fs.access(path.join(directory, "index.dic"))
+      ]);
+      codes.push(language.code);
+    } catch {
+      // Not downloaded yet.
+    }
+  }
+  return codes;
 }
 
 function downloadFile(url) {

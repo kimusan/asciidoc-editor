@@ -1013,3 +1013,58 @@ test("a command-line launch merges into the restored session without losing cont
     await stopApp(second.app);
   }
 });
+
+test("statusbar spell language chip switches languages and settings marks downloaded ones", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-chip-docs-"));
+  const docPath = path.join(docsDir, "chip.adoc");
+  // "hej" is correct Danish but misspelled English; "mispeled" is wrong in
+  // both. The fake Danish dictionary contains only "hej".
+  await fs.writeFile(docPath, "= Chip\n\nhej mispeled\n");
+
+  const dictionaryDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-chip-dicts-"));
+  await fs.mkdir(path.join(dictionaryDir, "da"), { recursive: true });
+  await fs.writeFile(path.join(dictionaryDir, "da", "index.aff"), "SET UTF-8\n");
+  await fs.writeFile(path.join(dictionaryDir, "da", "index.dic"), "1\nhej\n");
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-chip-profile-"));
+  const { app, window } = await launchApp(profileDir, { ASCIIDOC_TEST_SPELL_LANG_DIR: dictionaryDir }, [docPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The statusbar shows the active language.
+    await expect(window.locator("#statusbar-spell-language")).toBeVisible();
+    await expect(window.locator("#statusbar-spell-language")).toHaveText("Spell: English (United States)");
+
+    // The Settings picker marks the fixture dictionary as downloaded.
+    await window.locator("#open-settings").click();
+    await expect(window.locator("#settings-spell-language option[value='da']")).toHaveText("Danish — downloaded", { timeout: 10_000 });
+    await expect(window.locator("#settings-spell-language option[value='de']")).toHaveText("German");
+    await window.locator("#close-settings").click();
+
+    // Clicking the chip opens the downloaded-languages menu; the active
+    // entry is checked and Danish is listed because its files are local.
+    await window.locator("#statusbar-spell-language").click();
+    await expect(window.locator(".spell-language-menu")).toBeVisible({ timeout: 5_000 });
+    await expect(window.locator(".spell-language-menu .spell-menu-item.is-active")).toHaveText("English (United States)");
+    await expect(window.locator(".spell-language-menu .spell-menu-item", { hasText: "Danish" })).toHaveCount(1);
+    await expect(window.locator(".spell-language-menu .spell-menu-item", { hasText: "More languages…" })).toHaveCount(1);
+
+    // Switching from the menu re-checks the document and moves the chip.
+    await window.locator(".spell-language-menu .spell-menu-item", { hasText: "Danish" }).click();
+    await expect(window.locator("#statusbar-spell-language")).toHaveText("Spell: Danish", { timeout: 10_000 });
+    await expect(window.locator(".cm-spell-error", { hasText: "hej" })).toHaveCount(0, { timeout: 10_000 });
+    await expect(window.locator(".cm-spell-error", { hasText: "mispeled" })).toBeVisible();
+    await expect(window.locator(".spell-language-menu")).toHaveCount(0);
+
+    // The Settings picker follows the switch.
+    await window.locator("#open-settings").click();
+    await expect(window.locator("#settings-spell-language")).toHaveValue("da");
+
+    // Disabling spell check hides the chip.
+    await window.locator("#settings-spell-check").uncheck();
+    await expect(window.locator("#statusbar-spell-language")).toBeHidden();
+  } finally {
+    await stopApp(app);
+  }
+});

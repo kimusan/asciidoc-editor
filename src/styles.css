@@ -483,6 +483,21 @@ input:focus-visible,
   background: transparent;
 }
 
+.spell-menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--panel-border);
+}
+
+/* The statusbar language menu marks the active entry. */
+.spell-language-menu .spell-menu-item.is-active {
+  color: var(--accent-strong);
+}
+
+.spell-language-menu .spell-menu-item.is-active::before {
+  content: "✓ ";
+}
+
 /* Paragraph focus dimming (Settings > Writing Focus): every non-blank
    line outside the cursor's paragraph fades; opacity works across all
    editor themes without per-theme colors. */

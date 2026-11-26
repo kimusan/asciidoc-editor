@@ -475,6 +475,7 @@ function createLayout() {
         <div class="statusbar-spacer"></div>
         <span class="statusbar-item statusbar-metrics"><span id="word-count">0</span> words · <span id="line-count">1</span> lines<span id="metrics-selection" hidden> selected</span></span>
         <button id="statusbar-diagnostics" class="statusbar-item statusbar-chip statusbar-diagnostics" type="button" hidden></button>
+        <button id="statusbar-spell-language" class="statusbar-item statusbar-chip statusbar-spell-language" type="button" hidden aria-haspopup="menu" aria-expanded="false" data-tip="Spell check language — click to switch"></button>
         <button id="stylesheet-chip" class="statusbar-item statusbar-chip" type="button" title="Preview stylesheet — click to open settings">No custom preview CSS</button>
       </footer>
       <div id="kebab-menu" class="kebab-menu" role="menu" aria-label="More actions" hidden></div>
@@ -872,6 +873,7 @@ function createLayout() {
   elements.previewFrame = document.querySelector("#preview-frame");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
   elements.statusbarDiagnostics = document.querySelector("#statusbar-diagnostics");
+  elements.statusbarSpellLanguage = document.querySelector("#statusbar-spell-language");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
@@ -2449,6 +2451,7 @@ function updateDocumentChrome() {
   elements.stylesheetChip.textContent = appState.previewStylesheetPath
     ? `Preview CSS: ${appState.previewStylesheetPath.split(/[\\/]/).pop()}`
     : "No custom preview CSS";
+  updateStatusbarSpellLanguageChip();
   elements.settingsStylesheetStatus.textContent = appState.previewStylesheetPath
     ? appState.previewStylesheetPath.split(/[\\/]/).pop()
     : "No custom preview CSS selected.";
@@ -2780,6 +2783,158 @@ function applySpellCheckEnabled(enabled) {
       doc.editorState = doc.editorState.update({ effects: [effect] }).state;
     }
   }
+}
+
+// Shared core of every spell language switch (Settings picker, statusbar
+// menu): load/verify the dictionary in the main process, reset the cached
+// word verdicts so the document re-checks under the new language, persist
+// the choice, and refresh the "downloaded" marks. Returns { ok } or the
+// failure details for the caller to surface in its own way.
+async function switchSpellLanguage(code) {
+  const previousCode = appState.spellCheckLanguage;
+  const result = await window.desktop.setSpellLanguage(code);
+  if (!result || result.error) {
+    return { ok: false, previousCode, result };
+  }
+
+  appState.spellCheckLanguage = code;
+  if (editorRef.view) {
+    editorRef.view.dispatch({ effects: spellCheckResetEffect.of(null) });
+  }
+  updateStatusbarSpellLanguageChip();
+  void refreshSpellLanguageDownloadMarks();
+  await window.desktop.updateState({ spellCheckLanguage: code });
+  return { ok: true };
+}
+
+function getSpellLanguageLabel(code) {
+  const language = findSpellLanguage(code);
+  return language ? language.name : code;
+}
+
+function updateStatusbarSpellLanguageChip() {
+  if (!elements.statusbarSpellLanguage) {
+    return;
+  }
+  elements.statusbarSpellLanguage.hidden = !appState.spellCheckEnabled;
+  elements.statusbarSpellLanguage.textContent = `Spell: ${getSpellLanguageLabel(appState.spellCheckLanguage)}`;
+}
+
+// Mark every catalog entry whose dictionary is already available offline so
+// the Settings picker shows at a glance what needs no download.
+async function refreshSpellLanguageDownloadMarks() {
+  if (!elements.settingsSpellLanguage) {
+    return;
+  }
+  let downloaded = [];
+  try {
+    downloaded = await window.desktop.getDownloadedSpellLanguages();
+  } catch {
+    return;
+  }
+  const downloadedSet = new Set(downloaded);
+  for (const option of elements.settingsSpellLanguage.options) {
+    const language = findSpellLanguage(option.value);
+    if (!language) {
+      continue;
+    }
+    option.textContent = !language.bundled && downloadedSet.has(language.code)
+      ? `${language.name} — downloaded`
+      : language.name;
+  }
+}
+
+let spellLanguageMenuElement = null;
+
+function closeSpellLanguageMenu() {
+  if (spellLanguageMenuElement) {
+    spellLanguageMenuElement.remove();
+    spellLanguageMenuElement = null;
+    elements.statusbarSpellLanguage?.setAttribute("aria-expanded", "false");
+    document.removeEventListener("mousedown", handleSpellLanguageMenuDismiss, true);
+  }
+}
+
+function handleSpellLanguageMenuDismiss(event) {
+  if (spellLanguageMenuElement
+    && !spellLanguageMenuElement.contains(event.target)
+    && event.target !== elements.statusbarSpellLanguage) {
+    closeSpellLanguageMenu();
+  }
+}
+
+async function openSpellLanguageMenu() {
+  closeSpellLanguageMenu();
+
+  let downloaded = [];
+  try {
+    downloaded = await window.desktop.getDownloadedSpellLanguages();
+  } catch {
+    // The menu can still show the active language; other entries are
+    // unknown without the list.
+  }
+
+  const menu = document.createElement("div");
+  menu.className = "spell-menu spell-language-menu";
+  menu.setAttribute("role", "menu");
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeSpellLanguageMenu();
+    }
+  });
+
+  const listed = new Set(downloaded);
+  listed.add(appState.spellCheckLanguage);
+  for (const code of [...listed].sort((a, b) => getSpellLanguageLabel(a).localeCompare(getSpellLanguageLabel(b)))) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "spell-menu-item";
+    item.setAttribute("role", "menuitem");
+    if (code === appState.spellCheckLanguage) {
+      item.classList.add("is-active");
+      item.setAttribute("aria-checked", "true");
+    }
+    item.textContent = getSpellLanguageLabel(code);
+    item.addEventListener("click", () => {
+      closeSpellLanguageMenu();
+      void switchSpellLanguage(code).then((outcome) => {
+        if (!outcome.ok && appState.spellCheckLanguage !== code) {
+          flashPreviewStatus("error", `Could not switch spell check to ${getSpellLanguageLabel(code)}.`, 4000);
+        }
+      });
+    });
+    menu.appendChild(item);
+  }
+
+  const separator = document.createElement("div");
+  separator.className = "spell-menu-separator";
+  menu.appendChild(separator);
+
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "spell-menu-item";
+  more.setAttribute("role", "menuitem");
+  more.textContent = "More languages…";
+  more.addEventListener("click", () => {
+    closeSpellLanguageMenu();
+    openSettingsOverlay();
+  });
+  menu.appendChild(more);
+
+  // Theme variables are scoped to .shell; overlays appended to body render
+  // with the wrong theme colors.
+  (document.querySelector(".shell") ?? document.body).appendChild(menu);
+  const chipRect = elements.statusbarSpellLanguage.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const left = Math.max(8, Math.min(chipRect.left, window.innerWidth - menuRect.width - 8));
+  menu.style.left = `${left}px`;
+  // The chip lives in the bottom statusbar, so the menu opens upward.
+  menu.style.top = `${Math.max(8, chipRect.top - menuRect.height - 8)}px`;
+  spellLanguageMenuElement = menu;
+  elements.statusbarSpellLanguage.setAttribute("aria-expanded", "true");
+  document.addEventListener("mousedown", handleSpellLanguageMenuDismiss, true);
+  menu.querySelector(".spell-menu-item")?.focus();
 }
 
 let lastAppliedShellTheme = null;
@@ -3759,6 +3914,14 @@ async function bindEvents() {
     cycleDiagnostics();
   });
 
+  elements.statusbarSpellLanguage.addEventListener("click", () => {
+    if (spellLanguageMenuElement) {
+      closeSpellLanguageMenu();
+      return;
+    }
+    void openSpellLanguageMenu();
+  });
+
   elements.chromeHintDismiss.addEventListener("click", () => {
     dismissChromeHint();
   });
@@ -3899,6 +4062,7 @@ async function bindEvents() {
 
   elements.settingsSpellCheck.addEventListener("change", async (event) => {
     applySpellCheckEnabled(event.target.checked);
+    updateStatusbarSpellLanguageChip();
     await window.desktop.updateState({ spellCheckEnabled: appState.spellCheckEnabled });
   });
 
@@ -3921,32 +4085,26 @@ async function bindEvents() {
       return;
     }
 
-    const previousCode = appState.spellCheckLanguage;
     elements.spellLanguageStatus.textContent = language.bundled
       ? ""
       : `${language.name} dictionary will download once and is cached for offline use…`;
     elements.settingsSpellLanguage.disabled = true;
 
-    const result = await window.desktop.setSpellLanguage(code);
+    const outcome = await switchSpellLanguage(code);
     elements.settingsSpellLanguage.disabled = false;
 
-    if (!result || result.error) {
+    if (!outcome.ok) {
       // Keep the previous language's checks running; surface why it failed.
-      elements.settingsSpellLanguage.value = previousCode;
-      elements.spellLanguageStatus.textContent = result?.error === "download-failed"
-        ? `Could not download the ${language.name} dictionary (${result.message ?? "network error"}). You stay on ${findSpellLanguage(previousCode)?.name ?? previousCode}.`
+      elements.settingsSpellLanguage.value = outcome.previousCode;
+      elements.spellLanguageStatus.textContent = outcome.result?.error === "download-failed"
+        ? `Could not download the ${language.name} dictionary (${outcome.result.message ?? "network error"}). You stay on ${getSpellLanguageLabel(outcome.previousCode)}.`
         : "That language is not available.";
       return;
     }
 
-    appState.spellCheckLanguage = code;
-    if (editorRef.view) {
-      editorRef.view.dispatch({ effects: spellCheckResetEffect.of(null) });
-    }
     elements.spellLanguageStatus.textContent = language.bundled
       ? ""
       : `${language.name} dictionary ready.`;
-    await window.desktop.updateState({ spellCheckLanguage: code });
   });
 
   elements.checkUpdates.addEventListener("click", async () => {
@@ -4716,6 +4874,7 @@ function registerBootSequence() {
         }
       });
     }
+    void refreshSpellLanguageDownloadMarks();
     if (appState.zoomLevel !== 0) {
       void window.desktop.setZoomLevel(appState.zoomLevel);
     }
