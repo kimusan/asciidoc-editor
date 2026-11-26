@@ -335,7 +335,30 @@ function buildPrintStyles(pageSize = "A4") {
 
     @page {
       size: ${pageSize};
-      margin: 18mm 12mm 20mm;
+      margin: 22mm 16mm 20mm;
+
+      /* Margin boxes are consumed by the Paged.js export path; Chromium's
+         plain-print fallback ignores them (no page numbers there). */
+      @top-center {
+        content: string(doctitle);
+        font-size: 9pt;
+        color: #7a7a7a;
+      }
+
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 9pt;
+        color: #7a7a7a;
+      }
+    }
+
+    @page :first {
+      @top-center { content: none; }
+    }
+
+    /* The document title becomes the running header on later pages. */
+    #header h1 {
+      string-set: doctitle content();
     }
 
     html, body {
@@ -746,6 +769,20 @@ export async function exportDocument({
       pdfPaperSize,
       documentMode: "print"
     });
+
+    // Primary path: Paged.js chunks the print document into real pages
+    // (page numbers, running headers) inside a hidden offscreen window.
+    // Any failure falls through to plain Chromium printing, which renders
+    // the same HTML without pagination.
+    try {
+      const { renderPaginatedPdf } = await import("./pagedjs-print.js");
+      const pdfBuffer = await renderPaginatedPdf({ html, pdfPaperSize, baseDir });
+      await fs.writeFile(destinationPath, pdfBuffer);
+      return destinationPath;
+    } catch {
+      // Fall back to the plain print below.
+    }
+
     const printWindow = new BrowserWindow({
       show: false,
       webPreferences: {

@@ -1209,3 +1209,50 @@ test("mermaid diagrams render to SVG in the preview and broken ones warn", async
     await stopApp(app);
   }
 });
+
+test("PDF export produces a paginated PDF with page numbers", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-pdf-docs-"));
+  const docPath = path.join(docsDir, "book.adoc");
+  // Enough content to span several A4 pages.
+  const paragraphs = Array.from({ length: 60 }, (_, i) =>
+    `Paragraph ${i + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`
+  ).join("\n\n");
+  await fs.writeFile(docPath, `= A Paginated Book\n\n${paragraphs}\n`);
+
+  const pdfPath = path.join(docsDir, "book.pdf");
+  const { app, window } = await launchApp(null, { ASCIIDOC_TEST_EXPORT_PATH: pdfPath }, [docPath]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Export via the kebab menu > Export document… > PDF card. The native
+    // save dialog is bypassed by the ASCIIDOC_TEST_EXPORT_PATH hook.
+    await window.locator("#open-kebab").click();
+    await window.locator("#kebab-menu [data-action-id=\"exportDocument\"]").click();
+    await window.locator("#export-overlay").waitFor();
+    await expect(window.locator(".format-card[data-export-format=\"pdf\"]")).toContainText("Paginated PDF");
+    await window.locator(".format-card[data-export-format=\"pdf\"]").click();
+
+    // The paginated pipeline (Paged.js in an offscreen window) must finish
+    // and write a real multi-page PDF.
+    let pdfBuffer = null;
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline && !pdfBuffer) {
+      try {
+        pdfBuffer = await fs.readFile(pdfPath);
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    expect(pdfBuffer, "PDF was never written").toBeTruthy();
+    expect(pdfBuffer.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+
+    const pageObjects = (pdfBuffer.toString("latin1").match(/\/Type\s*\/Page[^s]/g) || []).length;
+    expect(pageObjects).toBeGreaterThanOrEqual(3);
+
+    // No temp print HTML may linger in the document's directory.
+    const leftovers = (await fs.readdir(docsDir)).filter((name) => name.startsWith(".asciidoc-editor-print-"));
+    expect(leftovers).toEqual([]);
+  } finally {
+    await stopApp(app);
+  }
+});

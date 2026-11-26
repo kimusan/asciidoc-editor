@@ -1107,6 +1107,12 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("dialog:save-file", async (event, payload) => {
     assertTrustedSender(event);
+    // Test hook: PDF export e2e cannot drive the native save dialog. When
+    // the environment points at a destination, PDF saves bypass the dialog.
+    const options = typeof payload === "string" ? { defaultPath: payload, kind: "document" } : (payload ?? {});
+    if (options.kind === "pdf" && process.env.ASCIIDOC_TEST_EXPORT_PATH) {
+      return process.env.ASCIIDOC_TEST_EXPORT_PATH;
+    }
     const { canceled, filePath } = await dialog.showSaveDialog(buildSaveDialogConfig(payload));
     return canceled ? null : filePath;
   });

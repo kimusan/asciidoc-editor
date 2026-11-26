@@ -2519,7 +2519,7 @@ function updateDocumentChrome() {
   elements.editorSearchWord.classList.toggle("is-active", appState.editorSearchWholeWord);
   elements.editorSearchRegex.classList.toggle("is-active", appState.editorSearchRegex);
   const pdfCssSuffix = appState.pdfStylesheetPath ? " with custom PDF CSS." : ".";
-  elements.exportPdfDescription.textContent = `Clean print-friendly document export (${appState.pdfPaperSize})${pdfCssSuffix}`;
+  elements.exportPdfDescription.textContent = `Paginated PDF with page numbers and running headers (${appState.pdfPaperSize})${pdfCssSuffix}`;
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
   elements.previewOverlay.classList.toggle("is-open", appState.previewOverlayOpen);
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
