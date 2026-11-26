@@ -11,6 +11,7 @@ import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState, flushStateWrites } from "./store.js";
 import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage, listDownloadedSpellLanguages } from "./spell-service.js";
 import { normalizeSnippets, STARTER_SNIPPETS } from "./snippets.js";
+import { disposeMermaidRenderer } from "./mermaid-renderer.js";
 import { createUpdateService } from "./update-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1667,6 +1668,9 @@ app.on("before-quit", (event) => {
 
   event.preventDefault();
   stateWritesFlushed = true;
+  // The hidden Mermaid render window must not outlive the quit handshake
+  // (a live window would also re-enter window-all-closed paths).
+  disposeMermaidRenderer();
   Promise.race([
     flushStateWrites(),
     new Promise((resolve) => {

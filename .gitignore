@@ -7,3 +7,4 @@ playwright-report/
 Thumbs.db
 *.log
 .vite/
+electron/vendor/

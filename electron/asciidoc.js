@@ -73,6 +73,25 @@ const SHARED_DOCUMENT_STYLES = `
     margin: 0.75rem 0 0;
   }
 
+  .mermaid-block {
+    margin: 1.5em 0;
+  }
+
+  .mermaid-block > .content {
+    overflow-x: auto;
+    text-align: center;
+  }
+
+  .mermaid-block svg {
+    display: inline-block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mermaid-error pre {
+    margin: 0.75rem 0 0;
+  }
+
   .listingblock > .content {
     position: relative;
   }
@@ -611,7 +630,7 @@ export async function convertDocument(source, filePath, options = {}) {
 }
 
 export async function renderPreviewDocument(source, filePath, options = {}) {
-  const { title, body, diagnostics } = await runRenderJob(
+  const { title, body: workerBody, diagnostics } = await runRenderJob(
     "renderPreviewBody",
     source,
     filePath,
@@ -622,6 +641,27 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
     }
   );
 
+  const documentMode = options.documentMode ?? "preview";
+  // Printed/PDF output always stays light; only the live preview follows
+  // the app theme.
+  const colorScheme = documentMode === "print"
+    ? "light"
+    : (options.previewColorScheme === "dark" ? "dark" : "light");
+
+  // [mermaid] placeholders become real SVG here — after the worker render,
+  // in the main process, because Mermaid needs a live DOM. Every consumer
+  // of this function (live preview, HTML export, PDF print) gets diagrams.
+  // A renderer that cannot start leaves the placeholders in place.
+  let body = workerBody;
+  if (body.includes("mermaid-block")) {
+    try {
+      const { substituteMermaidDiagrams } = await import("./mermaid-renderer.js");
+      body = await substituteMermaidDiagrams(body, { colorScheme });
+    } catch {
+      // Keep the worker output; an empty block beats a broken document.
+    }
+  }
+
   let customStyles = "";
   if (options.stylesheetPath) {
     try {
@@ -631,12 +671,6 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
     }
   }
 
-  const documentMode = options.documentMode ?? "preview";
-  // Printed/PDF output always stays light; only the live preview follows
-  // the app theme.
-  const colorScheme = documentMode === "print"
-    ? "light"
-    : (options.previewColorScheme === "dark" ? "dark" : "light");
   const highlightThemeCss = await loadHighlightThemeCss(colorScheme);
   const previewFontFamily = PREVIEW_FONT_STACKS[options.previewFontFamily] ?? PREVIEW_FONT_STACKS.serif;
   const baseStyles = documentMode === "print"

@@ -1165,3 +1165,47 @@ test("project snippets load from the .adp file and surface everywhere", async ()
     await stopApp(app);
   }
 });
+
+test("mermaid diagrams render to SVG in the preview and broken ones warn", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-mermaid-docs-"));
+  const docPath = path.join(docsDir, "mermaid.adoc");
+  await fs.writeFile(docPath, [
+    "= Diagrams",
+    "",
+    "[mermaid]",
+    "----",
+    "flowchart TD",
+    "  A[Start] --> B{Choice}",
+    "  B -->|yes| C[Done]",
+    "----",
+    "",
+    "[mermaid]",
+    "----",
+    "this is not a diagram at all",
+    "----",
+    ""
+  ].join("\n"));
+
+  const { app, window } = await launchApp(null, null, [docPath]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The valid diagram becomes a real SVG inside the preview iframe; the
+    // broken one becomes a warning admonition, not a silent empty block.
+    await expect(async () => {
+      const counts = await window.evaluate(() => {
+        const doc = document.querySelector("#preview-frame").contentDocument;
+        return {
+          svg: doc.querySelectorAll(".mermaid-block svg").length,
+          errors: [...doc.querySelectorAll(".mermaid-error .title")]
+            .map((el) => el.textContent)
+        };
+      });
+      expect(counts.svg).toBeGreaterThanOrEqual(1);
+      expect(counts.errors.some((title) => title.includes("Mermaid render failed"))).toBe(true);
+      return counts;
+    }).toPass({ timeout: 20_000 });
+  } finally {
+    await stopApp(app);
+  }
+});

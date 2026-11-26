@@ -164,6 +164,14 @@ function buildMscHtml(source, options = {}) {
   return `<div class="imageblock mscgen-block" data-msc-input="${escapeHtml(options.inputType ?? "mscgen")}"><div class="content">${svg}</div></div>`;
 }
 
+// [mermaid] blocks cannot be rendered here: Mermaid needs a live DOM with
+// text measurement for layout. The worker emits a placeholder carrying the
+// URI-encoded source; the main process replaces it with the rendered SVG
+// after the render job returns (electron/mermaid-renderer.js).
+function buildMermaidPlaceholder(source) {
+  return `<div class="imageblock mermaid-block" data-mermaid-source="${encodeURIComponent(source)}"></div>`;
+}
+
 function ensureMscExtensionsRegistered() {
   if (mscExtensionsRegistered) {
     return;
@@ -204,6 +212,25 @@ function ensureMscExtensionsRegistered() {
   asciidoctor.Extensions.register(function () {
     registerMscBlock(this, "msc", "mscgen");
     registerMscBlock(this, "mscgen", "mscgen");
+    this.block(function () {
+      const self = this;
+      self.named("mermaid");
+      self.onContext("listing");
+      self.process(function (parent, reader) {
+        const source = reader.getLines().join("\n").trim();
+        if (!source) {
+          return self.createBlock(parent, "pass", "");
+        }
+
+        // Same backend gate as the MSC blocks: the placeholder is raw HTML
+        // and would be invalid in DocBook output.
+        if (parent.getDocument().getBackend() !== "html5") {
+          return self.createBlock(parent, "literal", source);
+        }
+
+        return self.createBlock(parent, "pass", buildMermaidPlaceholder(source));
+      });
+    });
   });
   mscExtensionsRegistered = true;
 }

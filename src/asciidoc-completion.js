@@ -39,6 +39,7 @@ export function buildBlockAttributeOptions() {
     fencedBlock("[pass]", "raw passthrough block", "++++"),
     fencedBlock("[msc]", "mscgen sequence diagram", "----"),
     fencedBlock("[mscgen]", "mscgen sequence diagram (mscgen syntax)", "----"),
+    fencedBlock("[mermaid]", "Mermaid diagram (flowchart, sequence, class, state…)", "----"),
     lineBlock("[abstract]", "abstract (book and paper doctypes)"),
     lineBlock("[discrete]", "heading outside the section hierarchy"),
     lineBlock("[NOTE]", "note admonition paragraph"),
