@@ -23,6 +23,22 @@ test("injectPagedPrintRuntime inserts the polyfill bootstrap before </head>", ()
   assert.ok(result.endsWith("</html>"));
 });
 
+test("injectPagedPrintRuntime unwraps code inside pre (Paged.js break-token bug)", () => {
+  const html = "<!doctype html><html><head></head><body><pre class=\"highlightjs highlight\"><code class=\"language-java hljs\" data-lang=\"java\"><span class=\"hljs-keyword\">public</span> class A {\n}</code></pre></body></html>";
+  const result = injectPagedPrintRuntime(html, "file:///v.js");
+
+  assert.ok(!result.includes("<code"), "code element must be gone");
+  assert.ok(result.includes('<pre class="highlightjs highlight"><span class="hljs-keyword">public</span> class A {\n}</pre>'), "spans and text must survive directly in the pre");
+});
+
+test("injectPagedPrintRuntime leaves pres without code untouched", () => {
+  const html = "<html><head></head><body><pre>plain text\nlines</pre><code>inline code in prose</code></body></html>";
+  const result = injectPagedPrintRuntime(html, "file:///v.js");
+
+  assert.ok(result.includes("<pre>plain text\nlines</pre>"));
+  assert.ok(result.includes("<code>inline code in prose</code>"), "inline code outside pre must stay");
+});
+
 test("injectPagedPrintRuntime handles documents without </head>", () => {
   const result = injectPagedPrintRuntime("<html><body>hi</body></html>", "file:///v.js");
   assert.ok(result.startsWith("<script>"));

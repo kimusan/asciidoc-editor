@@ -20,11 +20,27 @@ const POLYFILL_PATH = path.join(__dirname, "vendor", "paged.polyfill.min.js");
 const PAGINATION_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 100;
 
-// Pure: injects the Paged.js runtime configuration and script tag into a
-// finished print document. The polyfill defers until readyState
-// "interactive", so head placement is safe. `done` on the window is the
-// completion signal the main process polls for.
+// Paged.js cannot break a too-tall pre whose text sits inside a <code>
+// child: its break-token search fails on wrapped line boxes inside the
+// inline code element, and it silently drops the overflow (blank pages
+// instead of code). Text directly in <pre> paginates correctly, so the
+// paginated path unwraps the code element, keeping any highlight spans.
+// The plain Chromium print fallback and the live preview keep the
+// original markup — this transform is safe only for Paged.js.
+function unwrapCodeInPres(html) {
+  return html.replace(
+    /<pre([^>]*)>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/g,
+    (match, preAttributes, inner) => `<pre${preAttributes}>${inner}</pre>`
+  );
+}
+
+// Pure: prepares a finished print document for the Paged.js runtime —
+// unwraps code elements inside pres (see unwrapCodeInPres) and injects the
+// polyfill configuration and script tag. The polyfill defers until
+// readyState "interactive", so head placement is safe. `__pagedDone` on
+// the window is the completion signal the main process polls for.
 export function injectPagedPrintRuntime(html, scriptUrl) {
+  const prepared = unwrapCodeInPres(html);
   const bootstrap = `<script>
 window.PagedConfig = {
   auto: true,
@@ -34,10 +50,10 @@ window.PagedConfig = {
 };
 </script>
 <script src="${scriptUrl}"></script>`;
-  if (html.includes("</head>")) {
-    return html.replace("</head>", `${bootstrap}</head>`);
+  if (prepared.includes("</head>")) {
+    return prepared.replace("</head>", `${bootstrap}</head>`);
   }
-  return `${bootstrap}${html}`;
+  return `${bootstrap}${prepared}`;
 }
 
 async function waitForPagination(webContents) {

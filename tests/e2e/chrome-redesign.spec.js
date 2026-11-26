@@ -1213,11 +1213,18 @@ test("mermaid diagrams render to SVG in the preview and broken ones warn", async
 test("PDF export produces a paginated PDF with page numbers", async () => {
   const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-pdf-docs-"));
   const docPath = path.join(docsDir, "book.adoc");
-  // Enough content to span several A4 pages.
-  const paragraphs = Array.from({ length: 60 }, (_, i) =>
+  // Enough content to span several A4 pages, including a code block TALLER
+  // than one page with long wrapping lines — the shape that used to make
+  // Paged.js drop the overflow and leave blank pages in the PDF.
+  const paragraphs = Array.from({ length: 40 }, (_, i) =>
     `Paragraph ${i + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`
   ).join("\n\n");
-  await fs.writeFile(docPath, `= A Paginated Book\n\n${paragraphs}\n`);
+  const javaLines = Array.from({ length: 55 }, (_, i) =>
+    i % 7 === 3
+      ? `    public List<String> someRatherLongMethodName(@QueryParam("start") Integer start, @QueryParam("max") Integer max) { // line ${i + 1}`
+      : `    int filler${i + 1} = ${i + 1};`
+  ).join("\n");
+  await fs.writeFile(docPath, `= A Paginated Book\n\n${paragraphs}\n\n[source,java]\n----\n${javaLines}\n----\n\n${paragraphs}\n`);
 
   const pdfPath = path.join(docsDir, "book.pdf");
   const { app, window } = await launchApp(null, { ASCIIDOC_TEST_EXPORT_PATH: pdfPath }, [docPath]);

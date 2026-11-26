@@ -414,7 +414,10 @@ function buildPrintStyles(pageSize = "A4") {
       border: 1px solid var(--adoc-border);
       border-radius: 8px;
       padding: 10pt 12pt;
-      overflow-x: hidden;
+      /* No overflow-x here: long lines are wrapped by pre-wrap + anywhere
+         below, and hidden overflow breaks Paged.js's break-token search so
+         the portion of a too-tall block after the first page is silently
+         dropped (blank pages in the PDF instead of the code). */
       white-space: pre-wrap;
       break-inside: avoid-page;
     }
