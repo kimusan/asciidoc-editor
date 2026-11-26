@@ -9,6 +9,7 @@ export const appState = {
   activeDocumentId: null,
   nextDocumentId: 1,
   untitledSequence: 1,
+  zoomLevel: 0,
   currentProjectPath: null,
   currentProjectName: null,
   workspacePath: null,
@@ -20,6 +21,7 @@ export const appState = {
   pdfStylesheetPath: null,
   previewFontFamily: "serif",
   previewColorScheme: "auto",
+  editorFontSize: "default",
   pdfPaperSize: "A4",
   autoCheckUpdates: true,
   // Latest update event pushed from the main process; shape:

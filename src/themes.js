@@ -13,7 +13,9 @@ function createEditorTheme(palette) {
       ".cm-scroller": {
         fontFamily: "\"IBM Plex Mono\", \"Cascadia Code\", monospace",
         lineHeight: "1.6",
-        fontSize: "14px"
+        // The editor font size setting overrides this var on .shell; the
+        // literal is only the fallback when the var is missing.
+        fontSize: "var(--editor-font-size, 14px)"
       },
       ".cm-gutters": {
         backgroundColor: palette.gutter,
@@ -319,6 +321,21 @@ export const PREVIEW_COLOR_SCHEME_OPTIONS = [
   { value: "dark", label: "Dark" }
 ];
 
+// Editor text size, applied through the --editor-font-size shell variable.
+export const EDITOR_FONT_SIZE_OPTIONS = [
+  { value: "small", label: "Small" },
+  { value: "default", label: "Default" },
+  { value: "large", label: "Large" },
+  { value: "x-large", label: "Extra large" }
+];
+
+export const EDITOR_FONT_SIZE_VARS = {
+  small: "13px",
+  default: "14px",
+  large: "16px",
+  "x-large": "18px"
+};
+
 export const APP_THEME_OPTIONS = [
   { value: "nocturne", label: "Nocturne" },
   { value: "porcelain", label: "Porcelain" },
@@ -353,4 +370,9 @@ export function normalizePdfPaperSize(value) {
 export function normalizePreviewColorSchemeValue(value) {
   const allowed = new Set(PREVIEW_COLOR_SCHEME_OPTIONS.map((option) => option.value));
   return allowed.has(value) ? value : "auto";
+}
+
+export function normalizeEditorFontSizeValue(value) {
+  const allowed = new Set(EDITOR_FONT_SIZE_OPTIONS.map((option) => option.value));
+  return allowed.has(value) ? value : "default";
 }

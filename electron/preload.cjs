@@ -1,6 +1,6 @@
 // Sandboxed renderer preloads must be CommonJS: the sandboxed preload
 // bundler cannot evaluate ES module syntax, so require() is mandatory here.
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webFrame } = require("electron");
 
 contextBridge.exposeInMainWorld("desktop", {
   getBootPayload: () => ipcRenderer.invoke("app:get-boot-payload"),
@@ -45,6 +45,11 @@ contextBridge.exposeInMainWorld("desktop", {
   respondToAppCloseRequest: (payload) => ipcRenderer.invoke("app:close-response", payload),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
   loadState: () => ipcRenderer.invoke("state:load"),
+  setZoomLevel: (level) => {
+    webFrame.setZoomLevel(level);
+    return webFrame.getZoomLevel();
+  },
+  getZoomLevel: () => webFrame.getZoomLevel(),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
   applyUpdate: () => ipcRenderer.invoke("update:apply"),
   getUpdateStatus: () => ipcRenderer.invoke("update:get-status"),

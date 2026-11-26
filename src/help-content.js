@@ -141,6 +141,11 @@ export const SHORTCUT_SECTIONS = [
         title: "Expand preview",
         detail: "Open the preview as a full-window overlay. Press again or Esc to return.",
         shortcuts: [["Ctrl", "Shift", "E"], ["Cmd", "Shift", "E"]]
+      },
+      {
+        title: "Zoom in / out / reset",
+        detail: "Scale the whole app - chrome, editor, and preview together. The editor's own text size has a separate setting in Settings.",
+        shortcuts: [["Ctrl", "+ / - / 0"], ["Cmd", "+ / - / 0"]]
       }
     ]
   },

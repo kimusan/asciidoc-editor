@@ -31,6 +31,17 @@ test("sanitizePartialState persists the preview color scheme override", () => {
   assert.deepEqual(Object.keys(sanitizePartialState({ previewColorScheme: true })), []);
 });
 
+test("sanitizePartialState persists the editor font size and zoom level", () => {
+  assert.deepEqual(
+    sanitizePartialState({ editorFontSize: "large" }),
+    { editorFontSize: "large" }
+  );
+  assert.deepEqual(sanitizePartialState({ zoomLevel: 1.5 }), { zoomLevel: 1.5 });
+  // Non-numeric zoom and unknown font sizes are dropped, not coerced.
+  assert.deepEqual(Object.keys(sanitizePartialState({ zoomLevel: "big" })), []);
+  assert.deepEqual(Object.keys(sanitizePartialState({ editorFontSize: 99 })), []);
+});
+
 test("sanitizePartialState drops unknown keys", () => {
   const sanitized = sanitizePartialState({
     theme: "nord",

@@ -290,6 +290,48 @@ test("Escape closes only the topmost surface and exits focus mode", async () => 
   }
 });
 
+test("zoom and editor text size work and persist", async () => {
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-zoom-"));
+
+  const first = await launchApp(profileDir);
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Baseline: default zoom level 0 and a 14px editor.
+    expect(await first.window.evaluate(() => window.desktop.getZoomLevel())).toBe(0);
+
+    // Ctrl+= twice zooms in one level; Ctrl+0 resets.
+    await first.window.keyboard.press("Control+=");
+    await first.window.keyboard.press("Control+=");
+    expect(await first.window.evaluate(() => window.desktop.getZoomLevel())).toBe(1);
+    await first.window.keyboard.press("Control+-");
+    expect(await first.window.evaluate(() => window.desktop.getZoomLevel())).toBe(0.5);
+
+    // Editor text size: Extra large must land on the scroller.
+    await first.window.locator("#open-settings").click();
+    await first.window.locator("#settings-overlay").waitFor();
+    await first.window.locator("#settings-editor-font-size").selectOption("x-large");
+    await first.window.locator("#close-settings").click();
+    await expect(first.window.locator(".cm-scroller")).toHaveCSS("font-size", "18px");
+
+    // Quit through the real window-close path so state.json is written.
+    await first.window.close();
+    await first.app.close().catch(() => {});
+  } finally {
+    await stopApp(first.app);
+  }
+
+  // Both survive the restart.
+  const second = await launchApp(profileDir);
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(second.window.locator(".cm-scroller")).toHaveCSS("font-size", "18px");
+    expect(await second.window.evaluate(() => window.desktop.getZoomLevel())).toBe(0.5);
+  } finally {
+    await stopApp(second.app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

@@ -18,8 +18,11 @@ import { asciidocCompletion, startCompletion } from "./asciidoc-completion.js";
 import {
   APP_THEME_OPTIONS,
   APP_THEME_VARS,
+  EDITOR_FONT_SIZE_OPTIONS,
+  EDITOR_FONT_SIZE_VARS,
   normalizePdfPaperSize,
   normalizePreviewColorSchemeValue,
+  normalizeEditorFontSizeValue,
   normalizePreviewFontValue,
   normalizeThemeValue,
   PDF_PAPER_OPTIONS,
@@ -537,6 +540,12 @@ function createLayout() {
                   ${renderOptionMarkup(APP_THEME_OPTIONS)}
                 </select>
               </label>
+              <label class="settings-field">
+                <span>Editor text size</span>
+                <select id="settings-editor-font-size">
+                  ${renderOptionMarkup(EDITOR_FONT_SIZE_OPTIONS)}
+                </select>
+              </label>
             </article>
             <article class="settings-card">
               <div class="settings-card-header">
@@ -751,6 +760,7 @@ function createLayout() {
   elements.settingsAppTheme = document.querySelector("#settings-app-theme");
   elements.settingsPreviewFont = document.querySelector("#settings-preview-font");
   elements.settingsPreviewColorScheme = document.querySelector("#settings-preview-color-scheme");
+  elements.settingsEditorFontSize = document.querySelector("#settings-editor-font-size");
   elements.settingsPdfPaperSize = document.querySelector("#settings-pdf-paper-size");
   elements.settingsStylesheetStatus = document.querySelector("#settings-stylesheet-status");
   elements.chooseStylesheet = document.querySelector("#choose-stylesheet");
@@ -2092,6 +2102,7 @@ function updateDocumentChrome() {
   elements.settingsAppTheme.value = appState.theme;
   elements.settingsPreviewFont.value = appState.previewFontFamily;
   elements.settingsPreviewColorScheme.value = normalizePreviewColorSchemeValue(appState.previewColorScheme);
+  elements.settingsEditorFontSize.value = normalizeEditorFontSizeValue(appState.editorFontSize);
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
   elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
@@ -2282,6 +2293,32 @@ function applyEditorTheme(theme) {
 }
 
 let lastAppliedShellTheme = null;
+
+// The editor font size rides a shell-level CSS var that every CodeMirror
+// theme reads (var(--editor-font-size, 14px)), so one setting overrides
+// all themes without per-theme edits.
+function applyEditorFontSize() {
+  const size = EDITOR_FONT_SIZE_VARS[normalizeEditorFontSizeValue(appState.editorFontSize)] ?? EDITOR_FONT_SIZE_VARS.default;
+  elements.shell.style.setProperty("--editor-font-size", size);
+}
+
+// Whole-app zoom (Ctrl+= / Ctrl+- / Ctrl+0), applied through webFrame so
+// chrome, editor, and preview all scale together. Levels are Electron zoom
+// levels: 0 = 100%, each step is 20%, clamped so a stuck key cannot zoom
+// into infinity.
+const ZOOM_LEVEL_MIN = -3;
+const ZOOM_LEVEL_MAX = 3;
+
+function setAppZoom(nextLevel) {
+  const clamped = Math.max(ZOOM_LEVEL_MIN, Math.min(ZOOM_LEVEL_MAX, nextLevel));
+  appState.zoomLevel = clamped;
+  void window.desktop.setZoomLevel(clamped);
+  void window.desktop.updateState({ zoomLevel: clamped });
+}
+
+function stepAppZoom(direction) {
+  setAppZoom(Math.round((appState.zoomLevel + direction) * 2) / 2);
+}
 
 function applyShellTheme(theme) {
   if (theme === lastAppliedShellTheme) {
@@ -3003,6 +3040,8 @@ async function persistWindowState() {
     theme: appState.theme,
     previewFontFamily: appState.previewFontFamily,
     previewColorScheme: appState.previewColorScheme,
+    zoomLevel: appState.zoomLevel,
+    editorFontSize: appState.editorFontSize,
     pdfPaperSize: appState.pdfPaperSize,
     distractionFree: appState.distractionFree,
     workspaceCollapsed: appState.workspaceCollapsed,
@@ -3234,6 +3273,12 @@ async function bindEvents() {
     updateDocumentChrome();
     await renderPreviewNow();
     await window.desktop.updateState({ previewColorScheme: appState.previewColorScheme });
+  });
+
+  elements.settingsEditorFontSize.addEventListener("change", async (event) => {
+    appState.editorFontSize = normalizeEditorFontSizeValue(event.target.value);
+    applyEditorFontSize();
+    await window.desktop.updateState({ editorFontSize: appState.editorFontSize });
   });
 
   elements.settingsPdfPaperSize.addEventListener("change", async (event) => {
@@ -3894,6 +3939,21 @@ async function bindEvents() {
       }
     }
 
+    if ((event.metaKey || event.ctrlKey) && (event.key === "=" || event.key === "+" || event.code === "Equal" || event.code === "NumpadAdd")) {
+      event.preventDefault();
+      stepAppZoom(0.5);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && (event.key === "-" || event.code === "Minus" || event.code === "NumpadSubtract")) {
+      event.preventDefault();
+      stepAppZoom(-0.5);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key === "0") {
+      event.preventDefault();
+      setAppZoom(0);
+    }
+
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
       event.preventDefault();
       openWorkspaceSearchOverlay();
@@ -3955,16 +4015,22 @@ function registerBootSequence() {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       previewColorScheme: normalizePreviewColorSchemeValue(state?.previewColorScheme),
+      editorFontSize: normalizeEditorFontSizeValue(state?.editorFontSize),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       autoCheckUpdates: state?.autoCheckUpdates !== false,
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
+      zoomLevel: Number.isFinite(state?.zoomLevel) ? state.zoomLevel : 0,
       currentProjectPath: project?.projectPath ?? null,
       currentProjectName: project?.name ?? null,
       recentProjects: Array.isArray(state?.recentProjects) ? state.recentProjects : [],
       projectSessions: state?.projectSessions ?? {}
     });
     applyEditorTheme(appState.theme);
+    applyEditorFontSize();
+    if (appState.zoomLevel !== 0) {
+      void window.desktop.setZoomLevel(appState.zoomLevel);
+    }
 
     if (project) {
       applyProjectSettings(project);
