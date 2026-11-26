@@ -28,6 +28,8 @@ export const appState = {
   autoCheckUpdates: true,
   spellCheckEnabled: true,
   spellCheckLanguage: "en-US",
+  typewriterScrolling: false,
+  paragraphFocusDimming: false,
   // Latest update event pushed from the main process; shape:
   // { status: "checking"|"available"|"up-to-date"|"error"|"downloading"|"ready",
   //   version?, mode?, releaseUrl?, percent?, message? }

@@ -907,6 +907,74 @@ test("an unsaved buffer survives restart while its file is unchanged", async () 
   }
 });
 
+test("writing focus settings dim other paragraphs, pin typing, and persist", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-focus-docs-"));
+  const docPath = path.join(docsDir, "focus.adoc");
+  const paragraphs = Array.from({ length: 40 }, (_, index) =>
+    `Paragraph ${index + 1} line for the writing focus test.`
+  );
+  await fs.writeFile(docPath, `= Focus\n\n${paragraphs.join("\n\n")}\n`);
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-focus-profile-"));
+  const launch = async () => launchApp(profileDir, null, [docPath]);
+
+  const first = await launch();
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Enable both Writing Focus settings.
+    await first.window.locator("#open-settings").click();
+    await first.window.locator("#settings-paragraph-dimming").check();
+    await first.window.locator("#settings-typewriter-scrolling").check();
+    await first.window.locator("#close-settings").click();
+
+    // Put the cursor in a mid-document paragraph: every other paragraph
+    // line dims, the cursor's paragraph stays full strength.
+    await first.window.locator(".cm-line", { hasText: "Paragraph 20" }).click();
+    await expect(first.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 19" })).toHaveCount(1, { timeout: 5_000 });
+    await expect(first.window.locator(".cm-line", { hasText: "Paragraph 20" }).locator(".cm-paragraph-dim")).toHaveCount(0);
+
+    // Typewriter scrolling: typing mid-document pins the cursor line one
+    // third from the top instead of letting it sit wherever the click was.
+    await first.window.keyboard.type("x");
+    const pinned = await first.window.evaluate(() => {
+      const scroller = document.querySelector(".cm-scroller");
+      const content = document.querySelector(".cm-content");
+      const active = document.querySelector(".cm-activeLine");
+      if (!scroller || !content || !active) {
+        return null;
+      }
+      const activeTop = active.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      return { scrollTop: scroller.scrollTop, viewport: scroller.clientHeight, activeTop };
+    });
+    expect(pinned).not.toBeNull();
+    expect(pinned.scrollTop).toBeGreaterThan(200);
+    expect(Math.abs(pinned.activeTop - pinned.viewport / 3)).toBeLessThan(12);
+  } finally {
+    await stopApp(first.app);
+  }
+
+  // The toggles persist across a restart.
+  const second = await launch();
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await second.window.locator("#open-settings").click();
+    await expect(second.window.locator("#settings-typewriter-scrolling")).toBeChecked();
+    await expect(second.window.locator("#settings-paragraph-dimming")).toBeChecked();
+    await second.window.locator("#close-settings").click();
+    // And dimming is live again after the restart. The restored editor
+    // reopens scrolled where the typing happened, so return to the top
+    // before reaching for a specific paragraph (CM only renders what is
+    // near the viewport).
+    await second.window.locator(".cm-content").click();
+    await second.window.keyboard.press("Control+Home");
+    await second.window.locator(".cm-line", { hasText: "Paragraph 10" }).click();
+    await expect(second.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 9" })).toHaveCount(1, { timeout: 5_000 });
+  } finally {
+    await stopApp(second.app);
+  }
+});
+
 test("a command-line launch merges into the restored session without losing content", async () => {
   const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-bootmerge-docs-"));
   const docPath = path.join(docsDir, "bootmerge.adoc");

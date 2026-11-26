@@ -65,6 +65,7 @@ import { findAnchorLine, findNavigationTarget } from "./navigation.js";
 import { formatAsciiDocTable } from "./table-format.js";
 import { spellCheckExtension, spellCheckResetEffect } from "./spell-check.js";
 import { SPELL_LANGUAGES, normalizeSpellLanguageValue, findSpellLanguage } from "../electron/spell-languages.js";
+import { typewriterScrolling, paragraphFocusDimming } from "./writing-focus.js";
 import {
   closeCommandPalette,
   initCommandPalette,
@@ -76,6 +77,7 @@ import "./styles.css";
 const themeCompartment = new Compartment();
 const editorThemeCompartment = new Compartment();
 const spellCheckCompartment = new Compartment();
+const writingFocusCompartment = new Compartment();
 
 // One shared extension instance: the word cache inside it survives tab
 // switches and setting toggles, so already-checked words are never sent to
@@ -632,6 +634,20 @@ function createLayout() {
             </article>
             <article class="settings-card">
               <div class="settings-card-header">
+                <h3>Writing Focus</h3>
+                <p>Typewriter scrolling keeps the typing line centered; paragraph dimming fades everything but the paragraph you are editing.</p>
+              </div>
+              <label class="scope-toggle" title="Keep the line you type on at a fixed position while writing.">
+                <input id="settings-typewriter-scrolling" type="checkbox" />
+                <span>Typewriter scrolling</span>
+              </label>
+              <label class="scope-toggle" title="Dim every paragraph except the one containing the cursor.">
+                <input id="settings-paragraph-dimming" type="checkbox" />
+                <span>Paragraph focus dimming</span>
+              </label>
+            </article>
+            <article class="settings-card">
+              <div class="settings-card-header">
                 <h3>Updates</h3>
                 <p>Check GitHub for new app releases.</p>
               </div>
@@ -805,6 +821,8 @@ function createLayout() {
   elements.settingsSpellCheck = document.querySelector("#settings-spell-check");
   elements.settingsSpellLanguage = document.querySelector("#settings-spell-language");
   elements.spellLanguageStatus = document.querySelector("#spell-language-status");
+  elements.settingsTypewriterScrolling = document.querySelector("#settings-typewriter-scrolling");
+  elements.settingsParagraphDimming = document.querySelector("#settings-paragraph-dimming");
   elements.updateCheckStatus = document.querySelector("#update-check-status");
   elements.checkUpdates = document.querySelector("#check-updates");
   elements.updateToast = document.querySelector("#update-toast");
@@ -2193,6 +2211,36 @@ function runEditorReplaceAll() {
   updateEditorSearchStatus();
 }
 
+// Build the writing-focus extension set from the two persisted settings.
+// Used at state creation, on setting changes, and at boot.
+function buildWritingFocusExtensions() {
+  const extensions = [];
+  if (appState.typewriterScrolling) {
+    extensions.push(typewriterScrolling());
+  }
+  if (appState.paragraphFocusDimming) {
+    extensions.push(paragraphFocusDimming());
+  }
+  return extensions;
+}
+
+// Flip typewriter scrolling / paragraph dimming across the live editor and
+// every open tab's cached EditorState, mirroring applySpellCheckEnabled.
+function applyWritingFocusSetting() {
+  const effect = writingFocusCompartment.reconfigure(buildWritingFocusExtensions());
+
+  if (editorRef.view) {
+    editorRef.view.dispatch({ effects: effect });
+  }
+
+  const activeState = editorRef.view ? editorRef.view.state : null;
+  for (const doc of appState.openDocuments) {
+    if (doc.editorState && doc.editorState !== activeState) {
+      doc.editorState = doc.editorState.update({ effects: [effect] }).state;
+    }
+  }
+}
+
 function createEditorState(doc) {
   const themeConfig = THEME_STYLES[appState.theme] ?? THEME_STYLES.nocturne;
   return EditorState.create({
@@ -2201,7 +2249,8 @@ function createEditorState(doc) {
       ...editorExtensions,
       themeCompartment.of(themeConfig.syntax),
       editorThemeCompartment.of(themeConfig.editor),
-      spellCheckCompartment.of(appState.spellCheckEnabled ? editorSpellCheck : [])
+      spellCheckCompartment.of(appState.spellCheckEnabled ? editorSpellCheck : []),
+      writingFocusCompartment.of(buildWritingFocusExtensions())
     ]
   });
 }
@@ -2426,6 +2475,8 @@ function updateDocumentChrome() {
   elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
   elements.settingsSpellCheck.checked = appState.spellCheckEnabled;
   setInputElementValue(elements.settingsSpellLanguage, appState.spellCheckLanguage);
+  elements.settingsTypewriterScrolling.checked = appState.typewriterScrolling;
+  elements.settingsParagraphDimming.checked = appState.paragraphFocusDimming;
   elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
@@ -3579,6 +3630,8 @@ async function persistWindowState() {
     editorFontSize: appState.editorFontSize,
     pdfPaperSize: appState.pdfPaperSize,
     distractionFree: appState.distractionFree,
+    typewriterScrolling: appState.typewriterScrolling,
+    paragraphFocusDimming: appState.paragraphFocusDimming,
     workspaceCollapsed: appState.workspaceCollapsed,
     outlineCollapsed: appState.outlineCollapsed,
     previewStylesheetPath: appState.previewStylesheetPath,
@@ -3847,6 +3900,18 @@ async function bindEvents() {
   elements.settingsSpellCheck.addEventListener("change", async (event) => {
     applySpellCheckEnabled(event.target.checked);
     await window.desktop.updateState({ spellCheckEnabled: appState.spellCheckEnabled });
+  });
+
+  elements.settingsTypewriterScrolling.addEventListener("change", async (event) => {
+    appState.typewriterScrolling = event.target.checked;
+    applyWritingFocusSetting();
+    await window.desktop.updateState({ typewriterScrolling: appState.typewriterScrolling });
+  });
+
+  elements.settingsParagraphDimming.addEventListener("change", async (event) => {
+    appState.paragraphFocusDimming = event.target.checked;
+    applyWritingFocusSetting();
+    await window.desktop.updateState({ paragraphFocusDimming: appState.paragraphFocusDimming });
   });
 
   elements.settingsSpellLanguage.addEventListener("change", async (event) => {
@@ -4624,6 +4689,8 @@ function registerBootSequence() {
       autoCheckUpdates: state?.autoCheckUpdates !== false,
       spellCheckEnabled: state?.spellCheckEnabled !== false,
       spellCheckLanguage: normalizeSpellLanguageValue(state?.spellCheckLanguage),
+      typewriterScrolling: Boolean(state?.typewriterScrolling),
+      paragraphFocusDimming: Boolean(state?.paragraphFocusDimming),
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
       zoomLevel: Number.isFinite(state?.zoomLevel) ? state.zoomLevel : 0,

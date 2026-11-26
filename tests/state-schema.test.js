@@ -39,6 +39,16 @@ test("sanitizePartialState persists the spell check language", () => {
   assert.deepEqual(Object.keys(sanitizePartialState({ spellCheckLanguage: false })), []);
 });
 
+test("sanitizePartialState persists the writing focus toggles", () => {
+  assert.deepEqual(
+    sanitizePartialState({ typewriterScrolling: true, paragraphFocusDimming: true }),
+    { typewriterScrolling: true, paragraphFocusDimming: true }
+  );
+  // Wrong type must be dropped, not coerced.
+  assert.deepEqual(Object.keys(sanitizePartialState({ typewriterScrolling: "on" })), []);
+  assert.deepEqual(Object.keys(sanitizePartialState({ paragraphFocusDimming: 1 })), []);
+});
+
 test("sanitizePartialState persists the preview color scheme override", () => {
   assert.deepEqual(
     sanitizePartialState({ previewColorScheme: "dark" }),

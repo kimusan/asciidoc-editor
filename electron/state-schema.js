@@ -23,6 +23,8 @@ const STATE_SCHEMA = {
   autoCheckUpdates: "boolean",
   spellCheckEnabled: "boolean",
   spellCheckLanguage: "string",
+  typewriterScrolling: "boolean",
+  paragraphFocusDimming: "boolean",
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
   outlineCollapsed: "boolean",

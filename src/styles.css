@@ -483,6 +483,14 @@ input:focus-visible,
   background: transparent;
 }
 
+/* Paragraph focus dimming (Settings > Writing Focus): every non-blank
+   line outside the cursor's paragraph fades; opacity works across all
+   editor themes without per-theme colors. */
+.cm-paragraph-dim {
+  opacity: 0.45;
+  transition: opacity 160ms ease;
+}
+
 
 .kebab-menu[hidden] {
   display: none;
