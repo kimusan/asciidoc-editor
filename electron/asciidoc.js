@@ -585,7 +585,7 @@ export async function convertDocument(source, filePath, options = {}) {
 }
 
 export async function renderPreviewDocument(source, filePath, options = {}) {
-  const { title, body } = await runRenderJob(
+  const { title, body, diagnostics } = await runRenderJob(
     "renderPreviewBody",
     source,
     filePath,
@@ -620,7 +620,8 @@ export async function renderPreviewDocument(source, filePath, options = {}) {
   return {
     title,
     styles: `:root { --adoc-font-family: ${previewFontFamily}; }${DOCUMENT_THEMES[colorScheme]}${baseStyles}${highlightThemeCss}${customStyles}`,
-    body
+    body,
+    diagnostics: Array.isArray(diagnostics) ? diagnostics : []
   };
 }
 

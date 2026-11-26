@@ -252,3 +252,28 @@ test("a hung render job times out and the worker recovers on the next render", a
     delete process.env.ASCIIDOC_RENDER_JOB_TIMEOUT_MS;
   }
 });
+
+test("renderPreviewDocument reports converter diagnostics for broken references", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-editor-"));
+  const source = "= Demo\n\ninclude::definitely-missing.adoc[]\n\nxref:nowhere.adoc[missing target]\n";
+
+  const preview = await renderPreviewDocument(source, path.join(tempRoot, "main.adoc"), {});
+  const lineNumbers = preview.diagnostics
+    .filter((entry) => entry.severity === "ERROR")
+    .map((entry) => entry.sourceLine);
+
+  assert.ok(
+    preview.diagnostics.some((entry) => /include file not found/.test(entry.message)),
+    "the missing include must surface as a diagnostic"
+  );
+  assert.ok(lineNumbers.includes(3), "the include error points at line 3");
+  assert.equal(
+    preview.diagnostics.every((entry) => typeof entry.message === "string" && (entry.sourceLine === null || Number.isInteger(entry.sourceLine))),
+    true,
+    "diagnostics must be serializable primitives"
+  );
+
+  // A clean document renders without any diagnostics.
+  const clean = await renderPreviewDocument("= Clean\n\nparagraph.", null, {});
+  assert.deepEqual(clean.diagnostics, []);
+});

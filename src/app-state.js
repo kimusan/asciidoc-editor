@@ -10,6 +10,8 @@ export const appState = {
   nextDocumentId: 1,
   untitledSequence: 1,
   zoomLevel: 0,
+  diagnostics: [],
+  diagnosticsCursor: 0,
   currentProjectPath: null,
   currentProjectName: null,
   workspacePath: null,

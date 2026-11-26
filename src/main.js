@@ -458,6 +458,7 @@ function createLayout() {
         <span id="document-name" class="statusbar-item statusbar-path" title="">Untitled.adoc</span>
         <div class="statusbar-spacer"></div>
         <span class="statusbar-item statusbar-metrics"><span id="word-count">0</span> words · <span id="line-count">1</span> lines</span>
+        <button id="statusbar-diagnostics" class="statusbar-item statusbar-chip statusbar-diagnostics" type="button" hidden></button>
         <button id="stylesheet-chip" class="statusbar-item statusbar-chip" type="button" title="Preview stylesheet — click to open settings">No custom preview CSS</button>
       </footer>
       <div id="kebab-menu" class="kebab-menu" role="menu" aria-label="More actions" hidden></div>
@@ -818,6 +819,7 @@ function createLayout() {
   elements.documentStatus = document.querySelector("#document-status");
   elements.previewFrame = document.querySelector("#preview-frame");
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
+  elements.statusbarDiagnostics = document.querySelector("#statusbar-diagnostics");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
@@ -2841,6 +2843,46 @@ function buildUnavailablePreviewDocument() {
   };
 }
 
+// Statusbar diagnostics chip: converter warnings/errors (missing includes,
+// invalid references) collected during the preview render. Clicking cycles
+// the cursor through the affected lines.
+function updateDiagnosticsChip() {
+  const diagnostics = appState.diagnostics ?? [];
+  const chip = elements.statusbarDiagnostics;
+  if (!chip) {
+    return;
+  }
+
+  if (diagnostics.length === 0) {
+    chip.hidden = true;
+    return;
+  }
+
+  const errors = diagnostics.filter((entry) => entry.severity === "ERROR" || entry.severity === "FATAL").length;
+  const label = errors > 0
+    ? `${errors} ${errors === 1 ? "error" : "errors"}${diagnostics.length > errors ? ` · ${diagnostics.length - errors} warnings` : ""}`
+    : `${diagnostics.length} ${diagnostics.length === 1 ? "warning" : "warnings"}`;
+  chip.hidden = false;
+  chip.textContent = label;
+  chip.title = diagnostics.slice(0, 5).map((entry) => `Line ${entry.sourceLine ?? "?"}: ${entry.message}`).join("\n");
+  chip.classList.toggle("has-errors", errors > 0);
+}
+
+function cycleDiagnostics() {
+  const diagnostics = appState.diagnostics ?? [];
+  if (diagnostics.length === 0 || !editorRef.view) {
+    return;
+  }
+
+  const index = appState.diagnosticsCursor % diagnostics.length;
+  appState.diagnosticsCursor = (index + 1) % diagnostics.length;
+  const entry = diagnostics[index];
+  if (entry.sourceLine) {
+    jumpToEditorLocation(entry.sourceLine, 1);
+    setPreviewStatus("warn", `Line ${entry.sourceLine}: ${entry.message}`);
+  }
+}
+
 async function renderPreviewNow() {
   const renderVersion = ++appState.previewRenderVersion;
   appState.previewInSync = false;
@@ -2860,6 +2902,9 @@ async function renderPreviewNow() {
     }
 
     appState.lastPreviewDocument = previewDocument;
+    appState.diagnostics = Array.isArray(previewDocument?.diagnostics) ? previewDocument.diagnostics : [];
+    appState.diagnosticsCursor = 0;
+    updateDiagnosticsChip();
     applyPreviewDocument(elements.previewFrame, previewDocument);
     applyPreviewSyncPoints(elements.previewFrame);
     installPreviewInteractions(elements.previewFrame);
@@ -3497,6 +3542,10 @@ async function bindEvents() {
 
   elements.stylesheetChip.addEventListener("click", () => {
     openSettingsOverlay();
+  });
+
+  elements.statusbarDiagnostics.addEventListener("click", () => {
+    cycleDiagnostics();
   });
 
   elements.chromeHintDismiss.addEventListener("click", () => {

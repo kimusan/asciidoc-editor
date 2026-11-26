@@ -524,6 +524,29 @@ test("Ctrl+click on an include reference opens the target document", async () =>
   }
 });
 
+test("converter diagnostics surface in the statusbar and jump to the source line", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-diag-docs-"));
+  const docPath = path.join(docsDir, "broken.adoc");
+  await fs.writeFile(docPath, "= Broken\n\ninclude::no-such-file.adoc[]\n\nFine text.\n");
+
+  const { app, window } = await launchApp(null, null, [docPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The missing include surfaces as a statusbar diagnostics chip.
+    const chip = window.locator("#statusbar-diagnostics");
+    await expect(chip).toBeVisible({ timeout: 15_000 });
+    await expect(chip).toContainText("1 error");
+
+    // Clicking it jumps the cursor to the offending line.
+    await chip.click();
+    await expect(window.locator(".cm-activeLine")).toContainText("include::no-such-file.adoc[]", { timeout: 5_000 });
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

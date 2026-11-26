@@ -402,6 +402,14 @@ input:focus-visible,
   color: var(--text-primary);
 }
 
+.statusbar-diagnostics {
+  color: var(--warning, #f2b95a);
+}
+
+.statusbar-diagnostics.has-errors {
+  color: #ff8f70;
+}
+
 /* Kebab popover for actions without a dedicated strip button. */
 .kebab-menu {
   position: absolute;

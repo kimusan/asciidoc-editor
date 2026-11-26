@@ -20,6 +20,40 @@ const asciidoctor = Asciidoctor();
 // DocBook export is broken without registering it.
 docbookConverter.register();
 
+// Collect converter diagnostics (missing includes, invalid references) so
+// the editor can surface them instead of rendering silently broken output.
+// The MemoryLogger must be built with Opal's $new(): the JS `new` skips
+// initialize, leaving @messages nil - the first logged error then throws
+// "undefined method `<<' for nil" from deep inside the include resolution.
+// A fresh logger per render (the JS wrapper exposes no clear()) doubles as
+// contamination protection: no message can leak across renders.
+const DIAGNOSTIC_SEVERITIES = new Set(["WARN", "ERROR", "FATAL"]);
+const MAX_DIAGNOSTICS = 50;
+
+// Drains the render's logger into a plain serializable list. INFO messages
+// (e.g. "possible invalid reference") are too noisy for the statusbar chip.
+function collectDiagnostics(logger) {
+  const diagnostics = [];
+  for (const entry of logger.getMessages()) {
+    const severity = String(entry.getSeverity());
+    if (!DIAGNOSTIC_SEVERITIES.has(severity)) {
+      continue;
+    }
+
+    const location = entry.getSourceLocation();
+    diagnostics.push({
+      severity,
+      message: String(entry.getText()),
+      sourceLine: location ? Number(location.lineno ?? 0) || null : null
+    });
+    if (diagnostics.length >= MAX_DIAGNOSTICS) {
+      break;
+    }
+  }
+
+  return diagnostics;
+}
+
 const mscSvgCache = new Map();
 let mscExtensionsRegistered = false;
 
@@ -319,6 +353,8 @@ function annotateSourceLineRoles(syncNodes) {
 }
 
 function renderDocument(source, filePath, options = {}) {
+  const diagnosticsLogger = asciidoctor.MemoryLogger.$new();
+  asciidoctor.LoggerManager.setLogger(diagnosticsLogger);
   // Load once and convert the parsed document; calling asciidoctor.convert
   // as well would parse the whole source a second time on every render.
   const document = asciidoctor.load(source, buildLoadOptions(filePath, options));
@@ -330,20 +366,22 @@ function renderDocument(source, filePath, options = {}) {
   }
   return {
     title: resolveDocumentTitle(document, filePath),
-    content: document.convert()
+    content: document.convert(),
+    diagnostics: collectDiagnostics(diagnosticsLogger)
   };
 }
 
 const operations = {
   renderDocument: (source, filePath, options) => renderDocument(source, filePath, options),
   renderPreviewBody: (source, filePath, options) => {
-    const { title, content } = renderDocument(source, filePath, {
+    const { title, content, diagnostics } = renderDocument(source, filePath, {
       ...options,
       standalone: true
     });
     return {
       title,
-      body: highlightCodeBlocks(extractBodyContents(content))
+      body: highlightCodeBlocks(extractBodyContents(content)),
+      diagnostics
     };
   }
 };
