@@ -42,6 +42,7 @@ export const appState = {
   theme: "nord",
   distractionFree: false,
   workspaceCollapsed: false,
+  workspaceWidth: 280,
   outlineCollapsed: false,
   workspaceQuery: "",
   workspaceContentSearchOpen: false,

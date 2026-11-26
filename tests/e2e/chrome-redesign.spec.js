@@ -1341,3 +1341,85 @@ test("workspace tree shows git status badges and updates after a save", async ()
     await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});
   }
 });
+
+test("workspace tree rows are dense, folders show an inline chevron, and the sidebar is resizable", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-tree-density-"));
+  await fs.writeFile(path.join(docsDir, "one.adoc"), "= One\n");
+  await fs.writeFile(path.join(docsDir, "two.adoc"), "= Two\n");
+  await fs.mkdir(path.join(docsDir, "notes", "deep"), { recursive: true });
+  await fs.writeFile(path.join(docsDir, "notes", "deep", "three.adoc"), "= Three\n");
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-tree-density-profile-"));
+  const { app, window } = await launchApp(profileDir, null, [path.join(docsDir, "one.adoc")]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // 1. Dense rows: a file row must stay under 34px tall (the old padding
+    //    made them ~42-46px; folders ~60-68px with the arrow on its own line).
+    const fileRow = window.locator(".tree-entry-file").first();
+    await expect(fileRow).toBeVisible({ timeout: 10_000 });
+    const rowHeight = await fileRow.evaluate((el) => el.getBoundingClientRect().height);
+    expect(rowHeight).toBeLessThan(34);
+
+    // 2. The folder chevron renders inline, left of the folder icon, on the
+    //    SAME line as the label (the old ::before arrow wrapped onto its own
+    //    anonymous line above the name).
+    const folderRow = window.locator(".tree-entry-directory").first();
+    await folderRow.click(); // expand
+    const geometry = await folderRow.evaluate((el) => {
+      const arrow = el.querySelector(".tree-arrow");
+      const icon = el.querySelector(".tree-entry-icon");
+      const label = el.querySelector(".tree-entry-label");
+      if (!arrow || !icon || !label) return null;
+      const a = arrow.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
+      const l = label.getBoundingClientRect();
+      const row = el.getBoundingClientRect();
+      return {
+        arrowLeftOfIcon: a.right <= i.left + 1,
+        sameLine: Math.abs((a.top + a.bottom) / 2 - (l.top + l.bottom) / 2) <= 2,
+        singleLineRow: row.height < 34
+      };
+    });
+    expect(geometry).toEqual({ arrowLeftOfIcon: true, sameLine: true, singleLineRow: true });
+
+    // 3. Keyboard resize: the splitter is focusable, ArrowRight widens the
+    //    sidebar, ArrowLeft narrows it, and the width is clamped.
+    const splitter = window.locator("#workspace-splitter");
+    await splitter.focus();
+    const widthBefore = await window.evaluate(() =>
+      document.querySelector(".workspace-panel").getBoundingClientRect().width
+    );
+    await window.keyboard.press("ArrowRight");
+    await window.keyboard.press("ArrowRight");
+    const widthAfter = await window.evaluate(() =>
+      document.querySelector(".workspace-panel").getBoundingClientRect().width
+    );
+    expect(widthAfter - widthBefore).toBeGreaterThanOrEqual(30);
+    expect(await splitter.getAttribute("aria-valuenow")).toBe(String(Math.round(widthAfter)));
+
+    // Home/End hit the clamps.
+    await window.keyboard.press("End");
+    await expect(splitter).toHaveAttribute("aria-valuenow", "480");
+    await window.keyboard.press("Home");
+    await expect(splitter).toHaveAttribute("aria-valuenow", "200");
+  } finally {
+    await stopApp(app);
+  }
+
+  // 4. The width persists across a restart (Home left it at the 200px clamp).
+  const { app: app2, window: window2 } = await launchApp(profileDir, null, [path.join(docsDir, "one.adoc")]);
+  try {
+    await expect(window2.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(window2.locator(".workspace-panel")).toBeVisible();
+    const restoredWidth = await window2.evaluate(() =>
+      document.querySelector(".workspace-panel").getBoundingClientRect().width
+    );
+    expect(restoredWidth).toBe(200);
+    await window2.keyboard.press("Control+End");
+  } finally {
+    await stopApp(app2);
+    await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(profileDir, { recursive: true, force: true }).catch(() => {});
+  }
+});

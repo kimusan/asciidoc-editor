@@ -27,6 +27,7 @@ const STATE_SCHEMA = {
   paragraphFocusDimming: "boolean",
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
+  workspaceWidth: "number",
   outlineCollapsed: "boolean",
   previewStylesheetPath: "string?",
   pdfStylesheetPath: "string?"

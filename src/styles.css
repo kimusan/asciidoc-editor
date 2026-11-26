@@ -146,6 +146,7 @@ input:focus-visible,
   --file-icon-media: #f7b955;
   --file-icon-pdf: #ff8f70;
   --split-ratio: 0.5;
+  --workspace-width: 280px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 18px;
@@ -827,8 +828,13 @@ input:focus-visible,
 
 .layout-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 18px;
+  /* The middle track IS the splitter: the sidebar-to-editor gutter stays
+     18px total (previously a plain 18px gap), with a grabbable separator
+     filling it. --workspace-width is user-controlled (see
+     bindWorkspaceSplitter) and clamped to 200-480px in the renderer. */
+  grid-template-columns: var(--workspace-width) 18px minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 18px;
   min-height: 0;
 }
 
@@ -874,8 +880,20 @@ input:focus-visible,
   display: none;
 }
 
-.editor-stage {
+/* Vertical splitter between the workspace panel and the editor stage.
+   Mirrors the editor/preview #splitter: drag or arrow keys resize the
+   first layout-grid column via the --workspace-width shell variable. */
+.workspace-splitter {
   grid-column: 2;
+  align-self: stretch;
+}
+
+.shell.workspace-collapsed .workspace-splitter {
+  display: none;
+}
+
+.editor-stage {
+  grid-column: 3;
   min-height: 0;
   overflow: hidden;
   border-radius: var(--radius-lg);
@@ -885,6 +903,8 @@ input:focus-visible,
 
 .shell.workspace-collapsed .layout-grid {
   grid-template-columns: 0 30px minmax(0, 1fr);
+  /* 0 + 9 + 30 + 9 = 48px of rail zone (was 66px with the 18px gaps). */
+  column-gap: 9px;
 }
 
 .shell.workspace-collapsed .workspace-panel {
@@ -894,10 +914,6 @@ input:focus-visible,
   transform: translateX(-16px);
   padding: 0;
   border-color: transparent;
-}
-
-.shell.workspace-collapsed .editor-stage {
-  grid-column: 3;
 }
 
 .document-tabs {
@@ -2126,7 +2142,7 @@ input:focus-visible,
 }
 
 .tree-node {
-  margin-bottom: 4px;
+  margin-bottom: 1px;
 }
 
 .tree-node > summary {
@@ -2137,21 +2153,30 @@ input:focus-visible,
   display: none;
 }
 
+/* Children align under the parent folder's name: the chevron column
+   (14px + gap) plus the icon column (16px + gap). The left border is the
+   indent guide, running through the parent's chevron center. */
 .tree-children {
-  padding-left: 16px;
+  margin-left: 15px;
+  padding-left: 29px;
+  border-left: 1px solid color-mix(in srgb, var(--text-primary) 7%, transparent);
 }
 
+/* Dense rows: 4px vertical padding around an 18px content line keeps the
+   row-to-row pitch near 28px (previously ~46px for files and ~68px for
+   folders, whose arrow used to wrap onto its own line above the name). */
 .tree-entry {
   display: block;
   width: 100%;
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
-  padding: 0.7rem 0.8rem;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
-  margin-bottom: 4px;
+  margin-bottom: 1px;
   color: inherit;
-  font-size: 0.94rem;
+  font-size: 0.9rem;
+  line-height: 1.25;
 }
 
 .tree-entry[draggable="true"] {
@@ -2165,14 +2190,37 @@ input:focus-visible,
 .tree-entry-content {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   min-width: 0;
 }
 
+/* File rows pad by the chevron column so file and folder icons align. */
+.tree-entry-file .tree-entry-content {
+  padding-left: 21px;
+}
+
+.tree-arrow {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+  transition: transform 140ms ease, color 140ms ease;
+}
+
+.tree-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+details[open] > summary .tree-arrow {
+  transform: rotate(90deg);
+}
+
 .tree-entry-icon {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
   color: var(--text-tertiary);
 }
 
@@ -2248,16 +2296,6 @@ input:focus-visible,
   color: var(--text-secondary);
 }
 
-.tree-entry-directory::before {
-  content: "▸";
-  margin-right: 8px;
-  color: var(--text-tertiary);
-}
-
-details[open] > summary.tree-entry-directory::before {
-  content: "▾";
-}
-
 .tree-entry-file.is-asciidoc {
   border-color: color-mix(in srgb, var(--accent-strong) 12%, transparent);
 }
@@ -2279,8 +2317,14 @@ details[open] > summary.tree-entry-directory::before {
   color: var(--file-icon-pdf);
 }
 
-.tree-entry-file.is-active,
+/* Hover is a subtle tint; the active document gets the stronger gradient
+   plus border so the two states are distinguishable at a glance. */
 .tree-entry:hover {
+  background: color-mix(in srgb, var(--accent-strong) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-strong) 14%, transparent);
+}
+
+.tree-entry-file.is-active {
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent-strong) 14%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
   border-color: color-mix(in srgb, var(--accent-strong) 24%, transparent);
 }
@@ -2288,6 +2332,10 @@ details[open] > summary.tree-entry-directory::before {
 .tree-entry.is-active .tree-entry-icon,
 .tree-entry:hover .tree-entry-icon {
   color: var(--text-primary);
+}
+
+.tree-entry-directory:hover .tree-arrow {
+  color: var(--text-secondary);
 }
 
 .empty-state {
@@ -2329,6 +2377,10 @@ details[open] > summary.tree-entry-directory::before {
   min-width: min(760px, 100%);
   max-width: 100%;
   justify-self: center;
+  /* The single-column focus-mode grid has no track 3 (where the editor
+     normally lives); pin it to the one real track so it centers instead of
+     spilling into an implicit track. */
+  grid-column: 1;
   min-height: calc(100vh - 56px);
   background: var(--panel-bg-strong);
 }
@@ -2346,14 +2398,8 @@ details[open] > summary.tree-entry-directory::before {
 }
 
 @media (max-width: 1260px) {
-  .layout-grid {
-    grid-template-columns: 240px minmax(0, 1fr);
-  }
-
-  .shell.workspace-collapsed .layout-grid {
-    grid-template-columns: 0 30px minmax(0, 1fr);
-  }
-
+  /* The sidebar width is user-controlled (--workspace-width) and clamped
+     in the renderer, so no fixed narrowing here anymore. */
   .editor-surface {
     grid-template-columns: minmax(0, 1fr) 220px;
   }
@@ -2374,7 +2420,9 @@ details[open] > summary.tree-entry-directory::before {
     grid-template-rows: minmax(360px, 1fr) minmax(320px, 1fr);
   }
 
-  .splitter {
+  /* The editor/preview splitter disappears when the split stacks; the
+     workspace splitter stays usable until the sidebar itself stacks (920px). */
+  #splitter {
     display: none;
   }
 }
@@ -2390,12 +2438,14 @@ details[open] > summary.tree-entry-directory::before {
 
   .workspace-panel,
   .workspace-rail,
+  .workspace-splitter,
   .editor-stage,
   .shell.workspace-collapsed .editor-stage {
     grid-column: 1;
   }
 
-  .workspace-rail {
+  .workspace-rail,
+  .workspace-splitter {
     display: none;
   }
 

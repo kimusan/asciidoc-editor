@@ -31,6 +31,16 @@ test("sanitizePartialState persists the spell check toggle", () => {
   assert.deepEqual(Object.keys(sanitizePartialState({ spellCheckEnabled: "off" })), []);
 });
 
+test("sanitizePartialState persists the workspace sidebar width", () => {
+  assert.deepEqual(
+    sanitizePartialState({ workspaceWidth: 380 }),
+    { workspaceWidth: 380 }
+  );
+  // Non-numbers (including numeric strings) must be dropped, not coerced.
+  assert.deepEqual(Object.keys(sanitizePartialState({ workspaceWidth: "380" })), []);
+  assert.deepEqual(Object.keys(sanitizePartialState({ workspaceWidth: null })), []);
+});
+
 test("sanitizePartialState persists the spell check language", () => {
   assert.deepEqual(
     sanitizePartialState({ spellCheckLanguage: "da" }),

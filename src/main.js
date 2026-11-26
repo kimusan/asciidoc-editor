@@ -401,6 +401,7 @@ function createLayout() {
           </div>
           <div id="file-tree" class="file-tree"></div>
         </aside>
+        <div id="workspace-splitter" class="splitter workspace-splitter" role="separator" aria-orientation="vertical" aria-label="Resize file manager" title="Drag or use ←/→ to resize the file manager" tabindex="0" aria-valuemin="200" aria-valuemax="480" aria-valuenow="280"></div>
         <button id="expand-workspace" class="workspace-rail" aria-label="Expand file manager" title="Show file manager">
           <span class="button-icon">${ICONS.expandSidebar}</span>
         </button>
@@ -867,6 +868,8 @@ function createLayout() {
   elements.openWorkspaceSearch = document.querySelector("#open-workspace-search");
   elements.collapseWorkspace = document.querySelector("#collapse-workspace");
   elements.expandWorkspace = document.querySelector("#expand-workspace");
+  elements.workspaceSplitter = document.querySelector("#workspace-splitter");
+  elements.layoutGrid = document.querySelector(".layout-grid");
   elements.toggleOutline = document.querySelector("#toggle-outline");
   elements.outlinePanel = document.querySelector("#outline-panel");
   elements.outlineList = document.querySelector("#outline-list");
@@ -2549,6 +2552,26 @@ async function setWorkspaceCollapsed(nextValue) {
   await window.desktop.updateState({ workspaceCollapsed: appState.workspaceCollapsed });
 }
 
+const WORKSPACE_WIDTH_MIN = 200;
+const WORKSPACE_WIDTH_MAX = 480;
+const WORKSPACE_WIDTH_DEFAULT = 280;
+
+function clampWorkspaceWidth(value) {
+  if (!Number.isFinite(value)) {
+    return WORKSPACE_WIDTH_DEFAULT;
+  }
+  return Math.min(WORKSPACE_WIDTH_MAX, Math.max(WORKSPACE_WIDTH_MIN, Math.round(value)));
+}
+
+function setWorkspaceWidth(nextWidth, { persist = true } = {}) {
+  appState.workspaceWidth = clampWorkspaceWidth(nextWidth);
+  elements.shell.style.setProperty("--workspace-width", `${appState.workspaceWidth}px`);
+  elements.workspaceSplitter?.setAttribute("aria-valuenow", String(appState.workspaceWidth));
+  if (persist) {
+    void window.desktop.updateState({ workspaceWidth: appState.workspaceWidth });
+  }
+}
+
 async function setOutlineCollapsed(nextValue) {
   appState.outlineCollapsed = nextValue;
   updateDocumentChrome();
@@ -2780,6 +2803,64 @@ function bindSplitter() {
     } else if (event.key === "End") {
       event.preventDefault();
       setSplitRatio(0.75);
+    }
+  });
+}
+
+function bindWorkspaceSplitter() {
+  const splitter = elements.workspaceSplitter;
+  if (!splitter) {
+    return;
+  }
+
+  const canResize = () =>
+    !appState.workspaceCollapsed && !window.matchMedia("(max-width: 920px)").matches;
+
+  const handlePointerMove = (event) => {
+    const bounds = elements.layoutGrid?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+    setWorkspaceWidth(event.clientX - bounds.left, { persist: false });
+  };
+
+  const handlePointerUp = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    elements.shell.classList.remove("is-resizing");
+    // Persist once at the end of the drag instead of per pointermove.
+    void window.desktop.updateState({ workspaceWidth: appState.workspaceWidth });
+  };
+
+  splitter.addEventListener("pointerdown", (event) => {
+    if (!canResize()) {
+      return;
+    }
+
+    event.preventDefault();
+    elements.shell.classList.add("is-resizing");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  });
+
+  splitter.addEventListener("keydown", (event) => {
+    if (!canResize()) {
+      return;
+    }
+
+    const step = event.shiftKey ? 48 : 16;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setWorkspaceWidth(appState.workspaceWidth - step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setWorkspaceWidth(appState.workspaceWidth + step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setWorkspaceWidth(WORKSPACE_WIDTH_MIN);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setWorkspaceWidth(WORKSPACE_WIDTH_MAX);
     }
   });
 }
@@ -3569,6 +3650,7 @@ function renderTreeNodes(items, depth = 0) {
         <details class="tree-node${hasChanges ? " is-git-dirty" : ""}" data-path="${escapeHtml(item.path)}" ${isOpen ? "open" : ""}>
           <summary class="tree-entry tree-entry-directory" data-path="${escapeHtml(item.path)}" data-type="directory"${hasChanges ? ' title="Contains files with git changes"' : ""}>
             <span class="tree-entry-content">
+              <span class="tree-arrow" aria-hidden="true">${ICONS.chevronRight}</span>
               <span class="tree-entry-icon">${ICONS.folder}</span>
               <span class="tree-entry-label">${escapeHtml(item.name)}</span>
               ${hasChanges ? '<span class="tree-git-dot" aria-hidden="true"></span>' : ""}
@@ -5008,6 +5090,7 @@ async function bindEvents() {
   });
 
   bindSplitter();
+  bindWorkspaceSplitter();
 }
 
 function registerBootSequence() {
@@ -5032,6 +5115,7 @@ function registerBootSequence() {
       typewriterScrolling: Boolean(state?.typewriterScrolling),
       paragraphFocusDimming: Boolean(state?.paragraphFocusDimming),
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
+      workspaceWidth: clampWorkspaceWidth(state?.workspaceWidth),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
       zoomLevel: Number.isFinite(state?.zoomLevel) ? state.zoomLevel : 0,
       currentProjectPath: project?.projectPath ?? null,
@@ -5041,6 +5125,9 @@ function registerBootSequence() {
     });
     applyEditorTheme(appState.theme);
     applyEditorFontSize();
+    // Apply the persisted sidebar width (clamped during hydration above)
+    // without writing state back on every boot.
+    setWorkspaceWidth(appState.workspaceWidth, { persist: false });
     // Restore the saved spell check language. Settings are only persisted
     // after a successful switch, so the cache is always warm; a failure
     // (moved cache, unreadable file) falls back to English silently.

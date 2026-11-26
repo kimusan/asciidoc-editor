@@ -49,6 +49,7 @@ const defaultState = {
   autoCheckUpdates: true,
   distractionFree: false,
   workspaceCollapsed: false,
+  workspaceWidth: 280,
   outlineCollapsed: false,
   previewStylesheetPath: null,
   pdfStylesheetPath: null
