@@ -645,6 +645,31 @@ test("Replace All across open files keeps every tab's undo history", async () =>
   }
 });
 
+test("statusbar metrics show the selection and revert on collapse", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Whole-document counts: no "selected" marker.
+    const metrics = window.locator(".statusbar-metrics");
+    await expect(metrics.locator("#metrics-selection")).toBeHidden();
+
+    // Ctrl+A selects the document: the metrics switch to selection mode.
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+a");
+    await expect(metrics.locator("#metrics-selection")).toBeVisible({ timeout: 5_000 });
+    await expect(metrics).toContainText("selected");
+
+    // Collapsing the selection returns the whole-document counts.
+    await window.keyboard.press("ArrowRight");
+    await window.waitForTimeout(600);
+    await expect(metrics.locator("#metrics-selection")).toBeHidden();
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

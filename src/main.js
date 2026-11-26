@@ -458,7 +458,7 @@ function createLayout() {
         <span id="statusbar-sync" class="statusbar-item statusbar-sync" aria-live="polite">Preview synced</span>
         <span id="document-name" class="statusbar-item statusbar-path" title="">Untitled.adoc</span>
         <div class="statusbar-spacer"></div>
-        <span class="statusbar-item statusbar-metrics"><span id="word-count">0</span> words · <span id="line-count">1</span> lines</span>
+        <span class="statusbar-item statusbar-metrics"><span id="word-count">0</span> words · <span id="line-count">1</span> lines<span id="metrics-selection" hidden> selected</span></span>
         <button id="statusbar-diagnostics" class="statusbar-item statusbar-chip statusbar-diagnostics" type="button" hidden></button>
         <button id="stylesheet-chip" class="statusbar-item statusbar-chip" type="button" title="Preview stylesheet — click to open settings">No custom preview CSS</button>
       </footer>
@@ -2227,6 +2227,12 @@ function createEditor() {
         activeDocument.editorState = update.state;
       }
 
+      // Metrics show the selection when there is one, so they must
+      // refresh on selection-only updates too (arrow keys, shift+click).
+      if (update.selectionSet && !update.docChanged) {
+        scheduleDocumentMetrics();
+      }
+
       if (update.docChanged) {
         appState.currentContent = update.state.doc.toString();
         if (appState.isApplyingDocument) {
@@ -2269,11 +2275,37 @@ function updateDocumentMetrics() {
     return;
   }
 
-  const doc = editorRef.view?.state.doc;
+  const state = editorRef.view?.state;
+  const doc = state?.doc;
   const content = doc ? doc.sliceString(0) : appState.currentContent;
   const trimmedContent = content.trim();
-  elements.wordCount.textContent = String(trimmedContent ? trimmedContent.split(/\s+/).length : 0);
-  elements.lineCount.textContent = String(doc ? doc.lines : content.split("\n").length);
+  const documentWords = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
+  const documentLines = doc ? doc.lines : content.split("\n").length;
+
+  // With a selection the statusbar reports the selection instead; the
+  // whole-document counts stay one hover away.
+  const selection = state ? state.selection.main : null;
+  const selectionText = selection && !selection.empty ? doc.sliceString(selection.from, selection.to).trim() : "";
+  const metricsSelection = document.querySelector("#metrics-selection");
+  if (selectionText) {
+    elements.wordCount.textContent = String(selectionText ? selectionText.split(/\s+/).length : 0);
+    elements.lineCount.textContent = String(doc ? doc.lineAt(selection.to).number - doc.lineAt(selection.from).number + 1 : 1);
+    if (metricsSelection) {
+      metricsSelection.hidden = false;
+    }
+    elements.wordCount.parentElement?.setAttribute(
+      "data-tip",
+      `${documentWords} words · ${documentLines} lines in the document`
+    );
+    return;
+  }
+
+  elements.wordCount.textContent = String(documentWords);
+  elements.lineCount.textContent = String(documentLines);
+  if (metricsSelection) {
+    metricsSelection.hidden = true;
+  }
+  elements.wordCount.parentElement?.removeAttribute("data-tip");
 }
 
 function scheduleDocumentMetrics() {
@@ -2362,7 +2394,8 @@ function updateDocumentChrome() {
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
   elements.aboutOverlay.classList.toggle("is-open", appState.aboutOpen);
   setInputElementValue(elements.workspaceContentQuery, appState.workspaceContentQuery);
-  elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
+  elements.workspaceContentCase.classList.toggle("is-active", appState.workspaceContentCaseSensitive);
+  elements.workspaceContentWord.classList.toggle("is-active", appState.workspaceContentWholeWord);
   elements.workspaceContentRegex.classList.toggle("is-active", appState.workspaceContentRegex);
   elements.workspaceContentSummary.textContent = appState.workspaceContentSummary;
   elements.workspaceContentRunSearch.disabled = appState.workspaceContentBusy;
