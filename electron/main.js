@@ -9,7 +9,7 @@ import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState, flushStateWrites } from "./store.js";
-import { checkWords, suggestWords, addPersonalWord } from "./spell-service.js";
+import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage } from "./spell-service.js";
 import { createUpdateService } from "./update-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1357,6 +1357,10 @@ app.whenReady().then(async () => {
   ipcMain.handle("spell:add-word", async (event, word) => {
     assertTrustedSender(event);
     return addPersonalWord(word);
+  });
+  ipcMain.handle("spell:set-language", async (event, code) => {
+    assertTrustedSender(event);
+    return setSpellCheckLanguage(typeof code === "string" ? code : "");
   });
   ipcMain.handle("fs:save-document", async (event, { filePath, content }) => {
     assertTrustedSender(event);

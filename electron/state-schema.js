@@ -22,6 +22,7 @@ const STATE_SCHEMA = {
   pdfPaperSize: "string",
   autoCheckUpdates: "boolean",
   spellCheckEnabled: "boolean",
+  spellCheckLanguage: "string",
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
   outlineCollapsed: "boolean",

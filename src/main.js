@@ -63,7 +63,8 @@ import {
 import { KEBAB_LAYOUT, MENU_LAYOUT } from "./app-menu.js";
 import { findAnchorLine, findNavigationTarget } from "./navigation.js";
 import { formatAsciiDocTable } from "./table-format.js";
-import { spellCheckExtension } from "./spell-check.js";
+import { spellCheckExtension, spellCheckResetEffect } from "./spell-check.js";
+import { SPELL_LANGUAGES, normalizeSpellLanguageValue, findSpellLanguage } from "../electron/spell-languages.js";
 import {
   closeCommandPalette,
   initCommandPalette,
@@ -621,6 +622,13 @@ function createLayout() {
                 <input id="settings-spell-check" type="checkbox" />
                 <span>Check spelling as you type</span>
               </label>
+              <label class="settings-field" title="English (US) ships with the app; other languages download once from cdn.jsdelivr.net and are cached locally.">
+                <span>Language</span>
+                <select id="settings-spell-language">
+                  ${SPELL_LANGUAGES.map((language) => `<option value="${language.code}">${language.name}</option>`).join("")}
+                </select>
+              </label>
+              <div id="spell-language-status" class="settings-note"></div>
             </article>
             <article class="settings-card">
               <div class="settings-card-header">
@@ -795,6 +803,8 @@ function createLayout() {
   elements.clearPdfStylesheet = document.querySelector("#clear-pdf-stylesheet");
   elements.settingsAutoUpdate = document.querySelector("#settings-auto-update");
   elements.settingsSpellCheck = document.querySelector("#settings-spell-check");
+  elements.settingsSpellLanguage = document.querySelector("#settings-spell-language");
+  elements.spellLanguageStatus = document.querySelector("#spell-language-status");
   elements.updateCheckStatus = document.querySelector("#update-check-status");
   elements.checkUpdates = document.querySelector("#check-updates");
   elements.updateToast = document.querySelector("#update-toast");
@@ -2415,6 +2425,7 @@ function updateDocumentChrome() {
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
   elements.settingsSpellCheck.checked = appState.spellCheckEnabled;
+  setInputElementValue(elements.settingsSpellLanguage, appState.spellCheckLanguage);
   elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
@@ -3838,6 +3849,41 @@ async function bindEvents() {
     await window.desktop.updateState({ spellCheckEnabled: appState.spellCheckEnabled });
   });
 
+  elements.settingsSpellLanguage.addEventListener("change", async (event) => {
+    const code = event.target.value;
+    const language = findSpellLanguage(code);
+    if (!language || code === appState.spellCheckLanguage) {
+      return;
+    }
+
+    const previousCode = appState.spellCheckLanguage;
+    elements.spellLanguageStatus.textContent = language.bundled
+      ? ""
+      : `${language.name} dictionary will download once and is cached for offline use…`;
+    elements.settingsSpellLanguage.disabled = true;
+
+    const result = await window.desktop.setSpellLanguage(code);
+    elements.settingsSpellLanguage.disabled = false;
+
+    if (!result || result.error) {
+      // Keep the previous language's checks running; surface why it failed.
+      elements.settingsSpellLanguage.value = previousCode;
+      elements.spellLanguageStatus.textContent = result?.error === "download-failed"
+        ? `Could not download the ${language.name} dictionary (${result.message ?? "network error"}). You stay on ${findSpellLanguage(previousCode)?.name ?? previousCode}.`
+        : "That language is not available.";
+      return;
+    }
+
+    appState.spellCheckLanguage = code;
+    if (editorRef.view) {
+      editorRef.view.dispatch({ effects: spellCheckResetEffect.of(null) });
+    }
+    elements.spellLanguageStatus.textContent = language.bundled
+      ? ""
+      : `${language.name} dictionary ready.`;
+    await window.desktop.updateState({ spellCheckLanguage: code });
+  });
+
   elements.checkUpdates.addEventListener("click", async () => {
     appState.updateStatus = { status: "checking" };
     renderUpdateStatus();
@@ -4570,6 +4616,7 @@ function registerBootSequence() {
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       autoCheckUpdates: state?.autoCheckUpdates !== false,
       spellCheckEnabled: state?.spellCheckEnabled !== false,
+      spellCheckLanguage: normalizeSpellLanguageValue(state?.spellCheckLanguage),
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
       zoomLevel: Number.isFinite(state?.zoomLevel) ? state.zoomLevel : 0,
@@ -4580,6 +4627,21 @@ function registerBootSequence() {
     });
     applyEditorTheme(appState.theme);
     applyEditorFontSize();
+    // Restore the saved spell check language. Settings are only persisted
+    // after a successful switch, so the cache is always warm; a failure
+    // (moved cache, unreadable file) falls back to English silently.
+    if (appState.spellCheckLanguage !== "en-US") {
+      void window.desktop.setSpellLanguage(appState.spellCheckLanguage).then((result) => {
+        if (!result || result.error) {
+          appState.spellCheckLanguage = "en-US";
+          updateDocumentChrome();
+          return;
+        }
+        if (editorRef.view) {
+          editorRef.view.dispatch({ effects: spellCheckResetEffect.of(null) });
+        }
+      });
+    }
     if (appState.zoomLevel !== 0) {
       void window.desktop.setZoomLevel(appState.zoomLevel);
     }

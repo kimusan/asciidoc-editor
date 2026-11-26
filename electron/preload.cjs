@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld("desktop", {
   spellCheck: (words) => ipcRenderer.invoke("spell:check", words),
   spellSuggest: (word) => ipcRenderer.invoke("spell:suggest", word),
   spellAddWord: (word) => ipcRenderer.invoke("spell:add-word", word),
+  setSpellLanguage: (code) => ipcRenderer.invoke("spell:set-language", code),
   setZoomLevel: (level) => {
     webFrame.setZoomLevel(level);
     return webFrame.getZoomLevel();

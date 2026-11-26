@@ -777,3 +777,53 @@ test("a command-line document still opens when a project session restores tabs",
     await stopApp(app);
   }
 });
+
+test("spell check language switch re-checks the document and persists across restart", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-lang-docs-"));
+  const docPath = path.join(docsDir, "languages.adoc");
+  // "hej" is a correct Danish word but misspelled English; "mispeled" is
+  // wrong in both. The fake Danish dictionary below contains only "hej".
+  await fs.writeFile(docPath, "= Languages\n\nhej mispeled\n");
+
+  // Offline stand-in for the CDN download (CI must not depend on jsdelivr).
+  const dictionaryDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-dicts-"));
+  await fs.mkdir(path.join(dictionaryDir, "da"), { recursive: true });
+  await fs.writeFile(path.join(dictionaryDir, "da", "index.aff"), "SET UTF-8\n");
+  await fs.writeFile(path.join(dictionaryDir, "da", "index.dic"), "1\nhej\n");
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-lang-profile-"));
+  const launch = async () => launchApp(profileDir, { ASCIIDOC_TEST_SPELL_LANG_DIR: dictionaryDir }, [docPath]);
+
+  const first = await launch();
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // English (US): both words are misspelled.
+    await expect(first.window.locator(".cm-spell-error", { hasText: "hej" })).toBeVisible({ timeout: 10_000 });
+    await expect(first.window.locator(".cm-spell-error", { hasText: "mispeled" })).toBeVisible();
+
+    // Switch to Danish through Settings.
+    await first.window.locator("#open-settings").click();
+    await first.window.locator("#settings-spell-language").selectOption("da");
+    await expect(first.window.locator("#spell-language-status")).toContainText("Danish dictionary ready", { timeout: 10_000 });
+
+    // The Danish verdicts replace the English ones: "hej" clears, the real
+    // typo stays underlined.
+    await expect(first.window.locator(".cm-spell-error", { hasText: "mispeled" })).toBeVisible({ timeout: 10_000 });
+    await expect(first.window.locator(".cm-spell-error", { hasText: "hej" })).toHaveCount(0);
+    await expect(first.window.locator("#settings-spell-language")).toHaveValue("da");
+  } finally {
+    await stopApp(first.app);
+  }
+
+  // Restart with the same profile: the language choice survives boot.
+  const second = await launch();
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(second.window.locator("#settings-spell-language")).toHaveValue("da", { timeout: 10_000 });
+    await expect(second.window.locator(".cm-spell-error", { hasText: "mispeled" })).toBeVisible({ timeout: 10_000 });
+    await expect(second.window.locator(".cm-spell-error", { hasText: "hej" })).toHaveCount(0);
+  } finally {
+    await stopApp(second.app);
+  }
+});

@@ -36,6 +36,10 @@ const WORD_MATCH = /[A-Za-z][A-Za-z'’-]*[A-Za-z]/;
 // ignored/added) so the plugin rebuilds its decorations.
 export const spellCheckRefreshEffect = StateEffect.define();
 
+// Dispatched after the spell check language changes: every cached word
+// verdict belongs to the previous dictionary and must be re-checked.
+export const spellCheckResetEffect = StateEffect.define();
+
 export function overlapsSpan(from, to, sortedSpans) {
   for (const span of sortedSpans) {
     if (span.from >= to) {
@@ -277,6 +281,13 @@ export function spellCheckExtension(options) {
     }
 
     update(update) {
+      if (update.transactions.some((tr) => tr.effects.some((effect) => effect.is(spellCheckResetEffect)))) {
+        cache.clear();
+        queued.clear();
+        this.schedule(update.view);
+        return;
+      }
+
       if (
         update.docChanged ||
         update.viewportChanged ||

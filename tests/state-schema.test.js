@@ -31,6 +31,14 @@ test("sanitizePartialState persists the spell check toggle", () => {
   assert.deepEqual(Object.keys(sanitizePartialState({ spellCheckEnabled: "off" })), []);
 });
 
+test("sanitizePartialState persists the spell check language", () => {
+  assert.deepEqual(
+    sanitizePartialState({ spellCheckLanguage: "da" }),
+    { spellCheckLanguage: "da" }
+  );
+  assert.deepEqual(Object.keys(sanitizePartialState({ spellCheckLanguage: false })), []);
+});
+
 test("sanitizePartialState persists the preview color scheme override", () => {
   assert.deepEqual(
     sanitizePartialState({ previewColorScheme: "dark" }),
