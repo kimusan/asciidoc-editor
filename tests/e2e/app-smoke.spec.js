@@ -76,6 +76,18 @@ test("boots with an untitled document and a live preview", async () => {
     expect(previewScheme).toBe("dark");
 
     await expect(window.locator(".document-tab").first()).toContainText("Untitled");
+
+    // The window title carries the app version (set by the main process
+    // after each page load; the packaged build reports its own metadata).
+    await expect(async () => {
+      expect(await window.title()).toMatch(/^AsciiDoc Editor v\d+\.\d+\.\d+/);
+    }).toPass({ timeout: 5_000 });
+
+    // The About dialog shows the same version.
+    await window.locator("#open-about").click();
+    await expect(window.locator("#about-overlay")).toHaveClass(/is-open/);
+    await expect(window.locator("#about-version")).toHaveText(/^v\d+\.\d+\.\d+$/);
+    await window.keyboard.press("Escape");
   } finally {
     await stopApp(app);
   }

@@ -809,11 +809,10 @@ function createLayout() {
           </div>
           <div class="about-content">
             <div class="about-hero">
-              <div class="brand-mark about-mark">${ICONS.brand}</div>
-              <div>
-                <h2>AsciiDoc Editor</h2>
-                <p>Standalone cross-platform AsciiDoc editing with preview, references, and export.</p>
-              </div>
+              <div class="about-logo" aria-hidden="true">${ICONS.logo}</div>
+              <h2>AsciiDoc Editor</h2>
+              <p>Standalone cross-platform AsciiDoc editing with live preview, references, and export.</p>
+              <span id="about-version" class="about-version-pill">—</span>
             </div>
             <div class="about-grid">
               <article class="about-card">
@@ -3035,6 +3034,10 @@ function closeHelpOverlay() {
 
 function openAboutOverlay() {
   appState.aboutOpen = true;
+  const versionElement = document.querySelector("#about-version");
+  if (versionElement && appState.appVersion) {
+    versionElement.textContent = `v${appState.appVersion}`;
+  }
   captureOverlayFocus();
   updateDocumentChrome();
   requestAnimationFrame(() => {
@@ -5517,7 +5520,7 @@ async function bindEvents() {
 
 function registerBootSequence() {
   void (async () => {
-    const { state, project, projectSession, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
+    const { state, appVersion, project, projectSession, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
     // The persisted openDocuments/activeDocumentId must NOT go through this
     // assign: raw snapshot objects are not document sessions, and with
     // activeDocumentId set the editor updateListener would stamp the boot
@@ -5526,6 +5529,7 @@ function registerBootSequence() {
     // sessions instead.
     const { openDocuments: persistedRawDocuments, activeDocumentId: persistedRawActiveId, ...persistedState } = state ?? {};
     Object.assign(appState, persistedState, {
+      appVersion: typeof appVersion === "string" ? appVersion : "",
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       previewColorScheme: normalizePreviewColorSchemeValue(state?.previewColorScheme),
@@ -5545,6 +5549,13 @@ function registerBootSequence() {
       recentProjects: Array.isArray(state?.recentProjects) ? state.recentProjects : [],
       projectSessions: state?.projectSessions ?? {}
     });
+    // The window title follows document.title on every platform, so the
+    // version suffix is applied here rather than in index.html, where it
+    // would drift from package.json. appVersion comes from app.getVersion()
+    // (package.json in dev, the packaged metadata in release builds).
+    if (appState.appVersion) {
+      document.title = `AsciiDoc Editor v${appState.appVersion}`;
+    }
     applyEditorTheme(appState.theme);
     applyEditorFontSize();
     // Apply the persisted sidebar width (clamped during hydration above)

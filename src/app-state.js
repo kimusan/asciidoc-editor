@@ -10,6 +10,7 @@ export const appState = {
   nextDocumentId: 1,
   untitledSequence: 1,
   zoomLevel: 0,
+  appVersion: "",
   diagnostics: [],
   diagnosticsCursor: 0,
   currentProjectPath: null,

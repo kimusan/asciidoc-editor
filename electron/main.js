@@ -1638,6 +1638,7 @@ app.whenReady().then(async () => {
 
     return {
       state,
+      appVersion: app.getVersion(),
       project,
       projectSession,
       restoredDocuments,
