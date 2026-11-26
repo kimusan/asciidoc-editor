@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-async function launchApp(profileDir, env) {
+async function launchApp(profileDir, env, extraArgs = []) {
   try {
     await fs.access(path.join(PROJECT_ROOT, "dist", "index.html"));
   } catch {
@@ -19,6 +19,7 @@ async function launchApp(profileDir, env) {
     ...(packagedExecutable ? { executablePath: packagedExecutable } : {}),
     args: [
       ...(packagedExecutable ? [] : [PROJECT_ROOT]),
+      ...extraArgs,
       `--user-data-dir=${profile}`
     ],
     ...(env ? { env: { ...process.env, ...env } } : {})
@@ -329,6 +330,55 @@ test("zoom and editor text size work and persist", async () => {
     expect(await second.window.evaluate(() => window.desktop.getZoomLevel())).toBe(0.5);
   } finally {
     await stopApp(second.app);
+  }
+});
+
+test("recent files surface in the native menu, palette, and kebab", async () => {
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-recent-profile-"));
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-recent-docs-"));
+  const seededPath = path.join(docsDir, "seeded.adoc");
+  const thirdPath = path.join(docsDir, "third.adoc");
+  const openedPath = path.join(docsDir, "opened.adoc");
+  await fs.writeFile(seededPath, "= Seeded\n\nSeeded body.\n");
+  await fs.writeFile(thirdPath, "= Third\n\nThird body.\n");
+  await fs.writeFile(openedPath, "= Opened\n\nOpened body.\n");
+  await fs.writeFile(path.join(profileDir, "state.json"), JSON.stringify({
+    schemaVersion: 1,
+    recentFiles: [seededPath, thirdPath]
+  }));
+
+  const { app, window } = await launchApp(profileDir, null, [openedPath]);
+
+  try {
+    // The command-line file opened as a tab...
+    await expect(window.locator(".document-tab.is-active")).toContainText("opened.adoc", { timeout: 20_000 });
+
+    // ...and landed in the native File > Open Recent submenu, alongside the
+    // two seeded entries (the evaluate argument is the electron module).
+    const recentLabels = await app.evaluate((electron) => {
+      const menu = electron.Menu.getApplicationMenu();
+      const fileMenu = menu?.items.find((item) => item.label === "File");
+      const recentMenu = fileMenu?.submenu?.items.find((item) => item.label === "Open Recent");
+      return (recentMenu?.submenu?.items ?? []).map((item) => item.label);
+    });
+    expect(recentLabels).toEqual(["opened.adoc", "seeded.adoc", "third.adoc"]);
+
+    // The palette lists recents and opens them by path.
+    await window.keyboard.press("Control+k");
+    await window.locator(".command-palette-input").fill("third");
+    await window.keyboard.press("Enter");
+    await expect(window.locator(".document-tab.is-active")).toContainText("third.adoc");
+    await expect(window.locator(".document-tab")).toHaveCount(2);
+
+    // The kebab shows the same list and opens from it too.
+    await window.locator("#open-kebab").click();
+    const seededItem = window.locator(`[data-recent-path="${seededPath}"]`);
+    await expect(seededItem).toBeVisible();
+    await seededItem.click();
+    await expect(window.locator(".document-tab.is-active")).toContainText("seeded.adoc");
+    await expect(window.locator(".document-tab")).toHaveCount(3);
+  } finally {
+    await stopApp(app);
   }
 });
 

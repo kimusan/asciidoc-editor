@@ -959,21 +959,32 @@ app.whenReady().then(async () => {
   ipcMain.handle("app:define-menu", (event, payload) => {
     assertTrustedSender(event);
     const sections = Array.isArray(payload?.menu) ? payload.menu : [];
+    // Maps a payload item to a Menu template entry. Items may nest one level
+    // of "submenu" (used by File > Open Recent, whose entries are dynamic
+    // file paths rather than static action ids).
+    const toItem = (item) => {
+      if (item === "separator") {
+        return { type: "separator" };
+      }
+
+      const entry = {
+        label: String(item?.label ?? ""),
+        accelerator: item?.accelerator || undefined,
+        enabled: item?.enabled !== false,
+        click: () => {
+          getMainWindowWebContents()?.send("app:menu-action", { id: item?.id });
+        }
+      };
+
+      if (Array.isArray(item?.submenu)) {
+        entry.submenu = item.submenu.map(toItem);
+      }
+
+      return entry;
+    };
     const template = sections.map((section) => ({
       label: String(section?.label ?? ""),
-      submenu: (Array.isArray(section?.items) ? section.items : []).map((item) => {
-        if (item === "separator") {
-          return { type: "separator" };
-        }
-
-        return {
-          label: String(item?.label ?? ""),
-          accelerator: item?.accelerator || undefined,
-          click: () => {
-            getMainWindowWebContents()?.send("app:menu-action", { id: item?.id });
-          }
-        };
-      })
+      submenu: (Array.isArray(section?.items) ? section.items : []).map(toItem)
     }));
 
     // Standard text-editing roles the renderer cannot serve itself.
@@ -1390,6 +1401,13 @@ app.whenReady().then(async () => {
         initialDocument = await loadDocument(launchDocumentPath);
       } catch {
         initialDocument = null;
+      }
+
+      // Opening a file from the command line is an open like any other: it
+      // must reach recentFiles, or the recents surfaces would miss it.
+      if (initialDocument) {
+        state.recentFiles = normalizeRecentFiles(state.recentFiles, initialDocument.path);
+        await saveState({ recentFiles: state.recentFiles });
       }
     } else if (!project) {
       restoredDocuments = await hydrateStoredDocuments(state, state.workspacePath ?? null);

@@ -1051,6 +1051,27 @@ const KEBAB_DOM_IDS = {
   toggleFocusMode: "toggle-focus"
 };
 
+function renderKebabRecents() {
+  const files = getRecentFileEntries().slice(0, 5);
+  const projects = getRecentProjectEntries().slice(0, 3);
+  if (files.length === 0 && projects.length === 0) {
+    return "";
+  }
+
+  const row = (entry, icon) => `
+    <button class="kebab-item kebab-recent-item" role="menuitem" type="button" data-recent-path="${escapeHtml(entry.path)}" title="${escapeHtml(entry.path)}">
+      <span class="kebab-item-icon">${icon}</span>
+      <span class="kebab-item-label">${escapeHtml(entry.name)}</span>
+    </button>
+  `;
+
+  return `
+    <div class="kebab-recent-header">Recent</div>
+    ${files.map((entry) => row(entry, ICONS.fileAsciiDoc)).join("")}
+    ${projects.map((entry) => row(entry, ICONS.saveProject)).join("")}
+  `;
+}
+
 function renderKebabMenu() {
   const menu = document.querySelector("#kebab-menu");
   if (!menu) {
@@ -1059,24 +1080,28 @@ function renderKebabMenu() {
 
   elements.kebabMenu = menu;
   const actions = new Map(getAppActions().map((action) => [action.id, action]));
-  menu.innerHTML = KEBAB_LAYOUT.map((entry) => {
+  menu.innerHTML = KEBAB_LAYOUT.flatMap((entry) => {
     if (entry === "separator") {
-      return `<div class="kebab-separator" role="separator"></div>`;
+      return [`<div class="kebab-separator" role="separator"></div>`];
     }
 
     const action = actions.get(entry);
     if (!action) {
-      return "";
+      return [];
     }
 
     const domId = KEBAB_DOM_IDS[entry];
-    return `
+    const item = `
       <button class="kebab-item" role="menuitem" type="button" data-action-id="${entry}"${domId ? ` id="${domId}"` : ""}>
         <span class="kebab-item-icon">${action.icon}</span>
         <span class="kebab-item-label">${entry === "toggleFocusMode" ? `<span id="focus-button-label">Enter Focus</span>` : escapeHtml(action.label)}</span>
         ${action.hint ? `<span class="kebab-shortcut">${escapeHtml(action.hint)}</span>` : ""}
       </button>
     `;
+
+    // Recents sit directly under Open Project - same neighborhood as the
+    // native menu's File > Open Recent.
+    return entry === "openProject" ? [item, renderKebabRecents()] : [item];
   }).join("");
 }
 
@@ -1091,6 +1116,9 @@ function setKebabMenu(open) {
   elements.openKebab.setAttribute("aria-expanded", String(open));
   elements.openKebab.classList.toggle("is-active", open);
   if (open) {
+    // Rebuild before showing: the recent section must reflect the current
+    // session, not whatever was open when the menu was first rendered.
+    renderKebabMenu();
     kebabRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     elements.kebabMenu.querySelector(".kebab-item")?.focus();
   } else {
@@ -1103,22 +1131,54 @@ function setKebabMenu(open) {
   }
 }
 
+function pushNativeMenu() {
+  if (typeof window.desktop.defineMenu === "function") {
+    window.desktop.defineMenu(buildNativeMenuPayload());
+  }
+}
+
+// The dynamic slice of the File menu: recent files first, then recent
+// projects. Menu-item ids carry the path after a "recent:" prefix that the
+// menu-action dispatch unpacks.
+function recentMenuItems() {
+  const files = getRecentFileEntries().slice(0, 8);
+  const projects = getRecentProjectEntries().slice(0, 5);
+  const items = files.map((entry) => ({ id: `recent:${entry.path}`, label: entry.name }));
+
+  if (projects.length > 0) {
+    if (items.length > 0) {
+      items.push("separator");
+    }
+    items.push(...projects.map((entry) => ({ id: `recent:${entry.path}`, label: `${entry.name} (project)` })));
+  }
+
+  return items.length > 0 ? items : [{ id: "recent:none", label: "No recent files yet", enabled: false }];
+}
+
 function buildNativeMenuPayload() {
   const actions = new Map(getAppActions().map((action) => [action.id, action]));
   return {
     menu: MENU_LAYOUT.map((section) => ({
       label: section.label,
-      items: section.items.map((id) => {
+      items: section.items.flatMap((id) => {
         if (id === "separator") {
-          return "separator";
+          return ["separator"];
         }
 
         const action = actions.get(id);
-        return {
+        const items = [{
           id,
           label: action?.label ?? id,
           accelerator: action?.accelerator
-        };
+        }];
+
+        // Recents hang directly off File > Open Recent, right after the
+        // Open Project entry they complement.
+        if (id === "openProject" && section.label === "File") {
+          items.push({ id: "openRecent", label: "Open Recent", submenu: recentMenuItems() });
+        }
+
+        return items;
       })
     }))
   };
@@ -1162,6 +1222,13 @@ function initPalette() {
       dirty: doc.isDirty,
       icon: ICONS.fileAsciiDoc
     })),
+    getRecents: () => [
+      ...getRecentFileEntries().slice(0, 10).map((entry) => ({ ...entry, icon: ICONS.fileAsciiDoc })),
+      ...getRecentProjectEntries().slice(0, 5).map((entry) => ({ ...entry, icon: ICONS.saveProject }))
+    ],
+    onRecent: (filePath) => {
+      void handleIncomingPath(filePath);
+    },
     getOutline: () => appState.outlineEntries,
     canSearchFiles: () => Boolean(appState.workspacePath),
     searchFiles: async (query) => {
@@ -1311,6 +1378,7 @@ async function openProjectFromBundle(bundle) {
 
   await loadProject(bundle.project, bundle.projectSession);
   appState.recentProjects = [bundle.project.projectPath, ...(appState.recentProjects ?? []).filter((item) => item !== bundle.project.projectPath)].slice(0, 10);
+  pushNativeMenu();
   await persistWindowState();
   return true;
 }
@@ -1337,10 +1405,36 @@ async function saveCurrentProject() {
 
   applyProjectSettings(savedProject);
   appState.recentProjects = [savedProject.projectPath, ...(appState.recentProjects ?? []).filter((item) => item !== savedProject.projectPath)].slice(0, 10);
+  pushNativeMenu();
   updateDocumentChrome();
   await persistWindowState();
   setPreviewStatus("synced", `Saved project ${savedProject.name}`);
   return true;
+}
+
+// Recent files/projects: main persists them on every open/save, but the
+// renderer keeps its own mirror so the palette, kebab, and native menu can
+// render them synchronously. The mirror is seeded from state at boot and
+// updated at the same moments main updates its copy.
+function noteRecentFile(filePath) {
+  if (typeof filePath !== "string" || filePath === "") {
+    return;
+  }
+
+  appState.recentFiles = [filePath, ...(appState.recentFiles ?? []).filter((item) => item !== filePath)].slice(0, 10);
+  pushNativeMenu();
+}
+
+function getRecentFileEntries() {
+  return (appState.recentFiles ?? [])
+    .filter((item) => typeof item === "string" && item !== "")
+    .map((filePath) => ({ kind: "file", name: getBaseName(filePath), path: filePath }));
+}
+
+function getRecentProjectEntries() {
+  return (appState.recentProjects ?? [])
+    .filter((item) => typeof item === "string" && item !== "")
+    .map((projectPath) => ({ kind: "project", name: stripExtension(getBaseName(projectPath)), path: projectPath }));
 }
 
 async function handleIncomingPath(filePath) {
@@ -1348,20 +1442,26 @@ async function handleIncomingPath(filePath) {
     return;
   }
 
-  if (/\.adp$/i.test(filePath)) {
-    const canCloseCurrent = await confirmApplicationClose();
-    if (!canCloseCurrent) {
+  try {
+    if (/\.adp$/i.test(filePath)) {
+      const canCloseCurrent = await confirmApplicationClose();
+      if (!canCloseCurrent) {
+        return;
+      }
+
+      const bundle = await window.desktop.openProjectFile(filePath);
+      await openProjectFromBundle(bundle);
       return;
     }
 
-    const bundle = await window.desktop.openProjectFile(filePath);
-    await openProjectFromBundle(bundle);
-    return;
-  }
-
-  const documentPayload = await window.desktop.readDocument(filePath);
-  if (documentPayload) {
-    await openDocument(normalizeDocumentPayload(documentPayload));
+    const documentPayload = await window.desktop.readDocument(filePath);
+    if (documentPayload) {
+      await openDocument(normalizeDocumentPayload(documentPayload));
+    }
+  } catch {
+    // Recents can point at files that were deleted or renamed since; a
+    // missing file must surface as a status message, not a rejected promise.
+    setPreviewStatus("error", `Could not open ${getBaseName(filePath)}`);
   }
 }
 
@@ -2403,6 +2503,7 @@ async function openDocument(document) {
   if (session.workspacePath) {
     appState.workspacePath = session.workspacePath;
   }
+  noteRecentFile(session.path);
   syncWatchedPaths();
   await activateDocument(session.id);
   return session;
@@ -2854,6 +2955,7 @@ async function saveDocumentSession(document, options = {}) {
   document.externalChangePending = false;
   document.suppressWatchUntil = Date.now() + 2500;
   document.isDirty = false;
+  noteRecentFile(document.path);
   if (document.id === appState.activeDocumentId) {
     syncMirrorStateFromDocument(document);
   }
@@ -3110,6 +3212,13 @@ async function bindEvents() {
   });
 
   elements.kebabMenu.addEventListener("click", (event) => {
+    const recentItem = event.target instanceof Element ? event.target.closest("[data-recent-path]") : null;
+    if (recentItem) {
+      setKebabMenu(false);
+      void handleIncomingPath(recentItem.dataset.recentPath);
+      return;
+    }
+
     const item = event.target instanceof Element ? event.target.closest("[data-action-id]") : null;
     if (!item) {
       return;
@@ -3171,6 +3280,11 @@ async function bindEvents() {
 
   if (window.desktop.onMenuAction) {
     window.desktop.onMenuAction(({ id }) => {
+      if (typeof id === "string" && id.startsWith("recent:")) {
+        void handleIncomingPath(id.slice("recent:".length));
+        return;
+      }
+
       runActionById(id);
     });
   }
@@ -4065,6 +4179,6 @@ registerBootSequence();
 renderReferenceGuide();
 updateDocumentChrome();
 if (typeof window.desktop.defineMenu === "function") {
-  window.desktop.defineMenu(buildNativeMenuPayload());
+  pushNativeMenu();
 }
 maybeShowChromeHint();

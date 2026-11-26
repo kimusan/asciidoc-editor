@@ -1,6 +1,6 @@
 // Ctrl+K command palette. Lists every app action, the open tabs, the active
-// document's outline headings, and (when a workspace is open) matching
-// workspace files, fuzzy-filtered as you type.
+// document's outline headings, recently opened files/projects, and (when a
+// workspace is open) matching workspace files, fuzzy-filtered as you type.
 //
 // fuzzyScore and buildPaletteItems are pure and unit-tested; everything DOM
 // lives in initCommandPalette/close/open below.
@@ -92,6 +92,17 @@ function baseCandidates() {
       hint: "",
       icon: tab.icon,
       run: () => deps.onTab(tab.id)
+    });
+  }
+
+  for (const recent of deps.getRecents ? deps.getRecents() : []) {
+    candidates.push({
+      type: "recent",
+      label: recent.kind === "project" ? `Open project — ${recent.name}` : `Open recent — ${recent.name}`,
+      detail: recent.path,
+      hint: "",
+      icon: recent.icon,
+      run: () => deps.onRecent(recent.path)
     });
   }
 
