@@ -827,3 +827,112 @@ test("spell check language switch re-checks the document and persists across res
     await stopApp(second.app);
   }
 });
+
+test("a dirty session snapshot yields to a file that changed on disk", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-stale-docs-"));
+  const docPath = path.join(docsDir, "conflict.adoc");
+  await fs.writeFile(docPath, "= From Disk\n\nnewer disk content survives\n");
+
+  // The file on disk was last touched an hour ago; the snapshot was
+  // recorded two hours ago, so the disk file is newer than the snapshot.
+  const hourAgo = new Date(Date.now() - 3_600_000);
+  const twoHoursAgo = Date.now() - 7_200_000;
+  await fs.utimes(docPath, hourAgo, hourAgo);
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-stale-profile-"));
+  await fs.writeFile(path.join(profileDir, "state.json"), JSON.stringify({
+    openDocuments: [{
+      id: "doc-1",
+      path: docPath,
+      name: "conflict.adoc",
+      isDirty: true,
+      content: "= Stale Snapshot\n\nold unsaved buffer\n",
+      lastModifiedMs: twoHoursAgo
+    }],
+    activeDocumentId: "doc-1",
+    nextDocumentId: 2,
+    untitledSequence: 1
+  }));
+
+  const { app, window } = await launchApp(profileDir);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The newer disk file wins; the snapshot is not restored as unsaved.
+    await expect(window.locator(".cm-content")).toContainText("newer disk content survives");
+    await expect(window.locator(".cm-content")).not.toContainText("old unsaved buffer");
+    await expect(window.locator(".document-tab-dirty")).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("an unsaved buffer survives restart while its file is unchanged", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-unsaved-docs-"));
+  const docPath = path.join(docsDir, "unsaved.adoc");
+  await fs.writeFile(docPath, "= On Disk\n\ndisk content\n");
+
+  // The app read the file an hour ago (lastModifiedMs); the file has not
+  // changed since, so the dirty snapshot is genuine unsaved work.
+  const hourAgo = new Date(Date.now() - 3_600_000);
+  await fs.utimes(docPath, hourAgo, hourAgo);
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-unsaved-profile-"));
+  await fs.writeFile(path.join(profileDir, "state.json"), JSON.stringify({
+    openDocuments: [{
+      id: "doc-1",
+      path: docPath,
+      name: "unsaved.adoc",
+      isDirty: true,
+      content: "= Unsaved Work\n\nedits not yet on disk\n",
+      lastModifiedMs: Date.now() - 3_600_000
+    }],
+    activeDocumentId: "doc-1",
+    nextDocumentId: 2,
+    untitledSequence: 1
+  }));
+
+  const { app, window } = await launchApp(profileDir);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The unsaved buffer is restored and still marked dirty.
+    await expect(window.locator(".cm-content")).toContainText("edits not yet on disk");
+    await expect(window.locator(".cm-content")).not.toContainText("disk content");
+    await expect(window.locator(".document-tab-dirty")).toHaveCount(1);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("a command-line launch merges into the restored session without losing content", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-bootmerge-docs-"));
+  const docPath = path.join(docsDir, "bootmerge.adoc");
+  await fs.writeFile(docPath, "= Boot Merge\n\nreal document content from disk\n");
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-bootmerge-profile-"));
+  const launch = () => launchApp(profileDir, null, [docPath]);
+
+  // First launch opens the document from the command line.
+  const first = await launch();
+  try {
+    await expect(first.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(first.window.locator(".cm-content")).toContainText("real document content from disk");
+  } finally {
+    await stopApp(first.app);
+  }
+
+  // Second launch passes the same path again while the persisted session
+  // already contains that document: the tab must activate with the real
+  // content, not the boot editor's default state.
+  const second = await launch();
+  try {
+    await expect(second.window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    await expect(second.window.locator(".cm-content")).toContainText("real document content from disk");
+    await expect(second.window.locator(".cm-content")).not.toContainText("Start writing...");
+  } finally {
+    await stopApp(second.app);
+  }
+});

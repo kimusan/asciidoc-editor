@@ -559,6 +559,30 @@ async function hydrateStoredDocuments(sessionState, workspacePath = null) {
       }
     }
 
+    // A dirty snapshot must not shadow a file that changed on disk after
+    // the app last read it (edited in another tool, synced, or simply a
+    // stale session): one Ctrl+S would clobber the newer file with the
+    // snapshot. Keep the snapshot only while the disk file is unchanged
+    // since lastModifiedMs; a 1s skew absorbs coarse filesystem stamps.
+    if (storedDocument?.path && storedDocument.isDirty && Number.isFinite(storedDocument.lastModifiedMs)) {
+      try {
+        const diskStat = await fs.stat(storedDocument.path);
+        if (diskStat.mtimeMs > storedDocument.lastModifiedMs + 1000) {
+          const loadedDocument = await loadDocument(storedDocument.path);
+          restoredDocuments.push({
+            ...storedDocument,
+            ...loadedDocument,
+            id: storedDocument.id ?? loadedDocument.path,
+            isDirty: false,
+            previewInSync: true
+          });
+          continue;
+        }
+      } catch {
+        // Unreadable or missing file: keep the unsaved snapshot below.
+      }
+    }
+
     restoredDocuments.push({
       id: storedDocument?.id ?? randomUUID(),
       path: storedDocument?.path ?? null,
@@ -1474,7 +1498,13 @@ app.whenReady().then(async () => {
         state.recentFiles = normalizeRecentFiles(state.recentFiles, initialDocument.path);
         await saveState({ recentFiles: state.recentFiles });
       }
-    } else if (!project) {
+    }
+
+    // Restore the last session whenever a project did not supply documents —
+    // also when a launch document is present: the renderer dedupes the launch
+    // document against the restored session by path, so it must merge into
+    // hydrated sessions, not race the raw persisted snapshots in state.
+    if (!project && restoredDocuments.length === 0) {
       restoredDocuments = await hydrateStoredDocuments(state, state.workspacePath ?? null);
     }
 

@@ -4608,7 +4608,14 @@ async function bindEvents() {
 function registerBootSequence() {
   void (async () => {
     const { state, project, projectSession, restoredDocuments, initialDocument } = await window.desktop.getBootPayload();
-    Object.assign(appState, state, {
+    // The persisted openDocuments/activeDocumentId must NOT go through this
+    // assign: raw snapshot objects are not document sessions, and with
+    // activeDocumentId set the editor updateListener would stamp the boot
+    // editor's default state onto them (applyEditorTheme dispatches before
+    // any document is activated). The restore branches below build real
+    // sessions instead.
+    const { openDocuments: persistedRawDocuments, activeDocumentId: persistedRawActiveId, ...persistedState } = state ?? {};
+    Object.assign(appState, persistedState, {
       theme: normalizeThemeValue(state?.theme),
       previewFontFamily: normalizePreviewFontValue(state?.previewFontFamily),
       previewColorScheme: normalizePreviewColorSchemeValue(state?.previewColorScheme),
