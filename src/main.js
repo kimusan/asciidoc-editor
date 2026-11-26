@@ -909,6 +909,15 @@ function getAppActions() {
       }
     },
     {
+      id: "closeDocument",
+      label: "Close document",
+      icon: ICONS.close,
+      hint: "Ctrl+W",
+      run: () => {
+        void closeDocument(appState.activeDocumentId);
+      }
+    },
+    {
       id: "saveProject",
       label: "Save project",
       icon: ICONS.saveProject,
@@ -928,6 +937,7 @@ function getAppActions() {
       id: "toggleOutline",
       label: "Toggle outline panel",
       icon: ICONS.outlineList,
+      hint: "Ctrl+Shift+O",
       run: () => {
         void setOutlineCollapsed(!appState.outlineCollapsed);
       }
@@ -963,6 +973,7 @@ function getAppActions() {
       id: "toggleFocusMode",
       label: "Toggle focus mode",
       icon: ICONS.focus,
+      hint: "Ctrl+Shift+F11",
       run: () => {
         void setDistractionFree(!appState.distractionFree);
       }
@@ -971,6 +982,7 @@ function getAppActions() {
       id: "expandPreview",
       label: "Expand preview",
       icon: ICONS.expand,
+      hint: "Ctrl+Shift+E",
       run: () => {
         openPreviewOverlay();
       }
@@ -2286,19 +2298,26 @@ function applyShellTheme(theme) {
 
 function renderDocumentTabs() {
   elements.documentTabs.innerHTML = appState.openDocuments.map((document) => `
-    <button
+    <div
       class="document-tab ${document.id === appState.activeDocumentId ? "is-active" : ""} ${document.externalChangePending ? "has-external-change" : ""}"
-      type="button"
       role="tab"
       aria-selected="${document.id === appState.activeDocumentId}"
       data-document-id="${document.id}"
+      tabindex="${document.id === appState.activeDocumentId ? "0" : "-1"}"
       title="${escapeHtml(document.path ?? document.name)}"
     >
       <span class="document-tab-label">${escapeHtml(document.name)}</span>
       ${document.isDirty ? `<span class="document-tab-dirty" aria-label="Unsaved changes"></span>` : ""}
       ${document.externalChangePending ? `<span class="document-tab-external" aria-label="File changed on disk"></span>` : ""}
-      <span class="document-tab-close" data-close-document="${document.id}" aria-label="Close ${escapeHtml(document.name)}">${ICONS.close}</span>
-    </button>
+      <button
+        class="document-tab-close"
+        type="button"
+        data-close-document="${document.id}"
+        aria-label="Close ${escapeHtml(document.name)}"
+        title="Close"
+        tabindex="-1"
+      >${ICONS.close}</button>
+    </div>
   `).join("");
 }
 
@@ -3499,6 +3518,86 @@ async function bindEvents() {
     await activateDocument(tab.dataset.documentId);
   });
 
+  // Middle-click closes a tab, matching the browser convention.
+  elements.documentTabs.addEventListener("auxclick", async (event) => {
+    if (event.button !== 1) {
+      return;
+    }
+
+    const tab = event.target instanceof Element ? event.target.closest("[data-document-id]") : null;
+    if (!tab) {
+      return;
+    }
+
+    event.preventDefault();
+    await closeDocument(tab.dataset.documentId);
+  });
+
+  // The tab strip is a real tablist: arrow keys move between tabs with a
+  // roving tabindex, Enter/Space activates the focused tab, Home/End jump
+  // to the first/last tab, Delete closes the focused tab. The close
+  // button itself stays out of the arrow/Tab rotation (one stop per tab);
+  // keyboard close paths are Delete here and Ctrl+W globally.
+  elements.documentTabs.addEventListener("keydown", async (event) => {
+    const tabs = [...elements.documentTabs.querySelectorAll("[data-document-id]")];
+    if (tabs.length === 0) {
+      return;
+    }
+
+    const focusedIndex = tabs.findIndex((tab) => tab === document.activeElement);
+    const currentIndex = focusedIndex >= 0 ? focusedIndex : tabs.findIndex((tab) => tab.dataset.documentId === appState.activeDocumentId);
+
+    const focusTab = (index) => {
+      const nextTab = tabs[(index + tabs.length) % tabs.length];
+      nextTab?.focus();
+    };
+
+    switch (event.key) {
+      case "ArrowRight":
+        event.preventDefault();
+        focusTab(currentIndex + 1);
+        return;
+      case "ArrowLeft":
+        event.preventDefault();
+        focusTab(currentIndex - 1);
+        return;
+      case "Home":
+        event.preventDefault();
+        focusTab(0);
+        return;
+      case "End":
+        event.preventDefault();
+        focusTab(tabs.length - 1);
+        return;
+      case "Enter":
+      case " ": {
+        const tab = tabs[currentIndex];
+        if (!tab) {
+          return;
+        }
+        event.preventDefault();
+        if (tab.dataset.documentId !== appState.activeDocumentId) {
+          await activateDocument(tab.dataset.documentId);
+        }
+        return;
+      }
+      case "Delete": {
+        // Keyboard close: the close button stays out of the Tab rotation
+        // (one stop per tab keeps the strip keyboard-clean), so Delete on
+        // a focused tab - and Ctrl+W globally - are the keyboard paths.
+        const tab = tabs[currentIndex];
+        if (!tab) {
+          return;
+        }
+        event.preventDefault();
+        await closeDocument(tab.dataset.documentId);
+        return;
+      }
+      default:
+        return;
+    }
+  });
+
   elements.outlineList.addEventListener("click", (event) => {
     const entry = event.target instanceof Element ? event.target.closest("[data-line]") : null;
     if (!entry || !editorRef.view) {
@@ -3702,44 +3801,31 @@ async function bindEvents() {
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      // Close only the topmost surface: a sequential chain used to close
+      // every open surface at once (Esc over settings + workspace search
+      // closed both).
       if (isCommandPaletteOpen()) {
         closeCommandPalette();
-      }
-
-      if (isKebabMenuOpen()) {
+      } else if (isKebabMenuOpen()) {
         setKebabMenu(false);
-      }
-
-      if (appState.exportOverlayOpen) {
+      } else if (appState.exportOverlayOpen) {
         closeExportOverlay();
-      }
-
-      if (appState.previewOverlayOpen) {
+      } else if (appState.previewOverlayOpen) {
         closePreviewOverlay();
-      }
-
-      if (appState.settingsOpen) {
+      } else if (appState.settingsOpen) {
         closeSettingsOverlay();
-      }
-
-      if (appState.helpOpen) {
+      } else if (appState.helpOpen) {
         closeHelpOverlay();
-      }
-
-      if (appState.aboutOpen) {
+      } else if (appState.aboutOpen) {
         closeAboutOverlay();
-      }
-
-      if (appState.referenceOpen) {
+      } else if (appState.referenceOpen) {
         closeReferenceOverlay();
-      }
-
-      if (appState.workspaceContentSearchOpen) {
+      } else if (appState.workspaceContentSearchOpen) {
         closeWorkspaceSearchOverlay();
-      }
-
-      if (appState.editorSearchOpen) {
+      } else if (appState.editorSearchOpen) {
         closeEditorSearch();
+      } else if (appState.distractionFree) {
+        void setDistractionFree(false);
       }
     }
 
@@ -3761,6 +3847,51 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
       event.preventDefault();
       void createUntitledDocument();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "w") {
+      event.preventDefault();
+      void closeDocument(appState.activeDocumentId);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "o") {
+      // The native menu's accelerator covers Ctrl+O too, but the renderer
+      // needs its own case so the shortcut survives a menu registration
+      // failure and works with the menu bar hidden.
+      event.preventDefault();
+      runActionById("openFile");
+    }
+
+    if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) {
+      // Cycle open documents, browser-style: Ctrl+Tab forward, Ctrl+Shift+Tab
+      // backward.
+      event.preventDefault();
+      const documents = appState.openDocuments;
+      if (documents.length > 1) {
+        const currentIndex = documents.findIndex((document) => document.id === appState.activeDocumentId);
+        const offset = event.shiftKey ? -1 : 1;
+        const nextDocument = documents[(currentIndex + offset + documents.length) % documents.length];
+        void activateDocument(nextDocument.id);
+      }
+    }
+
+    if (event.key === "F11" && (event.metaKey || event.ctrlKey) && event.shiftKey) {
+      event.preventDefault();
+      void setDistractionFree(!appState.distractionFree);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      void setOutlineCollapsed(!appState.outlineCollapsed);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "e") {
+      event.preventDefault();
+      if (appState.previewOverlayOpen) {
+        closePreviewOverlay();
+      } else {
+        openPreviewOverlay();
+      }
     }
 
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
@@ -3785,8 +3916,17 @@ async function bindEvents() {
     }
 
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "h") {
-      event.preventDefault();
-      openEditorSearch({ prefillSelection: true, showReplace: true });
+      // CodeMirror's keymap already handles Ctrl+H when the editor has
+      // focus; this window-level case covers the rest of the app but must
+      // stay inert while a dialog is open, or it yanks a search bar open
+      // behind the dialog.
+      const overlayOpen = appState.settingsOpen || appState.helpOpen || appState.aboutOpen
+        || appState.referenceOpen || appState.workspaceContentSearchOpen || appState.exportOverlayOpen
+        || appState.previewOverlayOpen || isCommandPaletteOpen() || isKebabMenuOpen();
+      if (!overlayOpen) {
+        event.preventDefault();
+        openEditorSearch({ prefillSelection: true, showReplace: true });
+      }
     }
 
     if (event.key === "F3") {

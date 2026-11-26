@@ -33,13 +33,28 @@ export const SHORTCUT_SECTIONS = [
         shortcuts: [["Ctrl", "S"], ["Cmd", "S"]]
       },
       {
+        title: "Open document",
+        detail: "Browse for an AsciiDoc file and open it in a new tab.",
+        shortcuts: [["Ctrl", "O"], ["Cmd", "O"]]
+      },
+      {
+        title: "Close document",
+        detail: "Close the active tab. You can also close a tab with middle-click, or with Delete while it is focused in the tab strip.",
+        shortcuts: [["Ctrl", "W"], ["Cmd", "W"]]
+      },
+      {
+        title: "Switch tabs",
+        detail: "Cycle through open documents. The tab strip also supports arrow keys and Enter.",
+        shortcuts: [["Ctrl", "Tab"], ["Ctrl", "Shift", "Tab"]]
+      },
+      {
         title: "Open keyboard help",
         detail: "Show this shortcuts guide from anywhere in the app.",
         shortcuts: [["F1"], ["Ctrl", "/"], ["Cmd", "/"]]
       },
       {
         title: "Close active panel",
-        detail: "Dismiss the current overlay or the in-editor search bar.",
+        detail: "Dismiss the topmost overlay, the in-editor search bar, or leave focus mode.",
         shortcuts: [["Esc"]]
       }
     ]
@@ -111,6 +126,21 @@ export const SHORTCUT_SECTIONS = [
         title: "Open markup reference",
         detail: "Browse searchable AsciiDoc examples and snippets.",
         shortcuts: [["Ctrl", "Shift", "K"], ["Cmd", "Shift", "K"]]
+      },
+      {
+        title: "Focus mode",
+        detail: "Hide all chrome for distraction-free writing. Esc (or the floating button) brings everything back.",
+        shortcuts: [["Ctrl", "Shift", "F11"], ["Cmd", "Shift", "F11"], ["Esc"]]
+      },
+      {
+        title: "Toggle outline panel",
+        detail: "Show or hide the document outline beside the editor.",
+        shortcuts: [["Ctrl", "Shift", "O"], ["Cmd", "Shift", "O"]]
+      },
+      {
+        title: "Expand preview",
+        detail: "Open the preview as a full-window overlay. Press again or Esc to return.",
+        shortcuts: [["Ctrl", "Shift", "E"], ["Cmd", "Shift", "E"]]
       }
     ]
   },

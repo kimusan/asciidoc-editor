@@ -197,6 +197,15 @@ function runSelected() {
 }
 
 function handleInputKeydown(event) {
+  // The handler lives on the overlay, which stays in the DOM after close,
+  // and focus is only restored on the next animation frame - a keydown in
+  // that window must fall through to the window handler untouched, or the
+  // closed palette swallows the next Escape (and the surface below never
+  // hears it).
+  if (!paletteState.open) {
+    return;
+  }
+
   if (event.key === "ArrowDown") {
     event.preventDefault();
     moveSelection(1);

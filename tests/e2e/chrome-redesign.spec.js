@@ -221,6 +221,75 @@ test("preview color scheme overrides the app theme and persists", async () => {
   }
 });
 
+test("tabs are keyboard-navigable and closable", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Two extra tabs on top of the restored session's documents.
+    const before = await window.locator(".document-tab").count();
+    await window.keyboard.press("Control+n");
+    await window.keyboard.press("Control+n");
+    await expect(window.locator(".document-tab")).toHaveCount(before + 2);
+
+    // The tab strip is a real tablist: focus the active tab, walk with
+    // arrows, activate with Enter.
+    await window.evaluate(() => document.querySelector(".document-tab.is-active")?.focus());
+    await window.keyboard.press("ArrowLeft");
+    await window.keyboard.press("ArrowRight");
+    await window.keyboard.press("ArrowLeft");
+    const focusedIsTab = await window.evaluate(() => Boolean(document.activeElement?.closest?.("#document-tabs")));
+    expect(focusedIsTab).toBe(true);
+
+    // Delete closes the focused tab; Ctrl+W closes the active one.
+    await window.keyboard.press("Delete");
+    await expect(window.locator(".document-tab")).toHaveCount(before + 1);
+    await window.keyboard.press("Control+w");
+    await expect(window.locator(".document-tab")).toHaveCount(before);
+
+    // Ctrl+Tab cycles between the remaining documents without closing
+    // anything.
+    if (before >= 2) {
+      const activeBefore = await window.evaluate(() => document.querySelector(".document-tab.is-active")?.dataset.documentId);
+      await window.keyboard.press("Control+Tab");
+      const activeAfter = await window.evaluate(() => document.querySelector(".document-tab.is-active")?.dataset.documentId);
+      expect(activeAfter).not.toBe(activeBefore);
+    }
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("Escape closes only the topmost surface and exits focus mode", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Settings open, palette on top: one Esc must close only the palette.
+    await window.keyboard.press("Control+,");
+    await expect(window.locator("#settings-overlay")).toBeVisible();
+    await window.keyboard.press("Control+k");
+    await expect(window.locator(".command-palette-overlay").first()).toBeVisible();
+    await window.keyboard.press("Escape");
+    await expect(window.locator(".command-palette-overlay").first()).toBeHidden();
+    await expect(window.locator("#settings-overlay")).toBeVisible();
+
+    // Second Esc closes the settings; nothing else was open.
+    await window.keyboard.press("Escape");
+    await expect(window.locator("#settings-overlay")).toBeHidden();
+
+    // Focus mode: enter with the accelerator, leave with Esc.
+    await window.keyboard.press("Control+Shift+F11");
+    await expect(window.locator(".shell")).toHaveClass(/focus-mode/);
+    await window.keyboard.press("Escape");
+    await expect(window.locator(".shell")).not.toHaveClass(/focus-mode/);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

@@ -782,6 +782,8 @@ input:focus-visible,
   background: color-mix(in srgb, var(--control-bg) 92%, transparent);
   color: var(--text-secondary);
   box-shadow: none;
+  cursor: pointer;
+  user-select: none;
 }
 
 .document-tab:hover {
@@ -827,7 +829,17 @@ input:focus-visible,
   flex: 0 0 auto;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  appearance: none;
   color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.document-tab-close:hover,
+.document-tab-close:focus-visible {
+  color: var(--text-primary);
 }
 
 .document-tab-close svg {

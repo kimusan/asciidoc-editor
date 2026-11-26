@@ -16,6 +16,7 @@ export const MENU_LAYOUT = [
       "separator",
       "saveFile",
       "saveFileAs",
+      "closeDocument",
       "saveProject",
       "separator",
       "exportDocument"
@@ -49,6 +50,7 @@ export const KEBAB_LAYOUT = [
   "openProject",
   "separator",
   "saveFileAs",
+  "closeDocument",
   "saveProject",
   "exportDocument",
   "separator",
