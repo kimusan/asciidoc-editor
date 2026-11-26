@@ -178,6 +178,32 @@ const SHARED_DOCUMENT_STYLES = `
   th.valign-top, td.valign-top { vertical-align: top; }
   th.valign-middle, td.valign-middle { vertical-align: middle; }
   th.valign-bottom, td.valign-bottom { vertical-align: bottom; }
+
+  dl {
+    margin: 1.4em 0;
+  }
+
+  dl > dt {
+    font-weight: 600;
+    margin-top: 0.8em;
+  }
+
+  dl > dt:first-child,
+  dl > dt + dt {
+    margin-top: 0;
+  }
+
+  dl > dd {
+    margin: 0.15em 0 0 1.4em;
+  }
+
+  dl > dd > p:first-child {
+    margin-top: 0;
+  }
+
+  dl > dd > p:last-child {
+    margin-bottom: 0;
+  }
 `;
 
 const BASE_PREVIEW_STYLES = `
