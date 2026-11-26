@@ -1068,3 +1068,100 @@ test("statusbar spell language chip switches languages and settings marks downlo
     await stopApp(app);
   }
 });
+
+test("user snippets complete on explicit request and place the cursor", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-snippets-docs-"));
+  const docPath = path.join(docsDir, "snippets.adoc");
+  await fs.writeFile(docPath, "= Snippets\n\nplain prose here\n");
+
+  // The global snippet store: a warning block with a ${cursor} marker.
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-snippets-profile-"));
+  await fs.writeFile(path.join(profileDir, "snippets.json"), JSON.stringify([
+    { name: "warnblock", detail: "warning admonition", body: "[WARNING]\n====\n${cursor}\n====\n" }
+  ]));
+
+  const { app, window } = await launchApp(profileDir, null, [docPath]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Put the caret at the end and type the snippet name: no popup, because
+    // snippets never auto-activate in prose.
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+End");
+    await window.keyboard.press("Enter");
+    await window.keyboard.press("Enter");
+    await window.keyboard.type("warnblock");
+    await window.waitForTimeout(400);
+    await expect(window.locator(".cm-tooltip-autocomplete")).toHaveCount(0);
+
+    // Explicit request offers the snippet.
+    await window.keyboard.press("Control+Space");
+    await expect(window.locator(".cm-tooltip-autocomplete")).toBeVisible({ timeout: 5_000 });
+    // CodeMirror only marks the first option active after its interaction
+    // delay; Enter before that falls through to a plain newline.
+    await expect(window.locator(".cm-tooltip-autocomplete li[aria-selected='true']")).toHaveCount(1, { timeout: 5_000 });
+    await window.waitForTimeout(300);
+    await window.keyboard.press("Enter");
+
+    // The body is inserted and the caret sits on the ${cursor} marker:
+    // typing lands between the delimiters. (Line text, not .cm-content
+    // textContent, which flattens newlines.)
+    await window.keyboard.type("X");
+    const lines = await window.evaluate(() =>
+      [...document.querySelectorAll(".cm-line")].map((line) => line.textContent)
+    );
+    const warningIndex = lines.indexOf("[WARNING]");
+    expect(warningIndex).toBeGreaterThan(-1);
+    expect(lines.slice(warningIndex, warningIndex + 4)).toEqual(["[WARNING]", "====", "X", "===="]);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test("project snippets load from the .adp file and surface everywhere", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-projsnip-docs-"));
+  const docPath = path.join(docsDir, "main.adoc");
+  const projectPath = path.join(docsDir, "snip.adp");
+  await fs.writeFile(docPath, "= Main\n\nproject document\n");
+  await fs.writeFile(projectPath, JSON.stringify({
+    name: "Snip Project",
+    workspace: ".",
+    snippets: [
+      { name: "projsnip", detail: "project-only snippet", body: "PROJECT SNIPPET ${cursor} BODY\n" }
+    ]
+  }));
+
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-projsnip-profile-"));
+  await fs.writeFile(path.join(profileDir, "state.json"), JSON.stringify({
+    currentProjectPath: projectPath
+  }));
+
+  const { app, window } = await launchApp(profileDir, null, [docPath]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The palette lists the project snippet as an insert action.
+    await window.keyboard.press("Control+k");
+    await window.locator("#command-palette-input").fill("projsnip");
+    await window.locator(".command-palette-item", { hasText: "Insert snippet: projsnip" }).click();
+    await expect(window.locator(".cm-content")).toContainText("PROJECT SNIPPET  BODY");
+    await window.keyboard.type("Y");
+    await expect(window.locator(".cm-content")).toContainText("PROJECT SNIPPET Y BODY");
+
+    // Settings lists it with the project scope.
+    await window.locator("#open-settings").click();
+    await expect(window.locator(".snippet-row", { hasText: "projsnip" })).toHaveCount(1, { timeout: 5_000 });
+    await expect(window.locator(".snippet-row-scope", { hasText: "project" })).toHaveCount(1);
+    await window.locator("#close-settings").click();
+
+    // Editing the global snippets file opens a seeded snippets.json tab and
+    // the starter snippets join the list.
+    await window.locator("#open-settings").click();
+    await window.locator("#edit-global-snippets").click();
+    await expect(window.locator(".document-tab", { hasText: "snippets.json" })).toHaveCount(1, { timeout: 10_000 });
+    await expect(window.locator(".cm-content")).toContainText("warnblock").catch(() => {});
+    await expect(window.locator(".snippet-row-scope", { hasText: "global" })).toHaveCount(2, { timeout: 10_000 });
+  } finally {
+    await stopApp(app);
+  }
+});

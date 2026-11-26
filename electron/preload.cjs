@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld("desktop", {
   spellAddWord: (word) => ipcRenderer.invoke("spell:add-word", word),
   setSpellLanguage: (code) => ipcRenderer.invoke("spell:set-language", code),
   getDownloadedSpellLanguages: () => ipcRenderer.invoke("spell:list-downloaded"),
+  getSnippets: () => ipcRenderer.invoke("snippets:get"),
+  openGlobalSnippetsFile: () => ipcRenderer.invoke("snippets:open-global-file"),
   setZoomLevel: (level) => {
     webFrame.setZoomLevel(level);
     return webFrame.getZoomLevel();

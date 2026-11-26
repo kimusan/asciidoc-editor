@@ -30,6 +30,11 @@ export const appState = {
   spellCheckLanguage: "en-US",
   typewriterScrolling: false,
   paragraphFocusDimming: false,
+  // User-defined snippets merged from the global snippets.json and the
+  // current project (.adp). Runtime cache, never persisted in state.json:
+  // the files on disk are the source of truth. Entries carry scope:
+  // "project" | "global"; project entries sort first.
+  snippets: [],
   // Latest update event pushed from the main process; shape:
   // { status: "checking"|"available"|"up-to-date"|"error"|"downloading"|"ready",
   //   version?, mode?, releaseUrl?, percent?, message? }

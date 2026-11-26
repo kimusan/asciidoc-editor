@@ -131,6 +131,11 @@ export const SHORTCUT_SECTIONS = [
         title: "Switch spell check language",
         detail: "The statusbar shows the active spell check language (for example “Spell: Danish”). Click it to switch between the dictionaries already on this machine; “More languages…” opens Settings, where any of the 30 downloadable languages can be fetched once and cached for offline use. Entries marked “— downloaded” are already available.",
         shortcuts: []
+      },
+      {
+        title: "Insert a snippet",
+        detail: "Type a snippet name and press Ctrl+Space to offer your user-defined snippets, then Enter to insert. Snippets live in snippets.json (global, editable via Settings > Snippets) or in the project (.adp) file. A ${cursor} marker in a snippet body places the caret after inserting. The command palette also lists “Insert snippet: …” actions.",
+        shortcuts: [["Ctrl+Space"]]
       }
     ]
   },

@@ -498,6 +498,44 @@ input:focus-visible,
   content: "✓ ";
 }
 
+/* Settings > Snippets: read-only list of every available snippet. */
+.snippets-list {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.snippet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+
+.snippet-row:hover {
+  background: var(--control-bg-hover);
+}
+
+.snippet-row-name {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.snippet-row-scope {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--control-bg, rgba(127, 127, 127, 0.18));
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Paragraph focus dimming (Settings > Writing Focus): every non-blank
    line outside the cursor's paragraph fades; opacity works across all
    editor themes without per-theme colors. */

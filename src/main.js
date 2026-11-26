@@ -14,7 +14,7 @@ import {
   replaceAll
 } from "@codemirror/search";
 import { asciidocLanguage } from "./syntax/asciidoc-language.js";
-import { asciidocCompletion, startCompletion } from "./asciidoc-completion.js";
+import { asciidocCompletion, requestExplicitCompletion, completionKeymap } from "./asciidoc-completion.js";
 import {
   APP_THEME_OPTIONS,
   APP_THEME_VARS,
@@ -65,6 +65,7 @@ import { findAnchorLine, findNavigationTarget } from "./navigation.js";
 import { formatAsciiDocTable } from "./table-format.js";
 import { spellCheckExtension, spellCheckResetEffect } from "./spell-check.js";
 import { SPELL_LANGUAGES, normalizeSpellLanguageValue, findSpellLanguage } from "../electron/spell-languages.js";
+import { splitSnippetBody } from "../electron/snippets.js";
 import { typewriterScrolling, paragraphFocusDimming } from "./writing-focus.js";
 import {
   closeCommandPalette,
@@ -649,6 +650,15 @@ function createLayout() {
             </article>
             <article class="settings-card">
               <div class="settings-card-header">
+                <h3>Snippets</h3>
+                <p>Reusable text templates. Type a snippet name, press Ctrl+Space, and pick it — or insert it from the command palette. A ${"${cursor}"} marker in the body places the caret.</p>
+              </div>
+              <div id="snippets-list" class="snippets-list" title="Every snippet available right now, from snippets.json and the open project."></div>
+              <button id="edit-global-snippets" class="toolbar-button ghost-button" type="button" title="Opens snippets.json as a document tab; saving it updates the snippet list."><span class="button-icon">${ICONS.fileText}</span><span>Edit global snippets…</span></button>
+              <div class="settings-note">Global snippets live in snippets.json (the button opens it). Project snippets are a "snippets" list inside the project (.adp) file — they apply only while that project is open.</div>
+            </article>
+            <article class="settings-card">
+              <div class="settings-card-header">
                 <h3>Updates</h3>
                 <p>Check GitHub for new app releases.</p>
               </div>
@@ -874,6 +884,8 @@ function createLayout() {
   elements.stylesheetChip = document.querySelector("#stylesheet-chip");
   elements.statusbarDiagnostics = document.querySelector("#statusbar-diagnostics");
   elements.statusbarSpellLanguage = document.querySelector("#statusbar-spell-language");
+  elements.settingsSnippetsList = document.querySelector("#snippets-list");
+  elements.editGlobalSnippets = document.querySelector("#edit-global-snippets");
   elements.editorSearchBar = document.querySelector("#editor-searchbar");
   elements.editorSearchInput = document.querySelector("#editor-search-input");
   elements.editorReplaceRow = document.querySelector("#editor-replace-row");
@@ -1097,7 +1109,17 @@ function getAppActions() {
       run: () => {
         openAboutOverlay();
       }
-    }
+    },
+    // One palette action per user snippet so the templates are discoverable
+    // without remembering names; inserted at the caret.
+    ...appState.snippets.map((snippet) => ({
+      id: `insertSnippet:${snippet.name}:${snippet.scope}`,
+      label: `Insert snippet: ${snippet.name}`,
+      icon: ICONS.fileText,
+      run: () => {
+        insertSnippetAtCursor(snippet);
+      }
+    }))
   ];
 }
 
@@ -2300,8 +2322,13 @@ function createEditor() {
       },
       {
         key: "Mod-Space",
-        run: startCompletion
+        run: requestExplicitCompletion
       },
+      // The completion navigation keys (Escape / arrows / Enter) come from
+      // @codemirror/autocomplete's completionKeymap; they sit above the
+      // default keymap like the extension's old built-in registration, but
+      // BELOW the Mod-Space binding above so explicit completion wins.
+      ...completionKeymap,
       ...defaultKeymap,
       ...historyKeymap,
       ...searchKeymap,
@@ -2314,7 +2341,7 @@ function createEditor() {
       }
     ]),
     asciidocLanguage(),
-    asciidocCompletion(),
+    asciidocCompletion({ getSnippets: () => appState.snippets }),
     EditorView.lineWrapping,
     // A pure image paste (no text) imports the image into the project's
     // images/ folder and inserts the snippet; any other paste falls
@@ -2586,6 +2613,9 @@ function closeExportOverlay() {
 
 function openSettingsOverlay() {
   appState.settingsOpen = true;
+  // The snippets list reflects the files on disk, which may have changed
+  // since the overlay was last open.
+  void refreshSnippets();
   captureOverlayFocus();
   updateDocumentChrome();
   requestAnimationFrame(() => {
@@ -2810,6 +2840,80 @@ async function switchSpellLanguage(code) {
 function getSpellLanguageLabel(code) {
   const language = findSpellLanguage(code);
   return language ? language.name : code;
+}
+
+// Merge the global (userData/snippets.json) and project (.adp) snippets
+// into the runtime list the completion source, palette, and Settings read.
+// Project snippets come first so they win the palette's ordering.
+async function refreshSnippets() {
+  try {
+    const result = await window.desktop.getSnippets();
+    appState.snippets = [
+      ...(result?.project ?? []).map((snippet) => ({ ...snippet, scope: "project" })),
+      ...(result?.global ?? []).map((snippet) => ({ ...snippet, scope: "global" }))
+    ];
+  } catch {
+    // IPC unavailable (tests without the bridge): keep the current list.
+  }
+  renderSnippetsList();
+}
+
+function renderSnippetsList() {
+  const list = elements.settingsSnippetsList;
+  if (!list) {
+    return;
+  }
+  if (appState.snippets.length === 0) {
+    list.replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "settings-note";
+    empty.textContent = "No snippets yet. Use the button below to create snippets.json with starter examples.";
+    list.appendChild(empty);
+    return;
+  }
+  const rows = appState.snippets.map((snippet) => {
+    const row = document.createElement("div");
+    row.className = "snippet-row";
+    const name = document.createElement("span");
+    name.className = "snippet-row-name";
+    name.textContent = snippet.name;
+    const scope = document.createElement("span");
+    scope.className = "snippet-row-scope";
+    scope.textContent = snippet.scope === "project" ? "project" : "global";
+    row.appendChild(name);
+    row.appendChild(scope);
+    row.title = snippet.detail
+      ? `${snippet.detail}\n\n${snippet.body}`
+      : snippet.body;
+    return row;
+  });
+  list.replaceChildren(...rows);
+}
+
+// Insert a snippet at the caret (replacing the selection), used by the
+// palette actions and the Settings list preview.
+function insertSnippetAtCursor(snippet) {
+  if (!editorRef.view || !snippet) {
+    return;
+  }
+  const { insert, cursorOffset } = splitSnippetBody(snippet.body);
+  const { from, to } = editorRef.view.state.selection.main;
+  editorRef.view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + cursorOffset }
+  });
+  editorRef.view.focus();
+}
+
+async function openGlobalSnippetsFile() {
+  const payload = await window.desktop.openGlobalSnippetsFile();
+  if (!payload) {
+    return;
+  }
+  await openDocument(normalizeDocumentPayload(payload));
+  // The file may have just been created with starter content; the list
+  // should show it right away.
+  await refreshSnippets();
 }
 
 function updateStatusbarSpellLanguageChip() {
@@ -3598,6 +3702,9 @@ async function saveDocumentSession(document, options = {}) {
   if (document.id === appState.activeDocumentId) {
     syncMirrorStateFromDocument(document);
   }
+  // Saving may have touched snippets.json or the project .adp (both open as
+  // ordinary documents), so the snippet list follows the files on disk.
+  void refreshSnippets();
 
   syncWatchedPaths();
   await refreshFileTree();
@@ -3920,6 +4027,10 @@ async function bindEvents() {
       return;
     }
     void openSpellLanguageMenu();
+  });
+
+  elements.editGlobalSnippets.addEventListener("click", () => {
+    void openGlobalSnippetsFile();
   });
 
   elements.chromeHintDismiss.addEventListener("click", () => {
@@ -4875,6 +4986,7 @@ function registerBootSequence() {
       });
     }
     void refreshSpellLanguageDownloadMarks();
+    void refreshSnippets();
     if (appState.zoomLevel !== 0) {
       void window.desktop.setZoomLevel(appState.zoomLevel);
     }

@@ -10,6 +10,7 @@ import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState, flushStateWrites } from "./store.js";
 import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage, listDownloadedSpellLanguages } from "./spell-service.js";
+import { normalizeSnippets, STARTER_SNIPPETS } from "./snippets.js";
 import { createUpdateService } from "./update-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -487,7 +488,8 @@ async function loadProjectFile(projectPath) {
     previewStylesheetPath: resolveProjectPath(projectDir, rawProject.previewStylesheet, null),
     pdfStylesheetPath: resolveProjectPath(projectDir, rawProject.pdfStylesheet, null),
     previewFontFamily: rawProject.previewFontFamily ?? "serif",
-    pdfPaperSize: rawProject.pdfPaperSize ?? "A4"
+    pdfPaperSize: rawProject.pdfPaperSize ?? "A4",
+    snippets: normalizeSnippets(rawProject.snippets)
   };
 }
 
@@ -517,7 +519,12 @@ async function saveProjectFile(projectPath, projectPayload = {}) {
     previewStylesheet: toProjectRelativePath(projectDir, projectPayload.previewStylesheetPath, null),
     pdfStylesheet: toProjectRelativePath(projectDir, projectPayload.pdfStylesheetPath, null),
     previewFontFamily: projectPayload.previewFontFamily ?? "serif",
-    pdfPaperSize: projectPayload.pdfPaperSize ?? "A4"
+    pdfPaperSize: projectPayload.pdfPaperSize ?? "A4",
+    // Project-scoped user snippets ride in the same file; preserve the
+    // previous list when this save did not carry one.
+    snippets: Array.isArray(projectPayload.snippets)
+      ? projectPayload.snippets
+      : (Array.isArray(previousProject?.snippets) ? previousProject.snippets : undefined)
   };
 
   // Write via temp file and rename, exactly like state.json: rename is
@@ -1389,6 +1396,49 @@ app.whenReady().then(async () => {
   ipcMain.handle("spell:list-downloaded", async (event) => {
     assertTrustedSender(event);
     return listDownloadedSpellLanguages();
+  });
+
+  // User-defined snippets live in two places: userData/snippets.json
+  // (global, hand-edited in a normal document tab) and the project .adp
+  // payload (project-scoped). Both are read-only from the renderer's
+  // perspective: saving happens through the ordinary document save flow.
+  const globalSnippetsPath = () => path.join(app.getPath("userData"), "snippets.json");
+
+  async function readGlobalSnippets() {
+    try {
+      return normalizeSnippets(JSON.parse(await fs.readFile(globalSnippetsPath(), "utf8")));
+    } catch {
+      return [];
+    }
+  }
+
+  ipcMain.handle("snippets:get", async (event) => {
+    assertTrustedSender(event);
+    const state = await loadState();
+    let projectSnippets = [];
+    if (state.currentProjectPath) {
+      try {
+        projectSnippets = (await loadProjectFile(state.currentProjectPath)).snippets;
+      } catch {
+        // Unreadable project file: only the global snippets are offered.
+      }
+    }
+    return {
+      global: await readGlobalSnippets(),
+      project: projectSnippets
+    };
+  });
+
+  ipcMain.handle("snippets:open-global-file", async (event) => {
+    assertTrustedSender(event);
+    const filePath = globalSnippetsPath();
+    try {
+      await fs.access(filePath);
+    } catch {
+      // First open: seed the file so the format documents itself.
+      await fs.writeFile(filePath, JSON.stringify(STARTER_SNIPPETS, null, 2), "utf8");
+    }
+    return loadDocument(filePath);
   });
   ipcMain.handle("fs:save-document", async (event, { filePath, content }) => {
     assertTrustedSender(event);

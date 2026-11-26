@@ -6,7 +6,8 @@
 // an attribute reference, or a known macro after its colon). Normal
 // prose typing never produces a popup.
 
-import { autocompletion, startCompletion } from "@codemirror/autocomplete";
+import { autocompletion, startCompletion, completionKeymap } from "@codemirror/autocomplete";
+import { buildSnippetCompletionOptions, matchSnippetWord } from "../electron/snippets.js";
 
 // Fenced block templates. insert replaces the typed prefix; cursorOffset
 // (relative to the inserted text) places the caret inside the block body.
@@ -296,7 +297,26 @@ function asciidocCompletionSource(context) {
   const linePrefix = line.text.slice(0, context.pos - line.from);
   const match = findCompletionContext(linePrefix);
   if (!match) {
-    return null;
+    // User snippets only ever appear on an explicit request (Ctrl+Space or
+    // the palette action): snippet names are ordinary words, so offering
+    // them while typing prose would pop a menu on every word.
+    if (!isExplicitCompletionRequest()) {
+      return null;
+    }
+    const snippets = snippetSource ? snippetSource() : [];
+    if (!snippets.length) {
+      return null;
+    }
+    const word = matchSnippetWord(linePrefix);
+    const options = buildSnippetCompletionOptions(snippets, word);
+    if (!options.length) {
+      return null;
+    }
+    return {
+      from: context.pos - word.length,
+      options: options.map(toCompletion),
+      validFor: /^\S*$/
+    };
   }
 
   let options = match.options;
@@ -319,12 +339,35 @@ function asciidocCompletionSource(context) {
   };
 }
 
-export function asciidocCompletion() {
+let snippetSource = null;
+let explicitCompletionUntil = 0;
+
+function isExplicitCompletionRequest() {
+  return Date.now() < explicitCompletionUntil;
+}
+
+// Explicit completion entry point: marks the request so the source may
+// offer user snippets (which never auto-activate on typing), then opens
+// the standard completion popup.
+export function requestExplicitCompletion(view) {
+  explicitCompletionUntil = Date.now() + 200;
+  return startCompletion(view);
+}
+
+export function asciidocCompletion(options = {}) {
+  snippetSource = typeof options.getSnippets === "function" ? options.getSnippets : null;
   return autocompletion({
     override: [asciidocCompletionSource],
     activateOnTyping: true,
-    icons: false
+    icons: false,
+    // The extension's own default keymap binds Ctrl-Space at highest
+    // precedence, where it always reports the key handled — shadowing any
+    // Mod-Space binding in the editor keymap and running the source
+    // without the explicit-request flag. Register completionKeymap in the
+    // editor keymap instead (see src/main.js), after the explicit
+    // completion binding.
+    defaultKeymap: false
   });
 }
 
-export { startCompletion };
+export { startCompletion, completionKeymap };
