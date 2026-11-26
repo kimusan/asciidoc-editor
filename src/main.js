@@ -61,6 +61,7 @@ import {
   stripExtension
 } from "./utils.js";
 import { KEBAB_LAYOUT, MENU_LAYOUT } from "./app-menu.js";
+import { findAnchorLine, findNavigationTarget } from "./navigation.js";
 import {
   closeCommandPalette,
   initCommandPalette,
@@ -1733,6 +1734,63 @@ function handleEditorPaste(event) {
   return true;
 }
 
+// Ctrl+click (Cmd+click on macOS) on an include::/xref:/link:/<<...>>
+// reference opens its target, mirroring the preview's link resolution
+// (same main-process resolver, so the two can never disagree).
+function handleEditorReferenceClick(event, view) {
+  if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) {
+    return false;
+  }
+
+  const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (position == null) {
+    return false;
+  }
+
+  const line = view.state.doc.lineAt(position);
+  const target = findNavigationTarget(line.text, position - line.from);
+  if (!target) {
+    // Not on a reference: the click stays a normal Ctrl+click (cursor
+    // placement / multi-cursor), untouched.
+    return false;
+  }
+
+  event.preventDefault();
+  void navigateToReference(target.href);
+  return true;
+}
+
+async function navigateToReference(href) {
+  const result = await window.desktop.followPreviewLink({
+    href,
+    currentFilePath: appState.openFilePath
+  });
+
+  if (result.type === "document" && result.document) {
+    await openDocument(normalizeDocumentPayload(result.document));
+    if (result.anchorId) {
+      jumpInActiveDocument(result.anchorId);
+    }
+    return;
+  }
+
+  if (result.type === "anchor" && result.anchorId) {
+    jumpInActiveDocument(result.anchorId);
+    return;
+  }
+
+  if (result.type === "missing") {
+    setPreviewStatus("error", result.message);
+  }
+}
+
+function jumpInActiveDocument(anchorId) {
+  const lineNumber = findAnchorLine(appState.currentContent, anchorId);
+  if (lineNumber) {
+    jumpToEditorLocation(lineNumber, 1);
+  }
+}
+
 function getOutlineEntries(content = appState.currentContent) {
   const lines = content.split("\n");
   const entries = [];
@@ -2136,7 +2194,8 @@ function createEditor() {
     // images/ folder and inserts the snippet; any other paste falls
     // through to CodeMirror untouched.
     EditorView.domEventHandlers({
-      paste: (event) => handleEditorPaste(event)
+      paste: (event) => handleEditorPaste(event),
+      mousedown: (event, view) => handleEditorReferenceClick(event, view)
     }),
     EditorView.updateListener.of((update) => {
       const activeDocument = getDocumentSession();

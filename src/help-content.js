@@ -108,6 +108,11 @@ export const SHORTCUT_SECTIONS = [
         shortcuts: [["Ctrl", "Space"], ["Cmd", "Space"]]
       },
       {
+        title: "Follow a reference",
+        detail: "Ctrl+click (Cmd+click) an include::, xref:, link:, or <<...>> reference to open its target document and jump to the referenced section.",
+        shortcuts: [["Ctrl", "Click"], ["Cmd", "Click"]]
+      },
+      {
         title: "Accept completion",
         detail: "Insert the highlighted suggestion. Arrow keys move through the list and Esc dismisses it.",
         shortcuts: [["Enter"]]

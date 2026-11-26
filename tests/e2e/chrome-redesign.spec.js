@@ -469,6 +469,61 @@ test("pasting an image imports it into images/ and inserts the snippet", async (
   }
 });
 
+test("Ctrl+click on an include reference opens the target document", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-nav-docs-"));
+  await fs.writeFile(
+    path.join(docsDir, "chapter.adoc"),
+    "= Chapter\n\nSee <<setup>> below.\n\n[[setup]]\n== Setup\n\nDo the thing.\n"
+  );
+  await fs.writeFile(
+    path.join(docsDir, "book.adoc"),
+    "= Book\n\ninclude::chapter.adoc[]\n\nBack matter.\n"
+  );
+
+  const { app, window } = await launchApp(null, null, [path.join(docsDir, "book.adoc")]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Ctrl+click on the include line: the chapter opens as a new tab.
+    // Playwright's mouse.click modifiers do not reach the Electron page
+    // (the event arrives ctrl=false), so the test dispatches the mousedown
+    // itself at the line's coordinates - the handler path (posAtCoords,
+    // target extraction, resolution) is fully real.
+    const includeLine = window.locator(".cm-line", { hasText: "include::chapter.adoc[]" }).first();
+    await includeLine.waitFor();
+    const box = await includeLine.boundingBox();
+    expect(box).not.toBeNull();
+    await window.evaluate(({ x, y }) => {
+      document.querySelector(".cm-content").dispatchEvent(new MouseEvent("mousedown", {
+        bubbles: true, cancelable: true, ctrlKey: true, button: 0, clientX: x, clientY: y
+      }));
+    }, { x: box.x + 24, y: box.y + box.height / 2 });
+    await expect(window.locator(".document-tab.is-active")).toContainText("chapter.adoc", { timeout: 10_000 });
+    await expect(window.locator(".document-tab")).toHaveCount(2);
+
+    // Ctrl+click on <<setup>> inside the chapter: an in-document anchor
+    // jump, so no new tab opens and the cursor lands on [[setup]].
+    // "<<setup>>" starts ~8 characters into "See <<setup>> below.".
+    const xrefLine = window.locator(".cm-line", { hasText: "<<setup>>" }).first();
+    const xrefBox = await xrefLine.boundingBox();
+    await window.evaluate(({ x, y }) => {
+      document.querySelector(".cm-content").dispatchEvent(new MouseEvent("mousedown", {
+        bubbles: true, cancelable: true, ctrlKey: true, button: 0, clientX: x, clientY: y
+      }));
+    }, { x: xrefBox.x + 70, y: xrefBox.y + xrefBox.height / 2 });
+    await expect(window.locator(".cm-activeLine")).toContainText("[[setup]]", { timeout: 5_000 });
+    await expect(window.locator(".document-tab")).toHaveCount(2);
+
+    // A plain (unmodified) click on a reference must NOT navigate.
+    await window.locator(".cm-line", { hasText: "<<setup>>" }).first().click();
+    await window.waitForTimeout(300);
+    await expect(window.locator(".document-tab.is-active")).toContainText("chapter.adoc");
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 
