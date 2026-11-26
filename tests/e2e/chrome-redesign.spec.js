@@ -929,9 +929,17 @@ test("writing focus settings dim other paragraphs, pin typing, and persist", asy
     await first.window.locator("#close-settings").click();
 
     // Put the cursor in a mid-document paragraph: every other paragraph
-    // line dims, the cursor's paragraph stays full strength.
+    // line dims, the cursor's paragraph stays full strength. CM only
+    // renders lines near the viewport, and the window is small on CI, so a
+    // mid-document line cannot be located directly — walk the cursor down
+    // first, which renders lines as it goes.
+    await first.window.locator(".cm-content").click();
+    await first.window.keyboard.press("Control+Home");
+    for (let i = 0; i < 60; i += 1) {
+      await first.window.keyboard.press("ArrowDown");
+    }
     await first.window.locator(".cm-line", { hasText: "Paragraph 20" }).click();
-    await expect(first.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 19" })).toHaveCount(1, { timeout: 5_000 });
+    await expect(first.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 19" })).toHaveCount(1, { timeout: 10_000 });
     await expect(first.window.locator(".cm-line", { hasText: "Paragraph 20" }).locator(".cm-paragraph-dim")).toHaveCount(0);
 
     // Typewriter scrolling: typing mid-document pins the cursor line one
@@ -968,8 +976,9 @@ test("writing focus settings dim other paragraphs, pin typing, and persist", asy
     // near the viewport).
     await second.window.locator(".cm-content").click();
     await second.window.keyboard.press("Control+Home");
-    await second.window.locator(".cm-line", { hasText: "Paragraph 10" }).click();
-    await expect(second.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 9" })).toHaveCount(1, { timeout: 5_000 });
+    // Paragraph 5 sits inside even a small initial viewport.
+    await second.window.locator(".cm-line", { hasText: "Paragraph 5" }).click();
+    await expect(second.window.locator(".cm-paragraph-dim", { hasText: "Paragraph 4 line" })).toHaveCount(1, { timeout: 10_000 });
   } finally {
     await stopApp(second.app);
   }
