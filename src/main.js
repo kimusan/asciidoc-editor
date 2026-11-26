@@ -2087,8 +2087,16 @@ async function runEditorReplaceAllOpenDocuments() {
       continue;
     }
 
+    // Update the stored state with a transaction instead of recreating it:
+    // a fresh EditorState wipes the tab's undo history, so a Replace All
+    // across open files used to make every background tab un-undoable.
+    // With a transaction, Ctrl+Z after switching to the tab reverts the
+    // replacement (one undo step per document).
+    const previousState = document.editorState ?? createEditorState(currentContent);
+    document.editorState = previousState.update({
+      changes: { from: 0, to: previousState.doc.length, insert: replacement.content }
+    }).state;
     document.content = replacement.content;
-    document.editorState = createEditorState(replacement.content);
     document.isDirty = true;
     document.previewInSync = false;
   }

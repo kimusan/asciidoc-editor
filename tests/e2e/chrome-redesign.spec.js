@@ -596,6 +596,55 @@ test("reformat table aligns pipe columns and undoes as one step", async () => {
   }
 });
 
+test("Replace All across open files keeps every tab's undo history", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-replace-docs-"));
+  await fs.writeFile(path.join(docsDir, "first.adoc"), "= First\n\nalpha content\n");
+  await fs.writeFile(path.join(docsDir, "second.adoc"), "= Second\n\nalpha words\n");
+
+  const { app, window } = await launchApp(null, null, [path.join(docsDir, "first.adoc")]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Open the second document through the palette's workspace file search
+    // (debounced async - wait for the result before committing).
+    await window.keyboard.press("Control+k");
+    await window.locator(".command-palette-input").fill("second");
+    await window.locator(".command-palette-item", { hasText: "second.adoc" }).waitFor({ timeout: 5_000 });
+    await window.keyboard.press("Enter");
+    await expect(window.locator(".document-tab.is-active")).toContainText("second.adoc", { timeout: 10_000 });
+    await expect(window.locator(".document-tab")).toHaveCount(2);
+    // Let the palette finish closing before the next keyboard shortcut:
+    // the window-level Ctrl+H handler stays inert while it is still open.
+    await window.waitForTimeout(300);
+
+    // Replace All with the "All open files" scope.
+    await window.keyboard.press("Control+h");
+    await expect(window.locator("#editor-replace-row")).toBeVisible();
+    await window.locator("#editor-search-input").fill("alpha");
+    await window.locator("#editor-replace-input").fill("omega");
+    await window.locator("#editor-replace-scope-open-files").check();
+    await window.locator("#editor-replace-all").click();
+
+    await expect(window.locator(".cm-content")).toContainText("omega words");
+    await expect(window.locator("#editor-search-status")).toContainText("Replaced 2 in 2 files");
+
+    // Switch back to the first (background) tab: the replacement applied,
+    // and Ctrl+Z there must revert it - a fresh EditorState would have
+    // wiped that tab's undo history (the pre-fix behavior).
+    await window.locator(".document-tab", { hasText: "first.adoc" }).click();
+    await expect(window.locator(".cm-content")).toContainText("omega content");
+    // The tab click left focus on the tab button; CodeMirror must have
+    // focus to receive the undo.
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+z");
+    await expect(window.locator(".cm-content")).toContainText("alpha content");
+    await expect(window.locator(".cm-content")).not.toContainText("omega content");
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 
