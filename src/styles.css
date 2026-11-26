@@ -351,7 +351,9 @@ input:focus-visible,
   border-radius: var(--radius-md);
   background: var(--panel-bg);
   backdrop-filter: blur(24px);
-  color: var(--text-tertiary);
+  /* Secondary, not tertiary: at 0.72rem the tertiary alpha lands just
+     under WCAG AA (4.3:1) on the dark themes. */
+  color: var(--text-secondary);
   font-size: 0.72rem;
   overflow: hidden;
 }
@@ -390,7 +392,7 @@ input:focus-visible,
   padding: 1px 7px;
   border: none;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: 0.72rem;
   border-radius: var(--radius-sm);
 }
@@ -689,8 +691,7 @@ input:focus-visible,
   flex: 0 0 auto;
 }
 
-.eyebrow,
-.metric-label {
+.eyebrow {
   margin: 0;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -1468,16 +1469,19 @@ input:focus-visible,
   place-items: center;
   z-index: 40;
   opacity: 0;
-  /* visibility (discrete) flips at the end of the close transition, so
-     faded-out overlays stop taking part in layout, a11y and hit-testing
-     only once the animation finishes. */
+  /* Zero-duration visibility with a close-side delay: flips the instant
+     the overlay opens (the is-open rule resets the delay to 0s, so the
+     focus-on-open lands on a focusable element) but only after the close
+     fade finishes, so faded-out overlays leave the layout/a11y/hit-test
+     tree only once the animation completes. */
   visibility: hidden;
-  transition: opacity 180ms ease, visibility 180ms allow-discrete;
+  transition: opacity 180ms ease, visibility 0s 180ms;
 }
 
 .reference-overlay.is-open {
   opacity: 1;
   visibility: visible;
+  transition: opacity 180ms ease, visibility 0s;
 }
 
 .reference-backdrop {

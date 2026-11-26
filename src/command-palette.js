@@ -161,6 +161,17 @@ function currentFileCandidates() {
     }));
 }
 
+// Keeps the combobox's aria-activedescendant pointing at the selected
+// option so screen readers announce arrow-key moves inside the listbox.
+function syncActiveDescendant() {
+  const selectedNode = paletteState.results.querySelector(`[data-palette-index="${paletteState.selected}"]`);
+  if (selectedNode instanceof HTMLElement) {
+    paletteState.input.setAttribute("aria-activedescendant", selectedNode.id);
+  } else {
+    paletteState.input.removeAttribute("aria-activedescendant");
+  }
+}
+
 function renderResults(query) {
   const candidates = [...baseCandidates(), ...currentFileCandidates()];
   paletteState.items = buildPaletteItems(query, candidates);
@@ -170,6 +181,7 @@ function renderResults(query) {
     ? `<div class="command-palette-empty">No matching action, tab, heading, or file.</div>`
     : paletteState.items.map((item, index) => `
       <button
+        id="command-palette-option-${index}"
         class="command-palette-item ${index === paletteState.selected ? "is-selected" : ""}"
         type="button"
         role="option"
@@ -181,6 +193,7 @@ function renderResults(query) {
         ${item.hint ? `<span class="command-palette-shortcut">${escapeHtml(item.hint)}</span>` : ""}
       </button>
     `).join("");
+  syncActiveDescendant();
 }
 
 function moveSelection(delta) {
@@ -195,6 +208,7 @@ function moveSelection(delta) {
     node.setAttribute("aria-selected", String(isSelected));
   });
   paletteState.results.querySelector(".command-palette-item.is-selected")?.scrollIntoView({ block: "nearest" });
+  syncActiveDescendant();
 }
 
 function runSelected() {
@@ -258,7 +272,7 @@ export function initCommandPalette(deps) {
     <section class="command-palette" role="dialog" aria-modal="true" aria-label="Command palette">
       <div class="command-palette-input-row">
         <span class="command-palette-icon">${deps.paletteIcon}</span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Type a command, tab, heading, or file…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="command-palette-results" />
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Type a command, tab, heading, or file…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="command-palette-results" />
       </div>
       <div id="command-palette-results" class="command-palette-results" role="listbox" aria-label="Palette results"></div>
       <div class="command-palette-footer">

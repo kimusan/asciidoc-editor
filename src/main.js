@@ -1560,6 +1560,7 @@ function renderWorkspaceContentResults() {
 
 function openWorkspaceSearchOverlay() {
   appState.workspaceContentSearchOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
   renderWorkspaceContentResults();
   requestAnimationFrame(() => {
@@ -1571,6 +1572,7 @@ function openWorkspaceSearchOverlay() {
 function closeWorkspaceSearchOverlay() {
   appState.workspaceContentSearchOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function buildWorkspaceContentOptions() {
@@ -2263,6 +2265,7 @@ async function setDistractionFree(nextValue) {
 
 function openReferenceOverlay() {
   appState.referenceOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
   requestAnimationFrame(() => {
     elements.referenceSearch.focus();
@@ -2273,31 +2276,43 @@ function openReferenceOverlay() {
 function closeReferenceOverlay() {
   appState.referenceOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function openPreviewOverlay() {
   appState.previewOverlayOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closePreviewOverlay?.focus();
+  });
   void hydrateExpandedPreviewFrame();
 }
 
 function closePreviewOverlay() {
   appState.previewOverlayOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function openExportOverlay() {
   appState.exportOverlayOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closeExport?.focus();
+  });
 }
 
 function closeExportOverlay() {
   appState.exportOverlayOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function openSettingsOverlay() {
   appState.settingsOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
   requestAnimationFrame(() => {
     elements.settingsAppTheme.focus();
@@ -2307,10 +2322,12 @@ function openSettingsOverlay() {
 function closeSettingsOverlay() {
   appState.settingsOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function openHelpOverlay() {
   appState.helpOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
   requestAnimationFrame(() => {
     elements.closeHelp.focus();
@@ -2320,16 +2337,97 @@ function openHelpOverlay() {
 function closeHelpOverlay() {
   appState.helpOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
 }
 
 function openAboutOverlay() {
   appState.aboutOpen = true;
+  captureOverlayFocus();
   updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closeAbout?.focus();
+  });
 }
 
 function closeAboutOverlay() {
   appState.aboutOpen = false;
   updateDocumentChrome();
+  restoreOverlayFocus();
+}
+
+// Modal focus management for the reference-style overlays. Every one of
+// them declares aria-modal="true", so keyboard focus must stay inside the
+// dialog while it is open and return to the invoking control afterwards.
+// The palette and kebab manage their own focus and are not listed here.
+let overlayRestoreFocus = null;
+
+const OVERLAY_SURFACES = [
+  { isOpen: () => appState.exportOverlayOpen, dialogSelector: "#export-overlay .reference-dialog" },
+  { isOpen: () => appState.previewOverlayOpen, dialogSelector: "#preview-overlay .reference-dialog" },
+  { isOpen: () => appState.settingsOpen, dialogSelector: "#settings-overlay .reference-dialog" },
+  { isOpen: () => appState.helpOpen, dialogSelector: "#help-overlay .reference-dialog" },
+  { isOpen: () => appState.aboutOpen, dialogSelector: "#about-overlay .reference-dialog" },
+  { isOpen: () => appState.referenceOpen, dialogSelector: "#reference-overlay .reference-dialog" },
+  { isOpen: () => appState.workspaceContentSearchOpen, dialogSelector: "#workspace-content-overlay .reference-dialog" }
+];
+
+function getTopmostOverlaySurface() {
+  return OVERLAY_SURFACES.find((surface) => surface.isOpen()) ?? null;
+}
+
+function captureOverlayFocus() {
+  overlayRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+}
+
+function restoreOverlayFocus() {
+  // A restore target that is no longer visible (e.g. the palette input that
+  // spawned the overlay, whose overlay is display:none again) must not
+  // receive focus; fall back to the editor like every other surface does.
+  if (overlayRestoreFocus?.isConnected && overlayRestoreFocus.offsetParent !== null) {
+    overlayRestoreFocus.focus();
+  } else {
+    editorRef.view?.focus();
+  }
+
+  overlayRestoreFocus = null;
+}
+
+function trapOverlayTab(event) {
+  // The palette and kebab sit above every overlay and own their Tab keys;
+  // trapping into the dialog below them would steal their focus.
+  if (isCommandPaletteOpen() || isKebabMenuOpen()) {
+    return;
+  }
+
+  const surface = getTopmostOverlaySurface();
+  if (!surface) {
+    return;
+  }
+
+  const dialog = document.querySelector(surface.dialogSelector);
+  if (!dialog) {
+    return;
+  }
+
+  const focusables = [...dialog.querySelectorAll("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"])")]
+    .filter((element) => element.offsetParent !== null);
+  if (focusables.length === 0) {
+    event.preventDefault();
+    return;
+  }
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey) {
+    if (active === first || !dialog.contains(active)) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (active === last || !dialog.contains(active)) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function bindSplitter() {
@@ -2433,7 +2531,29 @@ function applyShellTheme(theme) {
   document.documentElement.style.colorScheme = theme === "porcelain" || theme === "solarized" || theme === "material" ? "light" : "dark";
 }
 
+// The chrome updater runs on every keystroke (docChanged), and rebuilding
+// the tab strip's innerHTML each time is wasted work - the DOM only changes
+// when the document set or a tab's rendered metadata changes. The signature
+// covers exactly what the template renders; a match means the DOM is
+// already current.
+let lastRenderedTabsSignature = null;
+
 function renderDocumentTabs() {
+  const signature = JSON.stringify([
+    appState.activeDocumentId,
+    appState.openDocuments.map((document) => [
+      document.id,
+      document.name,
+      document.path ?? null,
+      document.isDirty,
+      document.externalChangePending
+    ])
+  ]);
+  if (signature === lastRenderedTabsSignature) {
+    return;
+  }
+
+  lastRenderedTabsSignature = signature;
   elements.documentTabs.innerHTML = appState.openDocuments.map((document) => `
     <div
       class="document-tab ${document.id === appState.activeDocumentId ? "is-active" : ""} ${document.externalChangePending ? "has-external-change" : ""}"
@@ -4019,6 +4139,12 @@ async function bindEvents() {
       // failure and works with the menu bar hidden.
       event.preventDefault();
       runActionById("openFile");
+    }
+
+    if (event.key === "Tab" && !(event.metaKey || event.ctrlKey)) {
+      // Keep Tab inside the topmost aria-modal dialog; the palette and
+      // kebab handle their own focus cycling.
+      trapOverlayTab(event);
     }
 
     if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) {

@@ -333,6 +333,46 @@ test("zoom and editor text size work and persist", async () => {
   }
 });
 
+test("overlays trap Tab and restore focus on close", async () => {
+  const { app, window } = await launchApp();
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    await window.locator("#open-settings").click();
+    await expect(window.locator("#settings-overlay")).toBeVisible();
+    await expect(window.locator("#settings-app-theme")).toBeFocused();
+
+    // Tab from the dialog's last focusable wraps to its first (the Close
+    // button in the header precedes the settings grid).
+    await window.evaluate(() => {
+      const dialog = document.querySelector("#settings-overlay .reference-dialog");
+      const focusables = [...dialog.querySelectorAll("button, input, select, textarea")]
+        .filter((element) => element.offsetParent !== null && !element.disabled);
+      focusables[focusables.length - 1].focus();
+    });
+    await window.keyboard.press("Tab");
+    await expect(window.locator("#close-settings")).toBeFocused();
+
+    // Shift+Tab from the first wraps back to the last.
+    await window.keyboard.press("Shift+Tab");
+    const wrappedBack = await window.evaluate(() => {
+      const dialog = document.querySelector("#settings-overlay .reference-dialog");
+      const focusables = [...dialog.querySelectorAll("button, input, select, textarea")]
+        .filter((element) => element.offsetParent !== null && !element.disabled);
+      return focusables[focusables.length - 1] === document.activeElement;
+    });
+    expect(wrappedBack).toBe(true);
+
+    // Esc closes and hands focus back to the invoking strip button.
+    await window.keyboard.press("Escape");
+    await expect(window.locator("#settings-overlay")).toBeHidden();
+    await expect(window.locator("#open-settings")).toBeFocused();
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("recent files surface in the native menu, palette, and kebab", async () => {
   const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-recent-profile-"));
   const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-recent-docs-"));
