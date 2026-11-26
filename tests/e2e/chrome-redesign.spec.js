@@ -1263,3 +1263,38 @@ test("PDF export produces a paginated PDF with page numbers", async () => {
     await stopApp(app);
   }
 });
+
+test("app quits promptly after closing the window once Mermaid has rendered", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-mermaid-quit-docs-"));
+  const docPath = path.join(docsDir, "mermaid.adoc");
+  await fs.writeFile(docPath, "= Quit\n\n[mermaid]\n----\nflowchart TD\n  A --> B\n----\n");
+
+  const { app, window } = await launchApp(null, null, [docPath]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    // Wait for the diagram: this creates the hidden render window, which
+    // used to keep the process alive for its 90s idle timeout after the
+    // last editor window closed.
+    await expect(async () => {
+      const svgCount = await window.evaluate(() =>
+        document.querySelector("#preview-frame").contentDocument.querySelectorAll(".mermaid-block svg").length
+      );
+      expect(svgCount).toBeGreaterThanOrEqual(1);
+    }).toPass({ timeout: 20_000 });
+
+    const exited = new Promise((resolve) => {
+      app.process().once("exit", () => resolve(true));
+    });
+    await window.close();
+
+    // The close handshake plus the state flush are bounded well below this;
+    // the old behavior waited out the render window's 90s idle destroy.
+    const quitWithinBound = await Promise.race([
+      exited.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), 15_000))
+    ]);
+    expect(quitWithinBound).toBe(true);
+  } finally {
+    await stopApp(app);
+  }
+});

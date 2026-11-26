@@ -941,6 +941,14 @@ async function createWindow() {
     if (mainWindow === window) {
       mainWindow = null;
     }
+    // The hidden Mermaid render window keeps window-all-closed from firing,
+    // so closing the last editor window would leave the process running for
+    // up to the render window's 90s idle timeout (and the single-instance
+    // lock then silently swallows the next launch). The render window is
+    // recreated lazily if another editor window ever opens.
+    if (BrowserWindow.getAllWindows().every((other) => other === window || !other.isVisible())) {
+      disposeMermaidRenderer();
+    }
   });
 }
 
