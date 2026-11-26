@@ -536,6 +536,22 @@ function createLayout() {
           </div>
         </section>
       </div>
+      <div id="diff-overlay" class="reference-overlay">
+        <div id="diff-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog diff-dialog panel" role="dialog" aria-modal="true" aria-labelledby="diff-title">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.diff}</span>
+              <div>
+                <div id="diff-title" class="panel-title">Document Changes</div>
+                <div id="diff-subtitle" class="panel-subtitle">Comparing the editor with the last saved copy.</div>
+              </div>
+            </div>
+            <button id="close-diff" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <div id="diff-body" class="diff-body" tabindex="0" aria-label="Differences between the editor and the saved version"></div>
+        </section>
+      </div>
       <div id="settings-overlay" class="reference-overlay">
         <div id="settings-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog settings-dialog panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -859,6 +875,10 @@ function createLayout() {
   elements.closePreviewOverlay = document.querySelector("#close-preview-overlay");
   elements.previewFrameExpanded = document.querySelector("#preview-frame-expanded");
   elements.exportOverlay = document.querySelector("#export-overlay");
+  elements.diffOverlay = document.querySelector("#diff-overlay");
+  elements.diffSubtitle = document.querySelector("#diff-subtitle");
+  elements.diffBody = document.querySelector("#diff-body");
+  elements.closeDiff = document.querySelector("#close-diff");
   elements.exportBackdrop = document.querySelector("#export-backdrop");
   elements.closeExport = document.querySelector("#close-export");
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
@@ -1013,6 +1033,15 @@ function getAppActions() {
       icon: ICONS.export,
       run: () => {
         openExportOverlay();
+      }
+    },
+    {
+      id: "compareChanges",
+      label: "Compare changes (diff)",
+      icon: ICONS.diff,
+      hint: "Ctrl+Shift+D",
+      run: () => {
+        openDiffOverlay();
       }
     },
     {
@@ -2526,6 +2555,7 @@ function updateDocumentChrome() {
   elements.settingsOverlay.classList.toggle("is-open", appState.settingsOpen);
   elements.previewOverlay.classList.toggle("is-open", appState.previewOverlayOpen);
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
+  elements.diffOverlay?.classList.toggle("is-open", appState.diffOverlayOpen);
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
   elements.workspaceContentOverlay.classList.toggle("is-open", appState.workspaceContentSearchOpen);
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
@@ -2634,6 +2664,109 @@ function closeExportOverlay() {
   restoreOverlayFocus();
 }
 
+const DIFF_SOURCE_SUBTITLES = {
+  head: "Comparing the editor with the version committed in git (HEAD). Unsaved changes are included.",
+  disk: "Not tracked in git — comparing the editor with the last saved copy.",
+  none: "Nothing to compare against yet. Save the document to start tracking changes."
+};
+
+// Renders the active document's buffer against its diff source (HEAD when
+// tracked, the disk copy otherwise) as a unified line diff with old/new
+// line numbers.
+async function renderDiffView() {
+  const body = elements.diffBody;
+  if (!body) {
+    return;
+  }
+
+  const emptyDiff = (message) => {
+    body.innerHTML = `<p class="diff-empty">${escapeHtml(message)}</p>`;
+  };
+
+  if (!appState.openFilePath || typeof window.desktop.gitDiffSource !== "function") {
+    elements.diffSubtitle.textContent = DIFF_SOURCE_SUBTITLES.none;
+    emptyDiff("Save the document first — untitled documents have nothing to compare against.");
+    return;
+  }
+
+  let source;
+  try {
+    source = await window.desktop.gitDiffSource({ filePath: appState.openFilePath });
+  } catch {
+    source = { source: "none", content: null };
+  }
+  if (appState.diffOverlayOpen === false) {
+    return; // overlay was closed while awaiting the IPC
+  }
+
+  elements.diffSubtitle.textContent = DIFF_SOURCE_SUBTITLES[source.source] ?? DIFF_SOURCE_SUBTITLES.none;
+  if (source.source === "none" || source.content === null) {
+    emptyDiff("This document has no saved or committed version yet.");
+    return;
+  }
+
+  const { diffLines } = await import("diff");
+  const parts = diffLines(source.content, appState.currentContent);
+  const rows = [];
+  let oldLine = 1;
+  let newLine = 1;
+  let changed = false;
+
+  for (const part of parts) {
+    const lines = part.value.replace(/\n$/, "").split("\n");
+    const kind = part.added ? "added" : part.removed ? "removed" : "context";
+    if (kind !== "context") {
+      changed = true;
+    }
+    for (const text of lines) {
+      const row = { kind, text };
+      if (kind === "removed") {
+        row.oldLine = oldLine++;
+      } else if (kind === "added") {
+        row.newLine = newLine++;
+      } else {
+        row.oldLine = oldLine++;
+        row.newLine = newLine++;
+      }
+      rows.push(row);
+    }
+  }
+
+  if (!changed) {
+    emptyDiff("No differences — the editor matches the saved version.");
+    return;
+  }
+
+  body.innerHTML = rows.map((row) => {
+    const oldNum = row.oldLine ? String(row.oldLine) : "";
+    const newNum = row.newLine ? String(row.newLine) : "";
+    const sign = row.kind === "added" ? "+" : row.kind === "removed" ? "−" : "";
+    return `
+      <div class="diff-line is-${row.kind}">
+        <span class="diff-gutter">${escapeHtml(oldNum)}</span>
+        <span class="diff-gutter">${escapeHtml(newNum)}</span>
+        <span class="diff-sign">${sign}</span>
+        <span class="diff-text">${escapeHtml(row.text) || "&nbsp;"}</span>
+      </div>`;
+  }).join("");
+}
+
+function openDiffOverlay() {
+  appState.diffOverlayOpen = true;
+  captureOverlayFocus();
+  updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closeDiff?.focus();
+  });
+  void renderDiffView();
+}
+
+function closeDiffOverlay() {
+  appState.diffOverlayOpen = false;
+  updateDocumentChrome();
+  restoreOverlayFocus();
+}
+
 function openSettingsOverlay() {
   appState.settingsOpen = true;
   // The snippets list reflects the files on disk, which may have changed
@@ -2690,6 +2823,7 @@ let overlayRestoreFocus = null;
 
 const OVERLAY_SURFACES = [
   { isOpen: () => appState.exportOverlayOpen, dialogSelector: "#export-overlay .reference-dialog" },
+  { isOpen: () => appState.diffOverlayOpen, dialogSelector: "#diff-overlay .reference-dialog" },
   { isOpen: () => appState.previewOverlayOpen, dialogSelector: "#preview-overlay .reference-dialog" },
   { isOpen: () => appState.settingsOpen, dialogSelector: "#settings-overlay .reference-dialog" },
   { isOpen: () => appState.helpOpen, dialogSelector: "#help-overlay .reference-dialog" },
@@ -4268,6 +4402,14 @@ async function bindEvents() {
     closeExportOverlay();
   });
 
+  elements.closeDiff?.addEventListener("click", () => {
+    closeDiffOverlay();
+  });
+
+  elements.diffOverlay?.querySelector("#diff-backdrop")?.addEventListener("click", () => {
+    closeDiffOverlay();
+  });
+
   elements.exportFormats.forEach((button) => {
     button.addEventListener("click", () => {
       closeExportOverlay();
@@ -4933,6 +5075,8 @@ async function bindEvents() {
         setKebabMenu(false);
       } else if (appState.exportOverlayOpen) {
         closeExportOverlay();
+      } else if (appState.diffOverlayOpen) {
+        closeDiffOverlay();
       } else if (appState.previewOverlayOpen) {
         closePreviewOverlay();
       } else if (appState.settingsOpen) {
@@ -4955,6 +5099,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
       event.preventDefault();
       openReferenceOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "d") {
+      event.preventDefault();
+      openDiffOverlay();
     }
 
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {

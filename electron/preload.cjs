@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("desktop", {
   saveProjectFile: (payload) => ipcRenderer.invoke("project:save-file", payload),
   setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),
   gitStatus: (payload) => ipcRenderer.invoke("git:status", payload),
+  gitDiffSource: (payload) => ipcRenderer.invoke("git:diff-source", payload),
   defineMenu: (payload) => ipcRenderer.invoke("app:define-menu", payload),
   onMenuAction: (callback) => {
     ipcRenderer.removeAllListeners("app:menu-action");

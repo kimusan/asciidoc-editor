@@ -10,6 +10,8 @@ import {
   mapStatusMatrixToEntries,
   findGitRepositoryRoot,
   getWorkspaceGitStatus,
+  getDiffSource,
+  readHeadFile,
   collectGitignoreMatchers,
   isGitIgnored
 } from "../electron/git-service.js";
@@ -92,6 +94,77 @@ test("findGitRepositoryRoot walks up to the repository", async () => {
   assert.equal(await findGitRepositoryRoot(dir), dir);
   assert.equal(await findGitRepositoryRoot(base), null, "scratch base must not sit inside a repository");
   await fsp.rm(base, { recursive: true, force: true });
+});
+
+test("readHeadFile walks the commit/tree chain to nested blobs", async () => {
+  const base = await makeScratchDir("git-headfile-test");
+  const dir = path.join(base, "repo");
+  await fsp.mkdir(path.join(dir, "docs", "deep"), { recursive: true });
+  await git.init({ fs, dir });
+  await fsp.writeFile(path.join(dir, "docs", "deep", "a.adoc"), "committed");
+  await git.add({ fs, dir, filepath: "docs/deep/a.adoc" });
+  await git.commit({ fs, dir, message: "init", author: { name: "T", email: "t@example.com" } });
+  // Later disk edits must not affect the HEAD read.
+  await fsp.writeFile(path.join(dir, "docs", "deep", "a.adoc"), "changed on disk");
+  try {
+    assert.equal(await readHeadFile(dir, path.join("docs", "deep", "a.adoc")), "committed");
+    // Repo-relative separators ("/") must work without path.sep translation.
+    assert.equal(await readHeadFile(dir, "docs/deep/a.adoc"), "committed");
+    assert.equal(await readHeadFile(dir, "docs/missing.adoc"), null, "unknown path is null, not a throw");
+    assert.equal(await readHeadFile(dir, "docs"), null, "a tree is not a blob");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("readHeadFile returns null without commits or with a broken HEAD", async () => {
+  const base = await makeScratchDir("git-headfile-empty-test");
+  const dir = path.join(base, "repo");
+  await fsp.mkdir(dir, { recursive: true });
+  await git.init({ fs, dir });
+  try {
+    assert.equal(await readHeadFile(dir, "a.adoc"), null, "fresh repository has no HEAD tree");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("getDiffSource prefers HEAD, falls back to disk, then reports none", async () => {
+  const base = await buildScenarioRepo();
+  const dir = path.join(base, "repo");
+  try {
+    // modified.adoc: committed as "original", changed to "changed" on disk.
+    const head = await getDiffSource(path.join(dir, "modified.adoc"));
+    assert.equal(head.source, "head");
+    assert.equal(head.content, "original");
+    assert.equal(head.repoRoot, dir);
+
+    // untracked.adoc exists on disk but was never committed.
+    const disk = await getDiffSource(path.join(dir, "untracked.adoc"));
+    assert.equal(disk.source, "disk");
+    assert.equal(disk.content, "new");
+
+    // Never committed and nothing on disk either.
+    const missing = await getDiffSource(path.join(dir, "never-saved.adoc"));
+    assert.equal(missing.source, "none");
+    assert.equal(missing.content, null);
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("getDiffSource uses the last disk copy outside any repository", async () => {
+  const base = await makeScratchDir("git-diff-norepo-test");
+  const file = path.join(base, "notes.adoc");
+  await fsp.writeFile(file, "saved");
+  try {
+    const result = await getDiffSource(file);
+    assert.equal(result.source, "disk");
+    assert.equal(result.content, "saved");
+    assert.equal(result.repoRoot, null);
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
 });
 
 async function buildScenarioRepo() {

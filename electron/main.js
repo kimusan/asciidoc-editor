@@ -13,7 +13,7 @@ import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage, listD
 import { normalizeSnippets, STARTER_SNIPPETS } from "./snippets.js";
 import { disposeMermaidRenderer } from "./mermaid-renderer.js";
 import { createUpdateService } from "./update-service.js";
-import { getWorkspaceGitStatus, invalidateGitStatusCache } from "./git-service.js";
+import { getWorkspaceGitStatus, getDiffSource, invalidateGitStatusCache } from "./git-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -1293,6 +1293,14 @@ app.whenReady().then(async () => {
       return { isRepo: false, repoRoot: null, files: [] };
     }
     return getWorkspaceGitStatus({ workspacePath, isBrowsableFile: isWorkspaceBrowsableFile });
+  });
+
+  // Wave 5: what the current document should be diffed against - the HEAD
+  // version when the file is tracked, otherwise the last saved disk copy.
+  ipcMain.handle("git:diff-source", async (event, { filePath } = {}) => {
+    assertTrustedSender(event);
+    requireString(filePath, "filePath");
+    return getDiffSource(filePath);
   });
 
   ipcMain.handle("fs:read-document", async (event, filePath) => {

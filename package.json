@@ -119,6 +119,7 @@
     "@asciidoctor/core": "^3.0.4",
     "@asciidoctor/docbook-converter": "^3.0.0",
     "dictionary-en": "^4.0.0",
+    "diff": "^9.0.0",
     "electron-updater": "^6.8.11",
     "highlight.js": "^11.11.1",
     "ignore": "^7.0.17",

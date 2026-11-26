@@ -43,6 +43,7 @@ export const appState = {
   distractionFree: false,
   workspaceCollapsed: false,
   workspaceWidth: 280,
+  diffOverlayOpen: false,
   outlineCollapsed: false,
   workspaceQuery: "",
   workspaceContentSearchOpen: false,

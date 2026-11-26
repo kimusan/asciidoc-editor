@@ -85,6 +85,69 @@ export async function findGitRepositoryRoot(startPath) {
   }
 }
 
+// Reads the version of `relativePath` (repo-relative, "/" separators) as
+// committed in HEAD, walking the commit -> tree -> ... -> blob chain.
+// Returns null when HEAD or any path component is missing (fresh repo,
+// untracked file, renamed mid-walk).
+export async function readHeadFile(repoRoot, relativePath) {
+  const decoder = new TextDecoder();
+  const parts = relativePath.split(path.sep).join("/").split("/").filter(Boolean);
+
+  let oid;
+  try {
+    oid = await git.resolveRef({ fs, dir: repoRoot, ref: "HEAD" });
+    const { object: commit } = await git.readObject({ fs, dir: repoRoot, oid });
+    oid = commit.tree;
+  } catch {
+    return null;
+  }
+
+  for (let i = 0; i < parts.length; i += 1) {
+    const isLast = i === parts.length - 1;
+    let entry;
+    try {
+      const { object: entries } = await git.readObject({ fs, dir: repoRoot, oid });
+      entry = entries.find((candidate) => candidate.path === parts[i]);
+    } catch {
+      return null;
+    }
+    if (!entry || (isLast ? entry.type !== "blob" : entry.type !== "tree")) {
+      return null;
+    }
+    oid = entry.oid;
+  }
+
+  try {
+    const { object: blob } = await git.readObject({ fs, dir: repoRoot, oid });
+    return decoder.decode(blob);
+  } catch {
+    return null;
+  }
+}
+
+// Resolves what the current buffer should be diffed against: the committed
+// HEAD version when the file is tracked, otherwise the last saved copy on
+// disk. `readFile` is injected so unit tests can stub disk reads.
+// Returns { source: "head" | "disk" | "none", content, repoRoot }.
+export async function getDiffSource(filePath, { readFile } = {}) {
+  const read = readFile ?? ((p) => fs.promises.readFile(p, "utf8").catch(() => null));
+
+  const repoRoot = await findGitRepositoryRoot(path.dirname(filePath));
+  if (repoRoot) {
+    const headContent = await readHeadFile(repoRoot, path.relative(repoRoot, filePath));
+    if (headContent !== null) {
+      return { source: "head", content: headContent, repoRoot };
+    }
+  }
+
+  const diskContent = await read(filePath);
+  if (diskContent !== null) {
+    return { source: "disk", content: diskContent, repoRoot };
+  }
+
+  return { source: "none", content: null, repoRoot };
+}
+
 // Drop any cached status: called after writes the app itself performs
 // (save, asset import) so the next ask sees fresh content.
 export function invalidateGitStatusCache() {

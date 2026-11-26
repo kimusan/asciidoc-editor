@@ -1423,3 +1423,59 @@ test("workspace tree rows are dense, folders show an inline chevron, and the sid
     await fs.rm(profileDir, { recursive: true, force: true }).catch(() => {});
   }
 });
+
+test("diff overlay compares the editor with HEAD, the disk copy, and reports identical documents", async () => {
+  const git = (await import("isomorphic-git")).default;
+  const nodeFs = await import("node:fs");
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-diff-docs-"));
+  await git.init({ fs: nodeFs.default, dir: docsDir });
+  await fs.writeFile(path.join(docsDir, "tracked.adoc"), "= Tracked\n\noriginal line\n");
+  await fs.writeFile(path.join(docsDir, "clean.adoc"), "= Clean\n\nuntouched\n");
+  for (const name of ["tracked.adoc", "clean.adoc"]) {
+    await git.add({ fs: nodeFs.default, dir: docsDir, filepath: name });
+  }
+  await git.commit({ fs: nodeFs.default, dir: docsDir, message: "init", author: { name: "E2E", email: "e2e@example.com" } });
+  // Post-commit disk edit: the editor buffer (loaded from disk) differs
+  // from HEAD, so the diff must show a removed and an added line.
+  await fs.writeFile(path.join(docsDir, "tracked.adoc"), "= Tracked\n\nchanged line\n");
+  await fs.writeFile(path.join(docsDir, "untracked.adoc"), "= Untracked\n\nsaved copy\n");
+
+  const { app, window } = await launchApp(null, null, [path.join(docsDir, "tracked.adoc")]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // 1. Ctrl+Shift+D opens the overlay for a tracked file with HEAD differences.
+    await window.keyboard.press("Control+Shift+D");
+    await expect(window.locator("#diff-overlay")).toHaveClass(/is-open/);
+    await expect(window.locator("#diff-subtitle")).toContainText("committed in git");
+    await expect(window.locator(".diff-line.is-removed .diff-text")).toHaveText(/original line/);
+    await expect(window.locator(".diff-line.is-added .diff-text")).toHaveText(/changed line/);
+    await window.keyboard.press("Escape");
+    await expect(window.locator("#diff-overlay")).not.toHaveClass(/is-open/);
+
+    // 2. A tracked but unchanged document reports "No differences" (HEAD
+    //    matches the buffer).
+    const fileTree = window.locator("#file-tree");
+    await fileTree.locator('.tree-entry-file:has(.tree-entry-label:text-is("clean.adoc"))').click();
+    await expect(window.locator(".cm-content")).toContainText("untouched");
+    await window.keyboard.press("Control+Shift+D");
+    await expect(window.locator("#diff-overlay")).toHaveClass(/is-open/);
+    await expect(window.locator(".diff-empty")).toHaveText(/No differences/);
+    await window.keyboard.press("Escape");
+
+    // 3. An untracked file falls back to the disk copy, so UNSAVED edits
+    //    in the editor show up as added lines.
+    await fileTree.locator('.tree-entry-file:has(.tree-entry-label:text-is("untracked.adoc"))').click();
+    await expect(window.locator(".cm-content")).toContainText("saved copy");
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+End");
+    await window.keyboard.type("typed but unsaved\n");
+    await window.keyboard.press("Control+Shift+D");
+    await expect(window.locator("#diff-overlay")).toHaveClass(/is-open/);
+    await expect(window.locator("#diff-subtitle")).toContainText("Not tracked in git");
+    await expect(window.locator(".diff-line.is-added .diff-text")).toHaveText(/typed but unsaved/);
+  } finally {
+    await stopApp(app);
+    await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});
+  }
+});
