@@ -688,3 +688,50 @@ test("native menu bar is defined from the shared action registry", async () => {
     await stopApp(app);
   }
 });
+
+test("spell check underlines misspellings, fixes them from the context menu, and toggles off", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-spell-docs-"));
+  const docPath = path.join(docsDir, "spell.adoc");
+  await fs.writeFile(
+    docPath,
+    "= Spell Check\n\nI can spell teh word.\n\n[source,js]\n----\nconst teh = 1;\n----\n"
+  );
+
+  const { app, window } = await launchApp(null, null, [docPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // The prose misspelling is underlined once the dictionary batch lands.
+    await expect(window.locator(".cm-spell-error", { hasText: "teh" }).first()).toBeVisible({ timeout: 10_000 });
+
+    // The same word inside a code block is never checked.
+    await expect(window.locator(".cm-line", { hasText: "const teh" }).locator(".cm-spell-error")).toHaveCount(0);
+
+    // Right-click the misspelling for suggestions; the first one replaces it.
+    await window.locator(".cm-spell-error", { hasText: "teh" }).first().click({ button: "right" });
+    const menu = window.locator(".spell-menu");
+    await expect(menu).toBeVisible();
+    const suggestions = menu.locator(".spell-menu-suggestions .spell-menu-item:not(:disabled)");
+    await expect(suggestions.first()).toBeVisible({ timeout: 10_000 });
+    await suggestions.first().click();
+    await expect(window.locator(".cm-line", { hasText: "I can spell" })).not.toContainText("teh");
+    await expect(window.locator(".cm-spell-error")).toHaveCount(0);
+
+    // Right-clicking a correct word never opens the menu.
+    await window.locator(".cm-line", { hasText: "I can spell" }).click();
+    await window.locator(".cm-content").click({ button: "right" });
+    await expect(window.locator(".spell-menu")).toHaveCount(0);
+
+    // Reintroduce a misspelling, then disable the setting: marks must clear.
+    await window.locator(".cm-content").click();
+    await window.keyboard.press("Control+End");
+    await window.keyboard.type("\nteh again");
+    await expect(window.locator(".cm-spell-error", { hasText: "teh" })).toBeVisible({ timeout: 10_000 });
+    await window.locator("#open-settings").click();
+    await window.locator("#settings-spell-check").uncheck();
+    await expect(window.locator(".cm-spell-error")).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});

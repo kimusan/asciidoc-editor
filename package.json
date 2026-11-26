@@ -116,9 +116,11 @@
   "dependencies": {
     "@asciidoctor/core": "^3.0.4",
     "@asciidoctor/docbook-converter": "^3.0.0",
+    "dictionary-en": "^4.0.0",
     "electron-updater": "^6.8.11",
     "highlight.js": "^11.11.1",
     "linkedom": "^0.18.15",
-    "mscgenjs": "^8.0.0"
+    "mscgenjs": "^8.0.0",
+    "nspell": "^2.1.5"
   }
 }

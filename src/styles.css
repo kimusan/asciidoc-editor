@@ -427,6 +427,63 @@ input:focus-visible,
   box-shadow: var(--shadow);
 }
 
+.spell-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg-strong);
+  backdrop-filter: blur(24px);
+  box-shadow: var(--shadow);
+}
+
+.spell-menu-suggestions {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.spell-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spell-menu-item:hover,
+.spell-menu-item:focus-visible {
+  background: var(--control-bg-hover);
+  color: var(--text-primary);
+}
+
+.spell-menu-item:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.spell-menu-item:disabled:hover,
+.spell-menu-item:disabled:focus-visible {
+  background: transparent;
+}
+
+
 .kebab-menu[hidden] {
   display: none;
 }

@@ -26,6 +26,7 @@ export const appState = {
   editorFontSize: "default",
   pdfPaperSize: "A4",
   autoCheckUpdates: true,
+  spellCheckEnabled: true,
   // Latest update event pushed from the main process; shape:
   // { status: "checking"|"available"|"up-to-date"|"error"|"downloading"|"ready",
   //   version?, mode?, releaseUrl?, percent?, message? }

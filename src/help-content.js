@@ -121,6 +121,11 @@ export const SHORTCUT_SECTIONS = [
         title: "Accept completion",
         detail: "Insert the highlighted suggestion. Arrow keys move through the list and Esc dismisses it.",
         shortcuts: [["Enter"]]
+      },
+      {
+        title: "Fix a misspelled word",
+        detail: "With spell check enabled (Settings > Spell Check), misspelled words are underlined in the editor. Right-click one to replace it with a suggestion, ignore it for this session, or add it to your personal dictionary. Code blocks, comments, attributes, and URLs are never checked.",
+        shortcuts: [["Right-click"]]
       }
     ]
   },

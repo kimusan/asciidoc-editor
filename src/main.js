@@ -63,6 +63,7 @@ import {
 import { KEBAB_LAYOUT, MENU_LAYOUT } from "./app-menu.js";
 import { findAnchorLine, findNavigationTarget } from "./navigation.js";
 import { formatAsciiDocTable } from "./table-format.js";
+import { spellCheckExtension } from "./spell-check.js";
 import {
   closeCommandPalette,
   initCommandPalette,
@@ -73,6 +74,17 @@ import "./styles.css";
 
 const themeCompartment = new Compartment();
 const editorThemeCompartment = new Compartment();
+const spellCheckCompartment = new Compartment();
+
+// One shared extension instance: the word cache inside it survives tab
+// switches and setting toggles, so already-checked words are never sent to
+// the dictionary twice.
+const editorSpellCheck = spellCheckExtension({
+  isEnabled: () => appState.spellCheckEnabled,
+  checkWords: (words) => window.desktop.spellCheck(words),
+  suggest: (word) => window.desktop.spellSuggest(word),
+  addWord: (word) => window.desktop.spellAddWord(word)
+});
 
 
 const DEFAULT_DOCUMENT_CONTENT = "= Untitled\n\nStart writing...";
@@ -602,6 +614,16 @@ function createLayout() {
             </article>
             <article class="settings-card">
               <div class="settings-card-header">
+                <h3>Spell Check</h3>
+                <p>Underline misspelled words in the editor with an English (US) dictionary. Right-click a word for suggestions.</p>
+              </div>
+              <label class="scope-toggle" title="Skips code blocks, comments, attributes, and URLs; words you add are kept in your personal dictionary.">
+                <input id="settings-spell-check" type="checkbox" />
+                <span>Check spelling as you type</span>
+              </label>
+            </article>
+            <article class="settings-card">
+              <div class="settings-card-header">
                 <h3>Updates</h3>
                 <p>Check GitHub for new app releases.</p>
               </div>
@@ -772,6 +794,7 @@ function createLayout() {
   elements.choosePdfStylesheet = document.querySelector("#choose-pdf-stylesheet");
   elements.clearPdfStylesheet = document.querySelector("#clear-pdf-stylesheet");
   elements.settingsAutoUpdate = document.querySelector("#settings-auto-update");
+  elements.settingsSpellCheck = document.querySelector("#settings-spell-check");
   elements.updateCheckStatus = document.querySelector("#update-check-status");
   elements.checkUpdates = document.querySelector("#check-updates");
   elements.updateToast = document.querySelector("#update-toast");
@@ -2150,7 +2173,8 @@ function createEditorState(doc) {
     extensions: [
       ...editorExtensions,
       themeCompartment.of(themeConfig.syntax),
-      editorThemeCompartment.of(themeConfig.editor)
+      editorThemeCompartment.of(themeConfig.editor),
+      spellCheckCompartment.of(appState.spellCheckEnabled ? editorSpellCheck : [])
     ]
   });
 }
@@ -2373,6 +2397,7 @@ function updateDocumentChrome() {
   elements.settingsEditorFontSize.value = normalizeEditorFontSizeValue(appState.editorFontSize);
   elements.settingsPdfPaperSize.value = appState.pdfPaperSize;
   elements.settingsAutoUpdate.checked = appState.autoCheckUpdates;
+  elements.settingsSpellCheck.checked = appState.spellCheckEnabled;
   elements.updateCheckStatus.textContent = describeUpdateStatus(appState.updateStatus);
   elements.editorSearchBar.hidden = !appState.editorSearchOpen;
   elements.editorReplaceRow.hidden = !appState.editorReplaceOpen;
@@ -2655,6 +2680,27 @@ function applyEditorTheme(theme) {
       editorThemeCompartment.reconfigure(themeConfig.editor)
     ]
   });
+}
+
+// Flip spell checking across the live editor and every open tab's cached
+// EditorState. The active document is updated through the view (its
+// updateListener refreshes the cached state); background documents get a
+// state.update so their states pick the new compartment content up when
+// they are next activated.
+function applySpellCheckEnabled(enabled) {
+  appState.spellCheckEnabled = Boolean(enabled);
+  const effect = spellCheckCompartment.reconfigure(appState.spellCheckEnabled ? editorSpellCheck : []);
+
+  if (editorRef.view) {
+    editorRef.view.dispatch({ effects: effect });
+  }
+
+  const activeState = editorRef.view ? editorRef.view.state : null;
+  for (const doc of appState.openDocuments) {
+    if (doc.editorState && doc.editorState !== activeState) {
+      doc.editorState = doc.editorState.update({ effects: [effect] }).state;
+    }
+  }
 }
 
 let lastAppliedShellTheme = null;
@@ -3770,6 +3816,11 @@ async function bindEvents() {
     await window.desktop.updateState({ autoCheckUpdates: appState.autoCheckUpdates });
   });
 
+  elements.settingsSpellCheck.addEventListener("change", async (event) => {
+    applySpellCheckEnabled(event.target.checked);
+    await window.desktop.updateState({ spellCheckEnabled: appState.spellCheckEnabled });
+  });
+
   elements.checkUpdates.addEventListener("click", async () => {
     appState.updateStatus = { status: "checking" };
     renderUpdateStatus();
@@ -4501,6 +4552,7 @@ function registerBootSequence() {
       editorFontSize: normalizeEditorFontSizeValue(state?.editorFontSize),
       pdfPaperSize: normalizePdfPaperSize(state?.pdfPaperSize),
       autoCheckUpdates: state?.autoCheckUpdates !== false,
+      spellCheckEnabled: state?.spellCheckEnabled !== false,
       workspaceCollapsed: Boolean(state?.workspaceCollapsed),
       outlineCollapsed: Boolean(state?.outlineCollapsed),
       zoomLevel: Number.isFinite(state?.zoomLevel) ? state.zoomLevel : 0,

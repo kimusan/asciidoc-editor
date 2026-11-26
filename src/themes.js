@@ -31,6 +31,10 @@ function createEditorTheme(palette) {
       ".cm-selectionBackground, .cm-content ::selection": {
         backgroundColor: palette.selection
       },
+      ".cm-spell-error": {
+        textDecoration: `underline wavy ${palette.spellError}`,
+        textUnderlineOffset: "3px"
+      },
       ".cm-tooltip.cm-tooltip-autocomplete": {
         backgroundColor: palette.gutter,
         color: palette.text,
@@ -83,7 +87,8 @@ export const THEME_STYLES = {
     literal: "#f6d58e",
     quote: "#c6b4ff",
     emphasis: "#e6edf5",
-    strong: "#ffffff"
+    strong: "#ffffff",
+    spellError: "#e06c75"
   }),
   porcelain: createEditorTheme({
     bg: "#faf6ee",
@@ -103,7 +108,8 @@ export const THEME_STYLES = {
     literal: "#6a4f0d",
     quote: "#7856aa",
     emphasis: "#293243",
-    strong: "#111827"
+    strong: "#111827",
+    spellError: "#b3403a"
   }),
   nord: createEditorTheme({
     bg: "#2b313d",
@@ -123,7 +129,8 @@ export const THEME_STYLES = {
     literal: "#ebcb8b",
     quote: "#d08770",
     emphasis: "#e5edf6",
-    strong: "#ffffff"
+    strong: "#ffffff",
+    spellError: "#bf616a"
   }),
   darcula: createEditorTheme({
     bg: "#2b2b2b",
@@ -143,7 +150,8 @@ export const THEME_STYLES = {
     literal: "#bbb529",
     quote: "#a9b7c6",
     emphasis: "#e6e6e6",
-    strong: "#ffffff"
+    strong: "#ffffff",
+    spellError: "#ff6b68"
   }),
   solarized: createEditorTheme({
     bg: "#fdf6e3",
@@ -163,7 +171,8 @@ export const THEME_STYLES = {
     literal: "#b58900",
     quote: "#6c71c4",
     emphasis: "#586e75",
-    strong: "#073642"
+    strong: "#073642",
+    spellError: "#dc322f"
   }),
   material: createEditorTheme({
     bg: "#f7f2fa",
@@ -183,7 +192,8 @@ export const THEME_STYLES = {
     literal: "#b3261e",
     quote: "#8e24aa",
     emphasis: "#49454f",
-    strong: "#1d1b20"
+    strong: "#1d1b20",
+    spellError: "#b3261e"
   })
 };
 

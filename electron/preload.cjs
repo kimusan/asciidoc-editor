@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld("desktop", {
   respondToAppCloseRequest: (payload) => ipcRenderer.invoke("app:close-response", payload),
   updateState: (payload) => ipcRenderer.invoke("state:update", payload),
   loadState: () => ipcRenderer.invoke("state:load"),
+  spellCheck: (words) => ipcRenderer.invoke("spell:check", words),
+  spellSuggest: (word) => ipcRenderer.invoke("spell:suggest", word),
+  spellAddWord: (word) => ipcRenderer.invoke("spell:add-word", word),
   setZoomLevel: (level) => {
     webFrame.setZoomLevel(level);
     return webFrame.getZoomLevel();

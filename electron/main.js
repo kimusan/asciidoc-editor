@@ -9,6 +9,7 @@ import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
 import { resolvePreviewLinkTarget } from "./preview-links.js";
 import { sanitizePartialState } from "./state-schema.js";
 import { loadState, saveState, flushStateWrites } from "./store.js";
+import { checkWords, suggestWords, addPersonalWord } from "./spell-service.js";
 import { createUpdateService } from "./update-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1344,6 +1345,18 @@ app.whenReady().then(async () => {
       filePath: targetPath,
       snippet: buildAssetSnippet(targetPath, { documentPath, workspacePath })
     };
+  });
+  ipcMain.handle("spell:check", async (event, words) => {
+    assertTrustedSender(event);
+    return checkWords(words);
+  });
+  ipcMain.handle("spell:suggest", async (event, word) => {
+    assertTrustedSender(event);
+    return suggestWords(word);
+  });
+  ipcMain.handle("spell:add-word", async (event, word) => {
+    assertTrustedSender(event);
+    return addPersonalWord(word);
   });
   ipcMain.handle("fs:save-document", async (event, { filePath, content }) => {
     assertTrustedSender(event);

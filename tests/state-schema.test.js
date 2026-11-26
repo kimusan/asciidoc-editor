@@ -22,6 +22,15 @@ test("sanitizePartialState keeps known keys with matching types", () => {
   });
 });
 
+test("sanitizePartialState persists the spell check toggle", () => {
+  assert.deepEqual(
+    sanitizePartialState({ spellCheckEnabled: false }),
+    { spellCheckEnabled: false }
+  );
+  // Wrong type must be dropped, not coerced.
+  assert.deepEqual(Object.keys(sanitizePartialState({ spellCheckEnabled: "off" })), []);
+});
+
 test("sanitizePartialState persists the preview color scheme override", () => {
   assert.deepEqual(
     sanitizePartialState({ previewColorScheme: "dark" }),

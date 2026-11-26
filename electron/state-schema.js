@@ -21,6 +21,7 @@ const STATE_SCHEMA = {
   editorFontSize: "string",
   pdfPaperSize: "string",
   autoCheckUpdates: "boolean",
+  spellCheckEnabled: "boolean",
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
   outlineCollapsed: "boolean",
