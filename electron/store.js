@@ -50,6 +50,8 @@ const defaultState = {
   distractionFree: false,
   workspaceCollapsed: false,
   workspaceWidth: 280,
+  gitAuthorName: null,
+  gitAuthorEmail: null,
   outlineCollapsed: false,
   previewStylesheetPath: null,
   pdfStylesheetPath: null

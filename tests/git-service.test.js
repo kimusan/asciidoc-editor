@@ -12,6 +12,10 @@ import {
   getWorkspaceGitStatus,
   getDiffSource,
   readHeadFile,
+  stageFiles,
+  unstageFiles,
+  commitStaged,
+  getGitAuthor,
   collectGitignoreMatchers,
   isGitIgnored
 } from "../electron/git-service.js";
@@ -65,8 +69,8 @@ test("mapStatusMatrixToEntries keeps only non-clean files and absolutizes paths"
     "/repo"
   );
   assert.deepEqual(entries, [
-    { path: path.join("/repo", "mod.adoc"), status: "modified" },
-    { path: path.join("/repo", "untracked.adoc"), status: "untracked" }
+    { path: path.join("/repo", "mod.adoc"), status: "modified", staged: false },
+    { path: path.join("/repo", "untracked.adoc"), status: "untracked", staged: false }
   ]);
 });
 
@@ -219,7 +223,7 @@ test("getWorkspaceGitStatus treats a fresh repository's files as untracked", asy
   try {
     const status = await getWorkspaceGitStatus({ workspacePath: dir, isBrowsableFile: BROWSABLE });
     assert.equal(status.isRepo, true);
-    assert.deepEqual(status.files, [{ path: path.join(dir, "a.adoc"), status: "untracked" }]);
+    assert.deepEqual(status.files, [{ path: path.join(dir, "a.adoc"), status: "untracked", staged: false }]);
   } finally {
     await fsp.rm(base, { recursive: true, force: true });
   }
@@ -250,5 +254,186 @@ test("getWorkspaceGitStatus returns isRepo false outside any repository", async 
     assert.deepEqual(status.files, []);
   } finally {
     await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
+// --- Stage / unstage / commit (Wave 5 increment 3) ------------------------
+//
+// The matrix cell encodings below are the empirically verified v1.44
+// semantics (see the statusForRow test above). Unstaging is implemented
+// with direct .git/index I/O because isomorphic-git has no reset command
+// (absent even in the latest release), so these tests also pin the index
+// reader/writer against isomorphic-git's own statusMatrix.
+
+async function buildCommitScenarioRepo() {
+  const base = await makeScratchDir("git-stage-test");
+  const dir = path.join(base, "repo");
+  await fsp.mkdir(dir, { recursive: true });
+  await git.init({ fs, dir });
+  const write = (name, content) => fsp.writeFile(path.join(dir, name), content);
+  await write("kept.adoc", "kept");
+  await write("modified.adoc", "original");
+  await write("gone.adoc", "bye");
+  for (const name of ["kept.adoc", "modified.adoc", "gone.adoc"]) {
+    await git.add({ fs, dir, filepath: name });
+  }
+  await git.commit({ fs, dir, message: "init", author: { name: "T", email: "t@example.com" } });
+  await write("modified.adoc", "changed"); // modified, unstaged
+  await write("new.adoc", "new"); // untracked
+  await fsp.rm(path.join(dir, "gone.adoc")); // deleted, unstaged
+  return { base, dir };
+}
+
+async function matrixFor(dir) {
+  const matrix = await git.statusMatrix({ fs, dir });
+  return new Map(matrix.map((row) => [row[0], row.slice(1).join("")]));
+}
+
+test("mapStatusMatrixToEntries reports the staged flag from the stage cell", () => {
+  const entries = mapStatusMatrixToEntries(
+    [
+      ["clean.adoc", 1, 1, 1],
+      ["mod-unstaged.adoc", 1, 2, 1],
+      ["mod-staged.adoc", 1, 2, 2],
+      ["new-untracked.adoc", 0, 2, 0],
+      ["new-staged.adoc", 0, 2, 2],
+      ["new-staged-modified.adoc", 0, 2, 3],
+      ["del-unstaged.adoc", 1, 0, 1],
+      ["del-staged.adoc", 1, 0, 0]
+    ],
+    "/repo"
+  );
+  const byName = new Map(entries.map((entry) => [path.basename(entry.path), entry.staged]));
+  assert.equal(byName.has("clean.adoc"), false);
+  assert.equal(byName.get("mod-unstaged.adoc"), false);
+  assert.equal(byName.get("mod-staged.adoc"), true);
+  assert.equal(byName.get("new-untracked.adoc"), false);
+  assert.equal(byName.get("new-staged.adoc"), true);
+  assert.equal(byName.get("new-staged-modified.adoc"), true);
+  assert.equal(byName.get("del-unstaged.adoc"), false);
+  assert.equal(byName.get("del-staged.adoc"), true);
+});
+
+test("stageFiles stages modifications, additions, and deletions", async () => {
+  const { base, dir } = await buildCommitScenarioRepo();
+  try {
+    const result = await stageFiles({
+      workspacePath: dir,
+      filePaths: [path.join(dir, "modified.adoc"), path.join(dir, "new.adoc"), path.join(dir, "gone.adoc")]
+    });
+    assert.equal(result.ok, true);
+    const matrix = await matrixFor(dir);
+    assert.equal(matrix.get("modified.adoc"), "122");
+    assert.equal(matrix.get("new.adoc"), "022");
+    assert.equal(matrix.get("gone.adoc"), "100");
+    assert.equal(matrix.get("kept.adoc"), "111");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("unstageFiles resets index entries to HEAD without touching other staged files", async () => {
+  const { base, dir } = await buildCommitScenarioRepo();
+  try {
+    // Stage everything first, plus a further workdir edit on new.adoc
+    // ([0,2,3]: staged content differs from both HEAD and workdir).
+    await stageFiles({
+      workspacePath: dir,
+      filePaths: [path.join(dir, "modified.adoc"), path.join(dir, "new.adoc"), path.join(dir, "gone.adoc")]
+    });
+    await fsp.writeFile(path.join(dir, "new.adoc"), "newer");
+
+    // Unstage only modified.adoc and gone.adoc; new.adoc must stay staged.
+    const result = await unstageFiles({
+      workspacePath: dir,
+      filePaths: [path.join(dir, "modified.adoc"), path.join(dir, "gone.adoc")]
+    });
+    assert.equal(result.ok, true);
+    let matrix = await matrixFor(dir);
+    assert.equal(matrix.get("modified.adoc"), "121", "staged modification back to unstaged");
+    assert.equal(matrix.get("gone.adoc"), "101", "staged deletion back to unstaged deletion");
+    assert.equal(matrix.get("new.adoc"), "023", "untouched staged-new-modified survives the rewrite");
+
+    // Unstaging a staged-new file (not in HEAD) drops its index entry.
+    await unstageFiles({ workspacePath: dir, filePaths: [path.join(dir, "new.adoc")] });
+    matrix = await matrixFor(dir);
+    assert.equal(matrix.get("new.adoc"), "020", "staged-new back to untracked");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("unstageFiles works in a repository without commits (index-only)", async () => {
+  const base = await makeScratchDir("git-stage-nocommit-test");
+  const dir = path.join(base, "repo");
+  await fsp.mkdir(dir, { recursive: true });
+  await git.init({ fs, dir });
+  await fsp.writeFile(path.join(dir, "a.adoc"), "x");
+  try {
+    await stageFiles({ workspacePath: dir, filePaths: [path.join(dir, "a.adoc")] });
+    assert.equal((await matrixFor(dir)).get("a.adoc"), "022");
+    const result = await unstageFiles({ workspacePath: dir, filePaths: [path.join(dir, "a.adoc")] });
+    assert.equal(result.ok, true);
+    assert.equal((await matrixFor(dir)).get("a.adoc"), "020");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("commitStaged commits only the staged content with the given author", async () => {
+  const { base, dir } = await buildCommitScenarioRepo();
+  try {
+    await stageFiles({ workspacePath: dir, filePaths: [path.join(dir, "modified.adoc")] });
+    const result = await commitStaged({
+      workspacePath: dir,
+      message: "commit the modification",
+      authorName: "Writer",
+      authorEmail: "writer@example.com"
+    });
+    assert.equal(result.ok, true);
+    assert.match(result.oid, /^[0-9a-f]{40}$/);
+
+    const log = await git.log({ fs, dir, depth: 1 });
+    assert.equal(log[0].commit.message.trim(), "commit the modification");
+    assert.equal(log[0].commit.author.name, "Writer");
+
+    // The unstaged changes are still unstaged after the commit.
+    const matrix = await matrixFor(dir);
+    assert.equal(matrix.get("modified.adoc"), "111");
+    assert.equal(matrix.get("new.adoc"), "020");
+    assert.equal(matrix.get("gone.adoc"), "101");
+
+    // Validation: empty message, and nothing-staged (the author must be
+    // passed here - the author check runs before the commit attempt, and
+    // this machine has no git config to fall back on).
+    assert.deepEqual(await commitStaged({ workspacePath: dir, message: "  " }), { ok: false, error: "empty-message" });
+    assert.deepEqual(
+      await commitStaged({ workspacePath: dir, message: "nothing new", authorName: "W", authorEmail: "w@example.com" }),
+      { ok: false, error: "nothing-staged" }
+    );
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("commitStaged falls back to the git config author and reports a missing one", async () => {
+  const { base, dir } = await buildCommitScenarioRepo();
+  try {
+    await stageFiles({ workspacePath: dir, filePaths: [path.join(dir, "new.adoc")] });
+
+    // No author anywhere (config unset, none passed): distinct error.
+    assert.deepEqual(await commitStaged({ workspacePath: dir, message: "x" }), { ok: false, error: "missing-author" });
+
+    // Repo config is picked up when no explicit author is passed.
+    await git.setConfig({ fs, dir, path: "user.name", value: "Config Name" });
+    await git.setConfig({ fs, dir, path: "user.email", value: "config@example.com" });
+    const author = await getGitAuthor({ workspacePath: dir });
+    assert.deepEqual(author, { name: "Config Name", email: "config@example.com" });
+    const result = await commitStaged({ workspacePath: dir, message: "from config" });
+    assert.equal(result.ok, true);
+    const log = await git.log({ fs, dir, depth: 1 });
+    assert.equal(log[0].commit.author.name, "Config Name");
+  } finally {
+    await fsp.rm(base, { recursive: true, force: true });
   }
 });

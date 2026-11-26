@@ -1443,6 +1443,9 @@ test("diff overlay compares the editor with HEAD, the disk copy, and reports ide
   const { app, window } = await launchApp(null, null, [path.join(docsDir, "tracked.adoc")]);
   try {
     await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    // The document tab appears once activation finishes and openFilePath is
+    // set - the diff below depends on it.
+    await expect(window.locator("#document-tabs [role='tab']")).toHaveText(/tracked\.adoc/, { timeout: 10_000 });
 
     // 1. Ctrl+Shift+D opens the overlay for a tracked file with HEAD differences.
     await window.keyboard.press("Control+Shift+D");
@@ -1474,6 +1477,66 @@ test("diff overlay compares the editor with HEAD, the disk copy, and reports ide
     await expect(window.locator("#diff-overlay")).toHaveClass(/is-open/);
     await expect(window.locator("#diff-subtitle")).toContainText("Not tracked in git");
     await expect(window.locator(".diff-line.is-added .diff-text")).toHaveText(/typed but unsaved/);
+  } finally {
+    await stopApp(app);
+    await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});
+  }
+});
+
+test("commit panel stages, commits, and refreshes the tree badges", async () => {
+  const git = (await import("isomorphic-git")).default;
+  const nodeFs = await import("node:fs");
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-commit-docs-"));
+  await git.init({ fs: nodeFs.default, dir: docsDir });
+  await fs.writeFile(path.join(docsDir, "tracked.adoc"), "= Tracked\n\noriginal\n");
+  await fs.writeFile(path.join(docsDir, "other.adoc"), "= Other\n\nuntouched\n");
+  for (const name of ["tracked.adoc", "other.adoc"]) {
+    await git.add({ fs: nodeFs.default, dir: docsDir, filepath: name });
+  }
+  await git.commit({ fs: nodeFs.default, dir: docsDir, message: "init", author: { name: "E2E", email: "e2e@example.com" } });
+  await git.setConfig({ fs: nodeFs.default, dir: docsDir, path: "user.name", value: "E2E Author" });
+  await git.setConfig({ fs: nodeFs.default, dir: docsDir, path: "user.email", value: "e2e-author@example.com" });
+  // Post-commit edit: modified but unstaged. A second new file is untracked.
+  await fs.writeFile(path.join(docsDir, "tracked.adoc"), "= Tracked\n\nchanged\n");
+  await fs.writeFile(path.join(docsDir, "fresh.adoc"), "= Fresh\n");
+
+  const { app, window } = await launchApp(null, null, [path.join(docsDir, "tracked.adoc")]);
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+    const fileTree = window.locator("#file-tree");
+    await expect(fileTree.locator('.tree-entry-file:has(.tree-entry-label:text-is("tracked.adoc")) .tree-git-badge')).toHaveClass(/is-modified/, { timeout: 10_000 });
+
+    // 1. Ctrl+Shift+G opens the commit panel; both changes start unstaged.
+    await window.keyboard.press("Control+Shift+G");
+    await expect(window.locator("#commit-overlay")).toHaveClass(/is-open/);
+    await expect(window.locator("#commit-subtitle")).toContainText("Repository:");
+    await expect(window.locator(".commit-section-label")).toHaveText(/Changes \(2\)/);
+    await expect(window.locator("#commit-author-row")).toBeHidden();
+    await expect(window.locator("#commit-submit")).toBeDisabled();
+
+    // 2. Ticking a file's checkbox stages it: it moves to the Staged section
+    //    and the commit button unlocks once a message is written.
+    await window.locator('.commit-file-row:has-text("tracked.adoc") input[type="checkbox"]').check();
+    await expect(window.locator(".commit-section-label").first()).toHaveText(/Staged \(1\)/);
+    await expect(window.locator(".commit-section-label").nth(1)).toHaveText(/Changes \(1\)/);
+    await window.locator("#commit-message").fill("Update the tracked document");
+    await expect(window.locator("#commit-submit")).toBeEnabled();
+
+    // 3. Committing creates the commit and clears the staged entry; the
+    //    tree badge for tracked.adoc disappears with the next refresh.
+    await window.locator("#commit-submit").click();
+    await expect(window.locator("#commit-status-line")).toHaveText(/Committed [0-9a-f]{7}/);
+    await expect(window.locator(".commit-section-label").first()).toHaveText(/Changes \(1\)/);
+    await expect(fileTree.locator('.tree-entry-file:has(.tree-entry-label:text-is("tracked.adoc")) .tree-git-badge')).toHaveCount(0, { timeout: 10_000 });
+
+    // 4. The commit itself: message and configured author.
+    const log = await git.log({ fs: nodeFs.default, dir: docsDir, depth: 1 });
+    expect(log[0].commit.message.trim()).toBe("Update the tracked document");
+    expect(log[0].commit.author.name).toBe("E2E Author");
+
+    // 5. Escape closes the panel.
+    await window.keyboard.press("Escape");
+    await expect(window.locator("#commit-overlay")).not.toHaveClass(/is-open/);
   } finally {
     await stopApp(app);
     await fs.rm(docsDir, { recursive: true, force: true }).catch(() => {});

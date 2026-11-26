@@ -552,6 +552,33 @@ function createLayout() {
           <div id="diff-body" class="diff-body" tabindex="0" aria-label="Differences between the editor and the saved version"></div>
         </section>
       </div>
+      <div id="commit-overlay" class="reference-overlay">
+        <div id="commit-backdrop" class="reference-backdrop"></div>
+        <section class="reference-dialog commit-dialog panel" role="dialog" aria-modal="true" aria-labelledby="commit-title" aria-describedby="commit-subtitle">
+          <div class="panel-header">
+            <div class="panel-header-main">
+              <span class="panel-icon">${ICONS.gitCommit}</span>
+              <div>
+                <div id="commit-title" class="panel-title">Commit Changes</div>
+                <div id="commit-subtitle" class="panel-subtitle">Stage changes and write the commit message.</div>
+              </div>
+            </div>
+            <button id="close-commit" class="toolbar-button ghost-button"><span>Close</span></button>
+          </div>
+          <div id="commit-file-list" class="commit-files" tabindex="0" aria-label="Changed files in the workspace"></div>
+          <div class="commit-form">
+            <div id="commit-author-row" class="commit-author-row" hidden>
+              <input id="commit-author-name" class="commit-author-input" type="text" placeholder="Author name" autocomplete="off" aria-label="Author name" />
+              <input id="commit-author-email" class="commit-author-input" type="email" placeholder="Author email" autocomplete="off" aria-label="Author email" />
+            </div>
+            <textarea id="commit-message" class="commit-message" rows="3" placeholder="Commit message" aria-label="Commit message"></textarea>
+            <div id="commit-status-line" class="commit-status-line" role="status" aria-live="polite"></div>
+            <div class="commit-actions">
+              <button id="commit-submit" class="toolbar-button" type="submit"><span>Commit</span></button>
+            </div>
+          </div>
+        </section>
+      </div>
       <div id="settings-overlay" class="reference-overlay">
         <div id="settings-backdrop" class="reference-backdrop"></div>
         <section class="reference-dialog settings-dialog panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -879,6 +906,16 @@ function createLayout() {
   elements.diffSubtitle = document.querySelector("#diff-subtitle");
   elements.diffBody = document.querySelector("#diff-body");
   elements.closeDiff = document.querySelector("#close-diff");
+  elements.commitOverlay = document.querySelector("#commit-overlay");
+  elements.commitSubtitle = document.querySelector("#commit-subtitle");
+  elements.commitFileList = document.querySelector("#commit-file-list");
+  elements.commitAuthorRow = document.querySelector("#commit-author-row");
+  elements.commitAuthorName = document.querySelector("#commit-author-name");
+  elements.commitAuthorEmail = document.querySelector("#commit-author-email");
+  elements.commitMessage = document.querySelector("#commit-message");
+  elements.commitStatusLine = document.querySelector("#commit-status-line");
+  elements.commitSubmit = document.querySelector("#commit-submit");
+  elements.closeCommit = document.querySelector("#close-commit");
   elements.exportBackdrop = document.querySelector("#export-backdrop");
   elements.closeExport = document.querySelector("#close-export");
   elements.exportFormats = Array.from(document.querySelectorAll("[data-export-format]"));
@@ -1042,6 +1079,15 @@ function getAppActions() {
       hint: "Ctrl+Shift+D",
       run: () => {
         openDiffOverlay();
+      }
+    },
+    {
+      id: "commitChanges",
+      label: "Commit changes…",
+      icon: ICONS.gitCommit,
+      hint: "Ctrl+Shift+G",
+      run: () => {
+        openCommitOverlay();
       }
     },
     {
@@ -2556,6 +2602,7 @@ function updateDocumentChrome() {
   elements.previewOverlay.classList.toggle("is-open", appState.previewOverlayOpen);
   elements.exportOverlay.classList.toggle("is-open", appState.exportOverlayOpen);
   elements.diffOverlay?.classList.toggle("is-open", appState.diffOverlayOpen);
+  elements.commitOverlay?.classList.toggle("is-open", appState.commitOverlayOpen);
   elements.referenceOverlay.classList.toggle("is-open", appState.referenceOpen);
   elements.workspaceContentOverlay.classList.toggle("is-open", appState.workspaceContentSearchOpen);
   elements.helpOverlay.classList.toggle("is-open", appState.helpOpen);
@@ -2683,7 +2730,11 @@ async function renderDiffView() {
     body.innerHTML = `<p class="diff-empty">${escapeHtml(message)}</p>`;
   };
 
-  if (!appState.openFilePath || typeof window.desktop.gitDiffSource !== "function") {
+  // The open-file mirror is set during document activation, which can lag
+  // the first editor paint by a tick; fall back to the active document.
+  const activeDocument = appState.openDocuments.find((document) => document.id === appState.activeDocumentId);
+  const activeFilePath = appState.openFilePath ?? activeDocument?.path ?? null;
+  if (!activeFilePath || typeof window.desktop.gitDiffSource !== "function") {
     elements.diffSubtitle.textContent = DIFF_SOURCE_SUBTITLES.none;
     emptyDiff("Save the document first — untitled documents have nothing to compare against.");
     return;
@@ -2691,7 +2742,7 @@ async function renderDiffView() {
 
   let source;
   try {
-    source = await window.desktop.gitDiffSource({ filePath: appState.openFilePath });
+    source = await window.desktop.gitDiffSource({ filePath: activeFilePath });
   } catch {
     source = { source: "none", content: null };
   }
@@ -2767,6 +2818,188 @@ function closeDiffOverlay() {
   restoreOverlayFocus();
 }
 
+// --- Commit panel (Wave 5 increment 3) ------------------------------------
+
+const COMMIT_ERROR_MESSAGES = {
+  "not-a-repository": "This workspace is not a git repository.",
+  "empty-message": "Write a commit message first.",
+  "nothing-staged": "Nothing is staged to commit.",
+  "missing-author": "Fill in the author name and email.",
+  "commit-failed": "The commit failed."
+};
+
+function setCommitStatusLine(message) {
+  if (elements.commitStatusLine) {
+    elements.commitStatusLine.textContent = message ?? "";
+  }
+}
+
+function updateCommitSubmitState() {
+  const hasStaged = (appState.gitStatus?.files ?? []).some((entry) => entry.staged);
+  const hasMessage = elements.commitMessage?.value.trim().length > 0;
+  const authorMissing = !elements.commitAuthorRow?.hidden
+    && (!elements.commitAuthorName?.value.trim() || !elements.commitAuthorEmail?.value.trim());
+  elements.commitSubmit.disabled = !(hasStaged && hasMessage && !authorMissing);
+  elements.commitSubmit.toggleAttribute("aria-disabled", elements.commitSubmit.disabled);
+}
+
+function renderCommitFileList() {
+  const list = elements.commitFileList;
+  if (!list) {
+    return;
+  }
+
+  const files = appState.gitStatus?.files ?? [];
+  if (!appState.gitStatus?.isRepo) {
+    list.innerHTML = '<p class="diff-empty">This workspace is not a git repository.</p>';
+    return;
+  }
+  if (files.length === 0) {
+    list.innerHTML = '<p class="diff-empty">No changes to commit — the workspace is clean.</p>';
+    return;
+  }
+
+  const renderRow = (entry) => {
+    const badge = GIT_BADGE_LABELS[entry.status] ?? { letter: "·", title: entry.status };
+    const name = getBaseName(entry.path);
+    const dir = getParentPath(entry.path);
+    const relativeDir = appState.gitStatus.repoRoot && dir.startsWith(appState.gitStatus.repoRoot)
+      ? dir.slice(appState.gitStatus.repoRoot.length).replace(/^[/\\]/, "")
+      : dir;
+    return `
+      <label class="commit-file-row">
+        <input type="checkbox" class="commit-stage-toggle" data-commit-path="${escapeHtml(entry.path)}" ${entry.staged ? "checked" : ""} />
+        <span class="tree-git-badge is-${entry.status}" title="${badge.title}">${badge.letter}</span>
+        <span class="commit-file-name">${escapeHtml(name)}</span>
+        <span class="commit-file-path">${escapeHtml(relativeDir || ".")}</span>
+      </label>
+    `;
+  };
+
+  const staged = files.filter((entry) => entry.staged);
+  const unstaged = files.filter((entry) => !entry.staged);
+  list.innerHTML = `
+    ${staged.length > 0 ? `<div class="commit-section-label">Staged (${staged.length})</div>${staged.map(renderRow).join("")}` : ""}
+    ${unstaged.length > 0 ? `<div class="commit-section-label">Changes (${unstaged.length})</div>${unstaged.map(renderRow).join("")}` : ""}
+  `;
+}
+
+async function toggleCommitStage(filePath, wantsStaged) {
+  const payload = { workspacePath: appState.workspacePath, filePaths: [filePath] };
+  // Checked box = staged: a check stages, unchecking unstages.
+  const result = wantsStaged
+    ? await window.desktop.gitStageFiles(payload)
+    : await window.desktop.gitUnstageFiles(payload);
+  if (!result?.ok) {
+    setCommitStatusLine("The staging step failed — refreshing.");
+  }
+  await refreshGitStatus();
+  renderCommitFileList();
+  updateCommitSubmitState();
+  await refreshFileTree();
+}
+
+async function submitCommit() {
+  if (elements.commitSubmit?.disabled) {
+    return;
+  }
+  const authorName = elements.commitAuthorRow?.hidden ? null : elements.commitAuthorName.value.trim() || null;
+  const authorEmail = elements.commitAuthorRow?.hidden ? null : elements.commitAuthorEmail.value.trim() || null;
+  setCommitStatusLine("Committing…");
+  elements.commitSubmit.disabled = true;
+
+  const result = await window.desktop.gitCommit({
+    workspacePath: appState.workspacePath,
+    message: elements.commitMessage.value,
+    authorName,
+    authorEmail
+  });
+
+  if (!result?.ok) {
+    setCommitStatusLine(COMMIT_ERROR_MESSAGES[result?.error] ?? COMMIT_ERROR_MESSAGES["commit-failed"]);
+    await refreshGitStatus();
+    renderCommitFileList();
+    updateCommitSubmitState();
+    return;
+  }
+
+  if (authorName && authorEmail) {
+    appState.gitAuthorName = authorName;
+    appState.gitAuthorEmail = authorEmail;
+    void window.desktop.updateState({ gitAuthorName, gitAuthorEmail });
+  }
+  setCommitStatusLine(`Committed ${result.oid.slice(0, 7)}`);
+  if (elements.commitMessage) {
+    elements.commitMessage.value = "";
+  }
+  await refreshGitStatus();
+  renderCommitFileList();
+  updateCommitSubmitState();
+  await refreshFileTree();
+}
+
+async function renderCommitView() {
+  if (!elements.commitFileList) {
+    return;
+  }
+
+  if (!appState.workspacePath) {
+    elements.commitSubtitle.textContent = "No folder selected.";
+    elements.commitFileList.innerHTML = '<p class="diff-empty">Open a workspace folder to stage and commit its changes.</p>';
+    elements.commitSubmit.disabled = true;
+    return;
+  }
+
+  await refreshGitStatus();
+  if (appState.commitOverlayOpen === false) {
+    return; // overlay was closed while awaiting the IPC
+  }
+
+  elements.commitSubtitle.textContent = appState.gitStatus.isRepo
+    ? `Repository: ${appState.gitStatus.repoRoot}`
+    : "This workspace is not a git repository.";
+
+  // The author fields only appear when git has no user.name/user.email
+  // configured; their values persist between commits via the app state.
+  if (elements.commitAuthorRow) {
+    let configured = null;
+    try {
+      configured = await window.desktop.gitAuthor({ workspacePath: appState.workspacePath });
+    } catch {
+      configured = null;
+    }
+    if (appState.commitOverlayOpen === false) {
+      return;
+    }
+    const needsAuthor = appState.gitStatus.isRepo && !configured;
+    elements.commitAuthorRow.hidden = !needsAuthor;
+    if (needsAuthor) {
+      elements.commitAuthorName.value = appState.gitAuthorName ?? elements.commitAuthorName.value;
+      elements.commitAuthorEmail.value = appState.gitAuthorEmail ?? elements.commitAuthorEmail.value;
+    }
+  }
+
+  setCommitStatusLine("");
+  renderCommitFileList();
+  updateCommitSubmitState();
+}
+
+function openCommitOverlay() {
+  appState.commitOverlayOpen = true;
+  captureOverlayFocus();
+  updateDocumentChrome();
+  requestAnimationFrame(() => {
+    elements.closeCommit?.focus();
+  });
+  void renderCommitView();
+}
+
+function closeCommitOverlay() {
+  appState.commitOverlayOpen = false;
+  updateDocumentChrome();
+  restoreOverlayFocus();
+}
+
 function openSettingsOverlay() {
   appState.settingsOpen = true;
   // The snippets list reflects the files on disk, which may have changed
@@ -2824,6 +3057,7 @@ let overlayRestoreFocus = null;
 const OVERLAY_SURFACES = [
   { isOpen: () => appState.exportOverlayOpen, dialogSelector: "#export-overlay .reference-dialog" },
   { isOpen: () => appState.diffOverlayOpen, dialogSelector: "#diff-overlay .reference-dialog" },
+  { isOpen: () => appState.commitOverlayOpen, dialogSelector: "#commit-overlay .reference-dialog" },
   { isOpen: () => appState.previewOverlayOpen, dialogSelector: "#preview-overlay .reference-dialog" },
   { isOpen: () => appState.settingsOpen, dialogSelector: "#settings-overlay .reference-dialog" },
   { isOpen: () => appState.helpOpen, dialogSelector: "#help-overlay .reference-dialog" },
@@ -4410,6 +4644,37 @@ async function bindEvents() {
     closeDiffOverlay();
   });
 
+  elements.closeCommit?.addEventListener("click", () => {
+    closeCommitOverlay();
+  });
+
+  elements.commitOverlay?.querySelector("#commit-backdrop")?.addEventListener("click", () => {
+    closeCommitOverlay();
+  });
+
+  elements.commitFileList?.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.classList.contains("commit-stage-toggle")) {
+      void toggleCommitStage(target.dataset.commitPath, target.checked);
+    }
+  });
+
+  elements.commitMessage?.addEventListener("input", () => {
+    updateCommitSubmitState();
+  });
+
+  elements.commitAuthorName?.addEventListener("input", () => {
+    updateCommitSubmitState();
+  });
+
+  elements.commitAuthorEmail?.addEventListener("input", () => {
+    updateCommitSubmitState();
+  });
+
+  elements.commitSubmit?.addEventListener("click", () => {
+    void submitCommit();
+  });
+
   elements.exportFormats.forEach((button) => {
     button.addEventListener("click", () => {
       closeExportOverlay();
@@ -5077,6 +5342,8 @@ async function bindEvents() {
         closeExportOverlay();
       } else if (appState.diffOverlayOpen) {
         closeDiffOverlay();
+      } else if (appState.commitOverlayOpen) {
+        closeCommitOverlay();
       } else if (appState.previewOverlayOpen) {
         closePreviewOverlay();
       } else if (appState.settingsOpen) {
@@ -5104,6 +5371,11 @@ async function bindEvents() {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "d") {
       event.preventDefault();
       openDiffOverlay();
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "g") {
+      event.preventDefault();
+      openCommitOverlay();
     }
 
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
@@ -5215,6 +5487,7 @@ async function bindEvents() {
       // behind the dialog.
       const overlayOpen = appState.settingsOpen || appState.helpOpen || appState.aboutOpen
         || appState.referenceOpen || appState.workspaceContentSearchOpen || appState.exportOverlayOpen
+        || appState.diffOverlayOpen || appState.commitOverlayOpen
         || appState.previewOverlayOpen || isCommandPaletteOpen() || isKebabMenuOpen();
       if (!overlayOpen) {
         event.preventDefault();

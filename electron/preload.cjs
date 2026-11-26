@@ -22,6 +22,10 @@ contextBridge.exposeInMainWorld("desktop", {
   setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),
   gitStatus: (payload) => ipcRenderer.invoke("git:status", payload),
   gitDiffSource: (payload) => ipcRenderer.invoke("git:diff-source", payload),
+  gitStageFiles: (payload) => ipcRenderer.invoke("git:stage-files", payload),
+  gitUnstageFiles: (payload) => ipcRenderer.invoke("git:unstage-files", payload),
+  gitCommit: (payload) => ipcRenderer.invoke("git:commit", payload),
+  gitAuthor: (payload) => ipcRenderer.invoke("git:author", payload),
   defineMenu: (payload) => ipcRenderer.invoke("app:define-menu", payload),
   onMenuAction: (callback) => {
     ipcRenderer.removeAllListeners("app:menu-action");

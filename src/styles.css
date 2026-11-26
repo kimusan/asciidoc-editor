@@ -1749,6 +1749,131 @@ input:focus-visible,
   color: var(--text-primary);
 }
 
+/* Commit panel: a scrollable staged/unstaged file list above the form. */
+.commit-dialog {
+  width: min(680px, calc(100vw - 48px));
+  height: min(620px, calc(100vh - 56px));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.commit-files {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 18px;
+  border-top: 1px solid var(--control-border);
+  border-bottom: 1px solid var(--control-border);
+}
+
+.commit-section-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+  margin: 10px 4px 6px;
+}
+
+.commit-section-label:first-child {
+  margin-top: 2px;
+}
+
+.commit-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.commit-file-row:hover {
+  background: color-mix(in srgb, var(--accent-strong) 8%, transparent);
+}
+
+.commit-file-row input[type="checkbox"] {
+  flex: 0 0 auto;
+  accent-color: var(--accent-strong);
+  width: 15px;
+  height: 15px;
+}
+
+.commit-file-row .tree-git-badge {
+  margin-left: 0;
+}
+
+.commit-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.commit-file-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.commit-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px 18px;
+}
+
+.commit-author-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* The [hidden] attribute alone is unreliable in this Chromium build (same
+   bug as the overlay dialogs): enforce it explicitly. */
+.commit-author-row[hidden] {
+  display: none;
+}
+
+.commit-author-input {
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.commit-message {
+  resize: vertical;
+  min-height: 64px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.commit-status-line {
+  min-height: 1.1em;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.commit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.commit-actions .toolbar-button {
+  min-width: 110px;
+}
+
 .format-grid {
   padding: 18px 20px 22px;
   display: grid;

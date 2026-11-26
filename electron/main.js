@@ -13,7 +13,7 @@ import { checkWords, suggestWords, addPersonalWord, setSpellCheckLanguage, listD
 import { normalizeSnippets, STARTER_SNIPPETS } from "./snippets.js";
 import { disposeMermaidRenderer } from "./mermaid-renderer.js";
 import { createUpdateService } from "./update-service.js";
-import { getWorkspaceGitStatus, getDiffSource, invalidateGitStatusCache } from "./git-service.js";
+import { getWorkspaceGitStatus, getDiffSource, invalidateGitStatusCache, stageFiles, unstageFiles, commitStaged, getGitAuthor } from "./git-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -1301,6 +1301,33 @@ app.whenReady().then(async () => {
     assertTrustedSender(event);
     requireString(filePath, "filePath");
     return getDiffSource(filePath);
+  });
+
+  // Wave 5: staging, unstaging, and committing from the commit panel. Each
+  // mutation invalidates the status cache inside the service, so the tree
+  // badges refresh on the next ask.
+  ipcMain.handle("git:stage-files", async (event, { workspacePath, filePaths } = {}) => {
+    assertTrustedSender(event);
+    requireString(workspacePath, "workspacePath");
+    return stageFiles({ workspacePath, filePaths });
+  });
+
+  ipcMain.handle("git:unstage-files", async (event, { workspacePath, filePaths } = {}) => {
+    assertTrustedSender(event);
+    requireString(workspacePath, "workspacePath");
+    return unstageFiles({ workspacePath, filePaths });
+  });
+
+  ipcMain.handle("git:commit", async (event, { workspacePath, message, authorName, authorEmail } = {}) => {
+    assertTrustedSender(event);
+    requireString(workspacePath, "workspacePath");
+    return commitStaged({ workspacePath, message, authorName, authorEmail });
+  });
+
+  ipcMain.handle("git:author", async (event, { workspacePath } = {}) => {
+    assertTrustedSender(event);
+    requireString(workspacePath, "workspacePath");
+    return getGitAuthor({ workspacePath });
   });
 
   ipcMain.handle("fs:read-document", async (event, filePath) => {

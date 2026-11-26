@@ -19,7 +19,9 @@ export const MENU_LAYOUT = [
       "closeDocument",
       "saveProject",
       "separator",
-      "exportDocument"
+      "exportDocument",
+      "compareChanges",
+      "commitChanges"
     ]
   },
   {
@@ -54,6 +56,8 @@ export const KEBAB_LAYOUT = [
   "closeDocument",
   "saveProject",
   "exportDocument",
+  "compareChanges",
+  "commitChanges",
   "separator",
   "findInDocument",
   "searchWorkspace",

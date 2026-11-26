@@ -28,6 +28,8 @@ const STATE_SCHEMA = {
   distractionFree: "boolean",
   workspaceCollapsed: "boolean",
   workspaceWidth: "number",
+  gitAuthorName: "string?",
+  gitAuthorEmail: "string?",
   outlineCollapsed: "boolean",
   previewStylesheetPath: "string?",
   pdfStylesheetPath: "string?"
