@@ -1221,7 +1221,24 @@ function buildNativeMenuPayload() {
 }
 
 // Preview state for the strip's sync dot plus the statusbar text.
+let previewStatusFlashUntil = 0;
+
+// Persistent preview status (sync state, chrome refreshes). Transient
+// messages shown by flashPreviewStatus hold the statusbar slot until their
+// lease expires, so async chrome/preview refreshes cannot overwrite a
+// just-shown warning before the writer reads it.
 function setPreviewStatus(state, text) {
+  if (Date.now() < previewStatusFlashUntil) {
+    return;
+  }
+  elements.documentStatus.dataset.state = state;
+  elements.documentStatus.setAttribute("aria-label", text);
+  elements.documentStatus.setAttribute("data-tip", `Preview status: ${text}`);
+  elements.statusbarSync.textContent = text;
+}
+
+function flashPreviewStatus(state, text, ttlMs = 2500) {
+  previewStatusFlashUntil = Date.now() + ttlMs;
   elements.documentStatus.dataset.state = state;
   elements.documentStatus.setAttribute("aria-label", text);
   elements.documentStatus.setAttribute("data-tip", `Preview status: ${text}`);
@@ -1444,7 +1461,7 @@ async function saveCurrentProject() {
   pushNativeMenu();
   updateDocumentChrome();
   await persistWindowState();
-  setPreviewStatus("synced", `Saved project ${savedProject.name}`);
+  flashPreviewStatus("synced", `Saved project ${savedProject.name}`);
   return true;
 }
 
@@ -1497,7 +1514,7 @@ async function handleIncomingPath(filePath) {
   } catch {
     // Recents can point at files that were deleted or renamed since; a
     // missing file must surface as a status message, not a rejected promise.
-    setPreviewStatus("error", `Could not open ${getBaseName(filePath)}`);
+    flashPreviewStatus("error", `Could not open ${getBaseName(filePath)}`);
   }
 }
 
@@ -1738,7 +1755,7 @@ async function importPastedImage() {
   }
 
   if (result?.error === "no-basedir") {
-    setPreviewStatus("warn", "Save the document (or open a workspace) before pasting images");
+    flashPreviewStatus("warn", "Save the document (or open a workspace) before pasting images");
   }
 }
 
@@ -1815,7 +1832,7 @@ async function navigateToReference(href) {
   }
 
   if (result.type === "missing") {
-    setPreviewStatus("error", result.message);
+    flashPreviewStatus("error", result.message);
   }
 }
 
@@ -2980,7 +2997,7 @@ function cycleDiagnostics() {
   const entry = diagnostics[index];
   if (entry.sourceLine) {
     jumpToEditorLocation(entry.sourceLine, 1);
-    setPreviewStatus("warn", `Line ${entry.sourceLine}: ${entry.message}`);
+    flashPreviewStatus("warn", `Line ${entry.sourceLine}: ${entry.message}`);
   }
 }
 
@@ -3001,7 +3018,7 @@ function formatActiveTable() {
   const activeIndex = doc.lineAt(editorRef.view.state.selection.main.head).number - 1;
   const result = formatAsciiDocTable(lines, activeIndex);
   if (!result) {
-    setPreviewStatus("warn", "Cursor is not inside a table");
+    flashPreviewStatus("warn", "Cursor is not inside a table");
     return false;
   }
 
@@ -3186,7 +3203,7 @@ async function handlePreviewLinkClick(event, frame) {
   }
 
   if (result.type === "missing") {
-    setPreviewStatus("error", result.message);
+    flashPreviewStatus("error", result.message);
   }
 }
 
@@ -3604,7 +3621,7 @@ async function exportCurrentDocument(format) {
     previewFontFamily: appState.previewFontFamily,
     pdfPaperSize: appState.pdfPaperSize
   });
-  setPreviewStatus("synced", `Exported ${format.toUpperCase()}`);
+  flashPreviewStatus("synced", `Exported ${format.toUpperCase()}`);
 }
 
 async function bindEvents() {
