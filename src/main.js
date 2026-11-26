@@ -1688,6 +1688,51 @@ async function importDroppedAssets(files) {
   insertTextAtSelection(result.snippets.join("\n"));
 }
 
+// Pasting an image writes it into the document's images/ folder (the same
+// convention as dropped image assets) and inserts the image:: snippet.
+async function importPastedImage() {
+  const result = await window.desktop.importClipboardImage({
+    documentPath: appState.openFilePath,
+    workspacePath: appState.workspacePath
+  });
+
+  if (result?.snippet) {
+    insertTextAtSelection(result.snippet);
+    return;
+  }
+
+  if (result?.error === "no-basedir") {
+    setPreviewStatus("warn", "Save the document (or open a workspace) before pasting images");
+  }
+}
+
+function handleEditorPaste(event) {
+  const items = event.clipboardData?.items;
+  if (!items) {
+    return false;
+  }
+
+  let hasImage = false;
+  let hasText = false;
+  for (const item of items) {
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      hasImage = true;
+    } else if (item.type === "text/plain") {
+      hasText = true;
+    }
+  }
+
+  // Only intercept pure image pastes. Some applications attach an image to
+  // a text paste (e.g. rich HTML); the text is what the user meant there.
+  if (!hasImage || hasText) {
+    return false;
+  }
+
+  event.preventDefault();
+  void importPastedImage();
+  return true;
+}
+
 function getOutlineEntries(content = appState.currentContent) {
   const lines = content.split("\n");
   const entries = [];
@@ -2087,6 +2132,12 @@ function createEditor() {
     asciidocLanguage(),
     asciidocCompletion(),
     EditorView.lineWrapping,
+    // A pure image paste (no text) imports the image into the project's
+    // images/ folder and inserts the snippet; any other paste falls
+    // through to CodeMirror untouched.
+    EditorView.domEventHandlers({
+      paste: (event) => handleEditorPaste(event)
+    }),
     EditorView.updateListener.of((update) => {
       const activeDocument = getDocumentSession();
       if (activeDocument) {

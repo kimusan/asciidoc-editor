@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("desktop", {
   readDocument: (filePath) => ipcRenderer.invoke("fs:read-document", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("fs:save-document", payload),
   importAssets: (payload) => ipcRenderer.invoke("fs:import-assets", payload),
+  importClipboardImage: (payload) => ipcRenderer.invoke("clipboard:import-image", payload),
   openProjectFile: (projectPath) => ipcRenderer.invoke("project:open-file", projectPath),
   saveProjectFile: (payload) => ipcRenderer.invoke("project:save-file", payload),
   setWatchedPaths: (paths) => ipcRenderer.invoke("fs:set-watched-paths", paths),

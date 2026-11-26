@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { watchFile, unwatchFile } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, shell } from "electron";
 import electronUpdater from "electron-updater";
 import { fileURLToPath } from "node:url";
 import { exportDocument, renderPreviewDocument } from "./asciidoc.js";
@@ -1297,6 +1297,54 @@ app.whenReady().then(async () => {
     };
   });
 
+  // A pasted clipboard image has no meaningful source path, so there is no
+  // copy-decision to make: it is always written into the project's images/
+  // folder (same convention as dropped image assets) and referenced from
+  // there.
+  ipcMain.handle("clipboard:import-image", async (event, payload = {}) => {
+    assertTrustedSender(event);
+    const documentPath = payload.documentPath ?? null;
+    const workspacePath = payload.workspacePath ?? null;
+    const baseDir = getAssetImportBaseDir(documentPath, workspacePath);
+    if (!baseDir) {
+      // Untitled document with no workspace: there is nowhere to put the
+      // file that the snippet could still reference after a restart.
+      return { error: "no-basedir" };
+    }
+
+    // e2e hook: Playwright's electron shim only exposes a text clipboard,
+    // so tests cannot put an image on the real system clipboard. When
+    // ASCIIDOC_TEST_CLIPBOARD_IMAGE points at a PNG, its bytes stand in for
+    // the clipboard image; everything downstream is identical.
+    let pngBytes = null;
+    const testImageFile = process.env.ASCIIDOC_TEST_CLIPBOARD_IMAGE;
+    if (testImageFile) {
+      try {
+        pngBytes = await fs.readFile(testImageFile);
+      } catch {
+        return { error: "empty" };
+      }
+    } else {
+      const image = clipboard.readImage();
+      if (image.isEmpty()) {
+        return { error: "empty" };
+      }
+
+      pngBytes = image.toPNG();
+    }
+
+    const stamp = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const baseName = `pasted-image-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}`;
+    const targetDirectory = path.join(baseDir, "images");
+    await fs.mkdir(targetDirectory, { recursive: true });
+    const targetPath = await resolveUniqueFilePath(path.join(targetDirectory, `${baseName}.png`));
+    await fs.writeFile(targetPath, pngBytes);
+    return {
+      filePath: targetPath,
+      snippet: buildAssetSnippet(targetPath, { documentPath, workspacePath })
+    };
+  });
   ipcMain.handle("fs:save-document", async (event, { filePath, content }) => {
     assertTrustedSender(event);
     requireString(filePath, "filePath");

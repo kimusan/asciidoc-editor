@@ -422,6 +422,53 @@ test("recent files surface in the native menu, palette, and kebab", async () => 
   }
 });
 
+test("pasting an image imports it into images/ and inserts the snippet", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-paste-docs-"));
+  const docPath = path.join(docsDir, "pasted.adoc");
+  await fs.writeFile(docPath, "= Paste Target\n\nBody text.\n");
+
+  // Playwright's electron shim cannot write a real image clipboard; the
+  // ASCIIDOC_TEST_CLIPBOARD_IMAGE hook lets this PNG stand in for it.
+  const pngPath = path.join(docsDir, "source-image.png");
+  await fs.writeFile(pngPath, Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  ));
+
+  const { app, window } = await launchApp(null, { ASCIIDOC_TEST_CLIPBOARD_IMAGE: pngPath }, [docPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Image-only paste: intercepted, imported, snippet inserted.
+    await window.evaluate(() => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(new File([new Blob(["png-bytes"], { type: "image/png" })], "shot.png", { type: "image/png" }));
+      document.querySelector(".cm-content").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dataTransfer }));
+    });
+    await expect(window.locator(".cm-content")).toContainText("image::images/pasted-image-", { timeout: 10_000 });
+
+    // The image file was written into the workspace images/ folder.
+    const imagesDir = path.join(docsDir, "images");
+    const written = await fs.readdir(imagesDir);
+    expect(written.some((name) => name.startsWith("pasted-image-") && name.endsWith(".png"))).toBe(true);
+
+    // Text pastes fall through untouched: no import, no snippet.
+    await window.evaluate(() => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData("text/plain", "plain words");
+      dataTransfer.items.add(new File([new Blob(["png-bytes"], { type: "image/png" })], "shot.png", { type: "image/png" }));
+      document.querySelector(".cm-content").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dataTransfer }));
+    });
+    await window.waitForTimeout(400);
+    const content = await window.evaluate(() => document.querySelector(".cm-content").textContent);
+    expect(content).toContain("plain words");
+    expect(content.match(/image::images\//g)?.length).toBe(1);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 
