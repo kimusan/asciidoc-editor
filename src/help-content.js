@@ -68,6 +68,11 @@ export const SHORTCUT_SECTIONS = [
         shortcuts: [["Ctrl", "F"], ["Cmd", "F"]]
       },
       {
+        title: "Reformat table",
+        detail: "Align the pipe table around the cursor: every column pads to its widest cell. One undo step reverts the whole table.",
+        shortcuts: [["Shift", "Alt", "F"]]
+      },
+      {
         title: "Replace in document",
         detail: "Open the search bar with replace controls visible.",
         shortcuts: [["Ctrl", "H"], ["Cmd", "H"]]

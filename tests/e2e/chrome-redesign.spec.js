@@ -547,6 +547,55 @@ test("converter diagnostics surface in the statusbar and jump to the source line
   }
 });
 
+test("reformat table aligns pipe columns and undoes as one step", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-table-docs-"));
+  const docPath = path.join(docsDir, "table.adoc");
+  await fs.writeFile(
+    docPath,
+    "= Table\n\n|===\n| Name | Qty |\n| Widget | 2 |\n| Gadget with a long name | 42 |\n|===\n\nTrailing text.\n"
+  );
+
+  const { app, window } = await launchApp(null, null, [docPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Cursor starts at the top; put it inside the table (line 5).
+    await window.locator(".cm-line", { hasText: "| Widget" }).click();
+    await window.keyboard.press("Shift+Alt+f");
+    await expect(window.locator(".cm-line", { hasText: "| Name" })).toHaveText(
+      "| Name                    | Qty", { timeout: 5_000 }
+    );
+    await expect(window.locator(".cm-line", { hasText: "| Widget" })).toHaveText(
+      "| Widget                  | 2"
+    );
+    // The last column is never padded (no dirty-diff whitespace).
+    await expect(window.locator(".cm-line", { hasText: "long name" })).toHaveText(
+      "| Gadget with a long name | 42"
+    );
+
+    // One undo step reverts the whole reformat.
+    await window.keyboard.press("Control+z");
+    await expect(window.locator(".cm-line", { hasText: "| Widget" })).toHaveText("| Widget | 2 |");
+
+    // The command also runs from the palette by name.
+    await window.keyboard.press("Control+k");
+    await window.locator(".command-palette-input").fill("reformat table");
+    await window.keyboard.press("Enter");
+    await expect(window.locator(".cm-line", { hasText: "| Widget" })).toHaveText(
+      "| Widget                  | 2"
+    );
+
+    // Outside a table the shortcut reports instead of editing.
+    await window.keyboard.press("Control+z");
+    await window.keyboard.press("Control+End");
+    await window.keyboard.press("Shift+Alt+f");
+    await expect(window.locator("#statusbar-sync")).toContainText("not inside a table");
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test("native menu bar is defined from the shared action registry", async () => {
   const { app, window } = await launchApp();
 

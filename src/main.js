@@ -62,6 +62,7 @@ import {
 } from "./utils.js";
 import { KEBAB_LAYOUT, MENU_LAYOUT } from "./app-menu.js";
 import { findAnchorLine, findNavigationTarget } from "./navigation.js";
+import { formatAsciiDocTable } from "./table-format.js";
 import {
   closeCommandPalette,
   initCommandPalette,
@@ -980,6 +981,15 @@ function getAppActions() {
       hint: "Ctrl+Shift+F",
       run: () => {
         openWorkspaceSearchOverlay();
+      }
+    },
+    {
+      id: "formatTable",
+      label: "Reformat table",
+      icon: ICONS.table,
+      hint: "Shift+Alt+F",
+      run: () => {
+        formatActiveTable();
       }
     },
     {
@@ -2175,6 +2185,10 @@ function createEditor() {
         }
       },
       {
+        key: "Shift-Alt-f",
+        run: () => formatActiveTable() || true
+      },
+      {
         key: "Mod-Space",
         run: startCompletion
       },
@@ -2881,6 +2895,35 @@ function cycleDiagnostics() {
     jumpToEditorLocation(entry.sourceLine, 1);
     setPreviewStatus("warn", `Line ${entry.sourceLine}: ${entry.message}`);
   }
+}
+
+// Reformat the pipe table around the cursor: every column pads to its
+// widest cell, applied as a single transaction so one Ctrl+Z undoes it.
+// Returns false when the cursor is not inside a table.
+function formatActiveTable() {
+  if (!editorRef.view) {
+    return false;
+  }
+
+  const doc = editorRef.view.state.doc;
+  const lines = [];
+  for (let number = 1; number <= doc.lines; number++) {
+    lines.push(doc.line(number).text);
+  }
+
+  const activeIndex = doc.lineAt(editorRef.view.state.selection.main.head).number - 1;
+  const result = formatAsciiDocTable(lines, activeIndex);
+  if (!result) {
+    setPreviewStatus("warn", "Cursor is not inside a table");
+    return false;
+  }
+
+  const from = doc.line(result.startIndex + 1).from;
+  const to = doc.line(result.endIndex + 1).to;
+  editorRef.view.dispatch({
+    changes: { from, to, insert: result.lines.join("\n") }
+  });
+  return true;
 }
 
 async function renderPreviewNow() {
