@@ -735,3 +735,45 @@ test("spell check underlines misspellings, fixes them from the context menu, and
     await stopApp(app);
   }
 });
+
+test("a command-line document still opens when a project session restores tabs", async () => {
+  const docsDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-launch-docs-"));
+  const projectPath = path.join(docsDir, "launch.adp");
+  const sessionDocPath = path.join(docsDir, "previous.adoc");
+  const launchDocPath = path.join(docsDir, "testdoc.adoc");
+  await fs.writeFile(sessionDocPath, "= Previous Session\n\nfrom the restored project session\n");
+  await fs.writeFile(launchDocPath, "= Launch Doc\n\nopened from the command line\n");
+  await fs.writeFile(projectPath, JSON.stringify({ name: "Launch Project", workspace: "." }));
+
+  // Seed a profile whose project session restores previous.adoc, then launch
+  // with testdoc.adoc on the command line: the launch document must still
+  // land in an active tab instead of being dropped by the session restore.
+  const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), "adoc-e2e-launch-profile-"));
+  await fs.writeFile(path.join(profileDir, "state.json"), JSON.stringify({
+    currentProjectPath: projectPath,
+    projectSessions: {
+      [projectPath]: {
+        openDocuments: [{ id: "doc-1", path: sessionDocPath, isDirty: false }],
+        activeDocumentId: "doc-1",
+        nextDocumentId: 2,
+        untitledSequence: 1
+      }
+    }
+  }));
+
+  const { app, window } = await launchApp(profileDir, null, [launchDocPath]);
+
+  try {
+    await expect(window.locator(".cm-content")).toBeVisible({ timeout: 20_000 });
+
+    // Both documents are open as tabs.
+    await expect(window.locator(".document-tab")).toHaveCount(2, { timeout: 10_000 });
+    await expect(window.locator(".document-tab", { hasText: "previous.adoc" })).toBeVisible();
+    await expect(window.locator(".document-tab", { hasText: "testdoc.adoc" })).toBeVisible();
+
+    // The command-line document is the active one.
+    await expect(window.locator(".cm-content")).toContainText("opened from the command line");
+  } finally {
+    await stopApp(app);
+  }
+});

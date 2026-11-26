@@ -4583,6 +4583,13 @@ function registerBootSequence() {
       syncWatchedPaths();
       const restoredActiveDocument = getDocumentSession(sessionState?.activeDocumentId) ?? appState.openDocuments[0];
       await activateDocument(restoredActiveDocument.id);
+      // A document passed on the command line (or via a fresh launch path)
+      // must still land in a tab even when a project session restored
+      // documents: without this it was silently dropped. openDocument
+      // dedupes by path, so a file that is already restored just activates.
+      if (initialDocument) {
+        await openDocument(normalizeDocumentPayload(initialDocument));
+      }
     } else if (initialDocument) {
       await openDocument(normalizeDocumentPayload(initialDocument));
     } else {
