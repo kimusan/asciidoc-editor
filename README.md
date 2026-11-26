@@ -12,32 +12,6 @@ AsciiDoc Editor is a standalone desktop app for writing and editing AsciiDoc wit
 
 It is built with Electron and Vite, and uses `asciidoctor.js` for standards-based AsciiDoc rendering.
 
-## Screenshots
-
-The editor in the default dark theme, with the workspace tree showing live git status badges:
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot.png" alt="Editor with git status badges in the workspace tree" width="860" />
-</p>
-
-Built-in git integration — stage and commit changes without leaving the editor:
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-commit.png" alt="Git commit panel" width="860" />
-</p>
-
-Compare the open document against the version committed in git:
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-diff.png" alt="Git diff view" width="860" />
-</p>
-
-Light themes are included too — here is the same document in Porcelain:
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-theme-porcelain.png" alt="Editor in the Porcelain light theme" width="860" />
-</p>
-
 ## Highlights
 
 - Live source + preview editing with resizable split view and two-way scroll sync
@@ -59,7 +33,49 @@ Light themes are included too — here is the same document in Porcelain:
 - Built-in searchable markup reference with snippet insertion
 - Portable `.adp` project files with project/session restore
 - Automatic update checks, with in-app self-updates on supported platforms
-- Packaging: Linux AppImage, `.deb`, `.rpm`, and `.pacman`; Windows installer, portable `.exe`, and `.zip`
+
+## Installation
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/kimusan/asciidoc-editor/releases/latest):
+
+**Linux**
+
+- `AsciiDoc.Editor-*.AppImage` — make it executable and run it:
+
+```bash
+chmod +x AsciiDoc.Editor-*.AppImage
+./AsciiDoc.Editor-*.AppImage
+```
+
+- Or install the `.deb`, `.rpm`, or `.pacman` package with your package manager.
+- Note: the AppImage needs FUSE 2 support (on Ubuntu 24.04 that is typically `libfuse2t64`).
+
+**Windows**
+
+- `AsciiDoc.Editor.Setup.*.exe` — the standard installer.
+- `AsciiDoc.Editor.*.exe` or the `-win.zip` — no installation required; just run and go.
+
+Once installed, the app checks for new releases automatically and updates itself in place on supported platforms.
+
+## Screenshots
+
+The hero shot at the top shows the default dark theme with the workspace tree carrying live git status badges. Built-in git integration lets you stage and commit changes without leaving the editor:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-commit.png" alt="Git commit panel" width="860" />
+</p>
+
+Compare the open document against the version committed in git:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-git-diff.png" alt="Git diff view" width="860" />
+</p>
+
+Light themes are included too — here is the same document in Porcelain:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/screenshot-theme-porcelain.png" alt="Editor in the Porcelain light theme" width="860" />
+</p>
 
 ## Project Structure
 
