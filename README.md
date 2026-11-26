@@ -1,7 +1,7 @@
 # AsciiDoc Editor
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/build/icon.svg" alt="AsciiDoc Editor logo" width="156" />
+  <img src="https://raw.githubusercontent.com/kimusan/asciidoc-editor/main/assets/logo.png" alt="AsciiDoc Editor logo" width="480" />
 </p>
 
 <p align="center">

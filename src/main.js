@@ -1,5 +1,6 @@
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
+import appIconUrl from "./app-icon.png";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   search,
@@ -809,7 +810,7 @@ function createLayout() {
           </div>
           <div class="about-content">
             <div class="about-hero">
-              <div class="about-logo" aria-hidden="true">${ICONS.logo}</div>
+              <div class="about-logo" aria-hidden="true"><img class="about-logo-img" src="${appIconUrl}" alt="" /></div>
               <h2>AsciiDoc Editor</h2>
               <p>Standalone cross-platform AsciiDoc editing with live preview, references, and export.</p>
               <span id="about-version" class="about-version-pill">—</span>
